@@ -9,22 +9,28 @@ import { Separator } from "@/components/ui/separator"
 import { 
   ArrowLeft, Printer, Download, Edit, MapPin, 
   History, FileText, MessageSquare, ShieldAlert, 
-  Info, Box, Calendar, Activity, Building2, Beaker
+  Info, Box, Calendar, Activity, Building2, Beaker,
+  ArrowRightLeft, ArrowUpRight, ArrowDownRight, CheckCircle2, RotateCcw
 } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
 import { Sample } from "../page"
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
-  const [sample, setSample] = useState<Sample | null>(null)
+  const [movements, setMovements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
     async function fetchSample() {
-      const { data, error } = await supabase.from('samples').select('*').eq('id', resolvedParams.id).single()
-      if (data) setSample(data)
+      const { data: sampleData, error } = await supabase.from('samples').select('*').eq('id', resolvedParams.id).single()
+      if (sampleData) {
+        setSample(sampleData)
+        const { data: mvtData } = await supabase.from('movements').select('*').eq('sample_id', resolvedParams.id).order('movement_date', { ascending: false })
+        if (mvtData) setMovements(mvtData)
+      }
       setLoading(false)
     }
     fetchSample()
@@ -180,8 +186,59 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
         </TabsContent>
 
         {/* Autres onglets (Mockés pour l'exemple) */}
+        {/* ONGLET 3: HISTORIQUE DES MOUVEMENTS */}
         <TabsContent value="history" className="mt-0 focus-visible:ring-0">
-          <Card className="shadow-sm border-border/50"><CardContent className="p-8 text-center text-muted-foreground">Aucun mouvement enregistré récemment.</CardContent></Card>
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle>Historique des Mouvements</CardTitle>
+              <CardDescription>Tous les événements liés à cet échantillon depuis sa réception.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {movements.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground bg-muted/20 rounded-xl">Aucun mouvement enregistré.</div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-border/50">
+                  <Table>
+                    <TableHeader className="bg-muted/30">
+                      <TableRow>
+                        <TableHead>N° Mouvement</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Quantité Impactée</TableHead>
+                        <TableHead>Motif</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {movements.map((mvt) => (
+                        <TableRow key={mvt.id}>
+                          <TableCell className="font-medium text-xs">{mvt.mvt_number || mvt.id.substring(0,8)}</TableCell>
+                          <TableCell className="text-muted-foreground">{new Date(mvt.movement_date || mvt.created_at || Date.now()).toLocaleString("fr-FR")}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={
+                              ["Sortie", "Destruction"].includes(mvt.movement_type) ? 'text-destructive border-destructive/30 bg-destructive/5' : 
+                              ["Entrée", "Retour d'analyse"].includes(mvt.movement_type) ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/5' : 
+                              mvt.movement_type === 'Mise en quarantaine' ? 'text-warning border-warning/30 bg-warning/5' :
+                              'text-primary border-primary/30 bg-primary/5'
+                            }>
+                              {["Sortie", "Destruction"].includes(mvt.movement_type) && <ArrowUpRight className="mr-1 h-3 w-3" />}
+                              {["Entrée", "Retour d'analyse"].includes(mvt.movement_type) && <ArrowDownRight className="mr-1 h-3 w-3" />}
+                              {mvt.movement_type === 'Transfert' && <ArrowRightLeft className="mr-1 h-3 w-3" />}
+                              {mvt.movement_type === 'Mise en quarantaine' && <ShieldAlert className="mr-1 h-3 w-3" />}
+                              {mvt.movement_type === 'Libération de quarantaine' && <CheckCircle2 className="mr-1 h-3 w-3" />}
+                              {mvt.movement_type === "Correction d'inventaire" && <RotateCcw className="mr-1 h-3 w-3" />}
+                              {mvt.movement_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{mvt.quantity}</TableCell>
+                          <TableCell className="text-sm truncate max-w-[200px]" title={mvt.reason}>{mvt.reason || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="documents" className="mt-0 focus-visible:ring-0">
           <Card className="shadow-sm border-border/50"><CardContent className="p-8 text-center text-muted-foreground">Aucun certificat d'analyse attaché.</CardContent></Card>

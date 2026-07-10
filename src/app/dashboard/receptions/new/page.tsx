@@ -193,8 +193,21 @@ export default function NewReceptionPage() {
           status: 'À localiser'
         }));
 
-        const { error: samplesError } = await supabase.from('samples').insert(samplesToInsert);
+        const { data: insertedSamples, error: samplesError } = await supabase.from('samples').insert(samplesToInsert).select();
         if (samplesError) throw samplesError;
+
+        if (insertedSamples && insertedSamples.length > 0) {
+          const movementsToInsert = insertedSamples.map(sample => ({
+            mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+            sample_id: sample.id,
+            movement_type: 'Entrée',
+            quantity: sample.quantity,
+            reason: 'Réception initiale',
+            observations: `Création automatique suite à la réception ${values.rec_number}`,
+          }));
+          const { error: mvtError } = await supabase.from('movements').insert(movementsToInsert);
+          if (mvtError) throw mvtError;
+        }
       }
 
       toast.success("Réception validée et échantillons générés avec succès !");
