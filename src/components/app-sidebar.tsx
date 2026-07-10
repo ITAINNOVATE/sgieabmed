@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Home, Box, ArrowRightLeft, ClipboardList, MapPin, FileText, BarChart3, Users, Settings, ScrollText, LogOut, PackageCheck, BellRing, Inbox } from "lucide-react"
 import Link from "next/link"
+import { logout } from "@/app/actions/auth"
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
@@ -97,12 +98,12 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 border-t border-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="h-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-md">
-              <Link href="/">
+            <form action={logout}>
+              <SidebarMenuButton type="submit" className="h-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-md w-full justify-start">
                 <LogOut className="h-4 w-4" />
                 <span>Déconnexion</span>
-              </Link>
-            </SidebarMenuButton>
+              </SidebarMenuButton>
+            </form>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
