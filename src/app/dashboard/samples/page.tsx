@@ -34,6 +34,7 @@ export type Sample = {
   quantity: number
   status: string
   expiry_date: string
+  current_location: string
 }
 
 export const columns: ColumnDef<Sample>[] = [
@@ -75,6 +76,14 @@ export const columns: ColumnDef<Sample>[] = [
     cell: ({ row }) => {
       const date = new Date(row.getValue("expiry_date"))
       return <div>{date.toLocaleDateString("fr-FR")}</div>
+    }
+  },
+  {
+    accessorKey: "current_location",
+    header: "Emplacement",
+    cell: ({ row }) => {
+      const loc = row.getValue("current_location") as string
+      return <div className="font-mono text-xs">{loc || "Non défini"}</div>
     }
   },
   {

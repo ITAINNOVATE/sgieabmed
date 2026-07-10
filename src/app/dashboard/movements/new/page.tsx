@@ -267,9 +267,9 @@ export default function NewMovementPage() {
               {mvtType === "Transfert" && (
                 <FormField control={form.control} name="destination_location" render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <FormLabel>Nouvelle Localisation (Destination)</FormLabel>
+                    <FormLabel>Nouveau Code Emplacement</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Armoire A - Étagère 2" {...field} />
+                      <Input placeholder="Ex: MAG1-A1-E2" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
