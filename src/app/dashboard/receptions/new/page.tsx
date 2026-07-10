@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/utils/supabase/client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -100,6 +102,8 @@ const formSchema = z.object({
 
 export default function NewReceptionPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema) as any,
@@ -126,10 +130,81 @@ export default function NewReceptionPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSaving(true);
-    // Simulation API sans délai artificially
-    console.log("Form Values:", values);
-    toast.success("Réception validée avec succès !");
-    setIsSaving(false);
+    
+    try {
+      // 1. Inserer la réception
+      const { error: receptionError } = await supabase.from('receptions').insert({
+        rec_number: values.rec_number,
+        date_reception: values.date_reception,
+        time_reception: values.time_reception,
+        ref_document: values.ref_document,
+        type_reception: values.type_reception,
+        inspector: values.inspector,
+        status: values.status,
+        supplier: values.supplier,
+        manufacturer: values.manufacturer,
+        country: values.country,
+        city: values.city,
+        contact_person: values.contact_person,
+        phone: values.phone,
+        email: values.email,
+        carrier: values.carrier,
+        package_number: values.package_number,
+        total_packages: values.total_packages,
+        received_packages: values.received_packages,
+        shipping_date: values.shipping_date || null,
+        arrival_date: values.arrival_date || null,
+        transport_mode: values.transport_mode,
+        check_packaging: values.check_packaging,
+        check_boxes: values.check_boxes,
+        check_seals: values.check_seals,
+        check_qty: values.check_qty,
+        check_docs: values.check_docs,
+        check_damage: values.check_damage,
+        check_conform: values.check_conform,
+        anomalies: values.anomalies,
+        measures: values.measures,
+        validator_name: values.validator_name,
+        validator_role: values.validator_role,
+        validation_date: values.validation_date || null,
+        decision: values.decision,
+        decision_reason: values.decision_reason,
+        global_comments: values.global_comments,
+      });
+
+      if (receptionError) throw receptionError;
+
+      // 2. Inserer les échantillons
+      if (values.samples && values.samples.length > 0) {
+        const samplesToInsert = values.samples.map(sample => ({
+          sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          reception_ref: values.rec_number,
+          commercial_name: sample.commercial_name,
+          dci: sample.dci,
+          form: sample.form,
+          dosage: sample.dosage,
+          presentation: sample.presentation,
+          batch_number: sample.batch,
+          mfg_date: sample.mfg_date || null,
+          expiry_date: sample.exp_date,
+          quantity: sample.qty,
+          unit: sample.unit,
+          category: sample.category,
+          status: 'À localiser'
+        }));
+
+        const { error: samplesError } = await supabase.from('samples').insert(samplesToInsert);
+        if (samplesError) throw samplesError;
+      }
+
+      toast.success("Réception validée et échantillons générés avec succès !");
+      router.push("/dashboard/receptions");
+    } catch (error: any) {
+      console.error("Erreur d'insertion:", error);
+      toast.error(`Erreur: ${error.message || "Impossible de sauvegarder la réception."}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const onDraft = () => {

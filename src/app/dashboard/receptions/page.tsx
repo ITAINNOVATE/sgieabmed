@@ -7,12 +7,35 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
+import { useEffect, useState } from "react"
+import { createClient } from "@/utils/supabase/client"
+
 export default function ReceptionsPage() {
-  const receptions = [
-    { id: "REC-2026-089", date: "09/07/2026", supplier: "Sanofi Aventis", items: 4, status: "En attente d'inspection", priority: "Haute" },
-    { id: "REC-2026-088", date: "08/07/2026", supplier: "Pfizer", items: 12, status: "Validé", priority: "Normale" },
-    { id: "REC-2026-087", date: "05/07/2026", supplier: "Moderna", items: 2, status: "Validé", priority: "Normale" },
-  ]
+  const [receptions, setReceptions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function fetchData() {
+      const { data, error } = await supabase
+        .from('receptions')
+        .select(`
+          id,
+          rec_number,
+          date_reception,
+          supplier,
+          status,
+          samples ( count )
+        `)
+        .order('created_at', { ascending: false })
+      
+      if (data) {
+        setReceptions(data)
+      }
+      setLoading(false)
+    }
+    fetchData()
+  }, [])
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -68,23 +91,29 @@ export default function ReceptionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {receptions.map((rec, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-medium">{rec.id}</TableCell>
-                    <TableCell>{rec.date}</TableCell>
-                    <TableCell>{rec.supplier}</TableCell>
-                    <TableCell className="text-center font-medium">{rec.items}</TableCell>
-                    <TableCell>
-                      <Badge variant={rec.status === "Validé" ? "default" : "secondary"}>
-                        {rec.status === "Validé" && <CheckCircle2 className="mr-1 h-3 w-3" />}
-                        {rec.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="w-full">Ouvrir <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Chargement des données...</TableCell></TableRow>
+                ) : receptions.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Aucune réception trouvée.</TableCell></TableRow>
+                ) : (
+                  receptions.map((rec) => (
+                    <TableRow key={rec.id}>
+                      <TableCell className="font-medium">{rec.rec_number}</TableCell>
+                      <TableCell>{new Date(rec.date_reception).toLocaleDateString("fr-FR")}</TableCell>
+                      <TableCell>{rec.supplier || 'N/A'}</TableCell>
+                      <TableCell className="text-center font-medium">{rec.samples?.[0]?.count ?? 0}</TableCell>
+                      <TableCell>
+                        <Badge variant={rec.status === "Validée" ? "default" : "secondary"}>
+                          {rec.status === "Validée" && <CheckCircle2 className="mr-1 h-3 w-3" />}
+                          {rec.status || 'En attente'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="w-full">Ouvrir <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
