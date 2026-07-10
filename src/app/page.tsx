@@ -46,15 +46,10 @@ export default function LoginPage({
             </div>
             {/* Bouton de Connexion */}
             <button type="submit" className="w-full bg-[#0B5ED7] hover:bg-[#094bb3] text-white font-medium h-11 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center justify-center mt-6">
-              Connexion sécurisée
+              Connexion
             </button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4 pt-2">
-          <div className="text-xs text-center text-muted-foreground bg-muted/50 py-2 px-4 rounded-full w-max mx-auto">
-            Dernière connexion : 08/07/2026 à 14:32
-          </div>
-        </CardFooter>
       </Card>
     </div>
   )
