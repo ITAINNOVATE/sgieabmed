@@ -19,6 +19,7 @@ import { Sample } from "../page"
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
+  const [sample, setSample] = useState<Sample | null>(null)
   const [movements, setMovements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
