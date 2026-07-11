@@ -206,10 +206,11 @@ CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON public.settings FOR E
 
 -- Note: RLS (Row Level Security) and specific policies will be added later.
 
--- Tables for Waste Management and Destructions (SGIE)
+-- update_waste_destructions.sql
+-- Tables for Waste Management and Destructions (SGIE) - Idempotent Version
 
 -- 1. Table des lots de déchets (Waste Batches)
-CREATE TABLE public.waste_batches (
+CREATE TABLE IF NOT EXISTS public.waste_batches (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     batch_number TEXT UNIQUE NOT NULL,
     waste_type TEXT NOT NULL,
@@ -229,7 +230,7 @@ CREATE TRIGGER update_waste_batches_updated_at BEFORE UPDATE ON public.waste_bat
 
 
 -- 2. Table des plans de destruction (Destruction Plans)
-CREATE TABLE public.destruction_plans (
+CREATE TABLE IF NOT EXISTS public.destruction_plans (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     plan_number TEXT UNIQUE NOT NULL,
     planned_date DATE NOT NULL,
@@ -245,7 +246,7 @@ CREATE TRIGGER update_destruction_plans_updated_at BEFORE UPDATE ON public.destr
 
 
 -- 3. Table des éléments à détruire (Destruction Items)
-CREATE TABLE public.destruction_items (
+CREATE TABLE IF NOT EXISTS public.destruction_items (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     plan_id UUID REFERENCES public.destruction_plans(id) ON DELETE CASCADE,
     waste_batch_id UUID REFERENCES public.waste_batches(id) ON DELETE CASCADE,
@@ -254,8 +255,9 @@ CREATE TABLE public.destruction_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+
 -- 4. Table des validations des plans de destruction (Quatre Yeux)
-CREATE TABLE public.destruction_validations (
+CREATE TABLE IF NOT EXISTS public.destruction_validations (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     plan_id UUID REFERENCES public.destruction_plans(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
@@ -265,3 +267,74 @@ CREATE TABLE public.destruction_validations (
     comments TEXT,
     validation_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- ==========================================
+-- AUDIT TRAIL AUTOMATISÉ
+-- ==========================================
+
+-- Fonction générique d'audit
+CREATE OR REPLACE FUNCTION audit_trigger_function()
+RETURNS TRIGGER AS $$
+DECLARE
+    current_user_id UUID;
+    action_type TEXT;
+    entity_id UUID;
+    audit_details JSONB;
+BEGIN
+    -- Récupérer l'ID utilisateur à partir des variables locales (set_config) ou JWT si applicable
+    BEGIN
+        current_user_id := (NULLIF(current_setting('request.jwt.claim.sub', true), ''))::UUID;
+    EXCEPTION WHEN OTHERS THEN
+        current_user_id := NULL;
+    END;
+
+    IF TG_OP = 'INSERT' THEN
+        action_type := 'Création';
+        entity_id := NEW.id;
+        audit_details := to_jsonb(NEW);
+    ELSIF TG_OP = 'UPDATE' THEN
+        action_type := 'Modification';
+        entity_id := NEW.id;
+        audit_details := jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW));
+    ELSIF TG_OP = 'DELETE' THEN
+        action_type := 'Suppression';
+        entity_id := OLD.id;
+        audit_details := to_jsonb(OLD);
+    END IF;
+
+    -- Insertion dans audit_logs
+    INSERT INTO public.audit_logs (
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        details
+    ) VALUES (
+        current_user_id,
+        action_type,
+        TG_TABLE_NAME,
+        entity_id,
+        audit_details
+    );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Ajout des triggers d'audit sur les tables
+DROP TRIGGER IF EXISTS audit_waste_batches ON public.waste_batches;
+CREATE TRIGGER audit_waste_batches AFTER INSERT OR UPDATE OR DELETE ON public.waste_batches FOR EACH ROW EXECUTE PROCEDURE audit_trigger_function();
+
+DROP TRIGGER IF EXISTS audit_destruction_plans ON public.destruction_plans;
+CREATE TRIGGER audit_destruction_plans AFTER INSERT OR UPDATE OR DELETE ON public.destruction_plans FOR EACH ROW EXECUTE PROCEDURE audit_trigger_function();
+
+DROP TRIGGER IF EXISTS audit_destruction_items ON public.destruction_items;
+CREATE TRIGGER audit_destruction_items AFTER INSERT OR UPDATE OR DELETE ON public.destruction_items FOR EACH ROW EXECUTE PROCEDURE audit_trigger_function();
+
+DROP TRIGGER IF EXISTS audit_destruction_validations ON public.destruction_validations;
+CREATE TRIGGER audit_destruction_validations AFTER INSERT OR UPDATE OR DELETE ON public.destruction_validations FOR EACH ROW EXECUTE PROCEDURE audit_trigger_function();
+
