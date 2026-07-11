@@ -49,3 +49,24 @@ CREATE POLICY "Modification users par soi-même ou admin" ON public.users FOR UP
 
 -- Note : Ces politiques RLS sont permissives pour faciliter vos tests de développement actuels.
 -- Elles bloquent néanmoins tout accès "Anonyme" (non connecté).
+
+-- 4. RLS pour les Déchets et Destructions (Waste & Destructions)
+ALTER TABLE public.waste_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.destruction_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.destruction_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.destruction_validations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Lecture pour utilisateurs authentifiés" ON public.waste_batches FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture pour utilisateurs authentifiés" ON public.destruction_plans FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture pour utilisateurs authentifiés" ON public.destruction_items FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture pour utilisateurs authentifiés" ON public.destruction_validations FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Insertion waste_batches" ON public.waste_batches FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Modification waste_batches" ON public.waste_batches FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Insertion destruction_plans" ON public.destruction_plans FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Modification destruction_plans" ON public.destruction_plans FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Insertion destruction_items" ON public.destruction_items FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Insertion destruction_validations" ON public.destruction_validations FOR INSERT TO authenticated WITH CHECK (true);
