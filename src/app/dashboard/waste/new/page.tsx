@@ -71,7 +71,7 @@ export default function NewWastePage() {
       const { error } = await supabase.from('waste_batches').insert({
         batch_number: values.batch_number,
         waste_type: values.waste_type,
-        sample_id: values.sample_id || null,
+        sample_id: (values.sample_id && values.sample_id !== "none") ? values.sample_id : null,
         quantity: values.quantity,
         unit: values.unit,
         current_location: values.current_location,
@@ -161,7 +161,7 @@ export default function NewWastePage() {
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Lier à un échantillon du stock..." /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="">Aucun lien (Déchet externe ou non listé)</SelectItem>
+                      <SelectItem value="none">Aucun lien (Déchet externe ou non listé)</SelectItem>
                       {samples.map(s => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.sample_number} - {s.commercial_name} (Lot: {s.batch_number})
