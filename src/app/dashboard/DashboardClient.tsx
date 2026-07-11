@@ -1,0 +1,276 @@
+"use client"
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { 
+  Box, CheckCircle2, FlaskConical, Clock, Trash2, AlertTriangle, Plus, Inbox, 
+  ArrowRightLeft, ClipboardList, FileText, UserPlus, TrendingUp, TrendingDown, 
+  Activity, BellRing
+} from "lucide-react"
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+} from "recharts"
+import Link from "next/link"
+
+const COLORS = ['#0B5ED7', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#14B8A6', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#64748B'];
+
+export default function DashboardClient({ samples, movements, receptions }: { samples: any[], movements: any[], receptions?: any[] }) {
+
+  // --- 1. CALCUL DES KPIs ---
+  const totalSamples = samples.reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+  
+  const availableSamples = samples
+    .filter(s => ['Disponible', 'À localiser'].includes(s.status))
+    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+    
+  const analysisSamples = samples
+    .filter(s => s.status === 'En analyse')
+    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+    
+  const quarantineSamples = samples
+    .filter(s => s.status === 'En quarantaine')
+    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+    
+  const destroyedSamples = samples
+    .filter(s => ['Détruit', 'Rejeté'].includes(s.status))
+    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+
+  const thirtyDaysFromNow = new Date()
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
+  const expiringSamples = samples.filter(s => {
+    if (!s.expiry_date) return false
+    const expDate = new Date(s.expiry_date)
+    return expDate <= thirtyDaysFromNow && expDate >= new Date()
+  }).reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+
+  const KPIData = [
+    { title: "Total des échantillons", value: totalSamples, trend: "+12.5%", isUp: true, icon: Box, color: "text-blue-500", bg: "bg-blue-50" },
+    { title: "Disponibles", value: availableSamples, trend: "+5.2%", isUp: true, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
+    { title: "En analyse", value: analysisSamples, trend: "-2.1%", isUp: false, icon: FlaskConical, color: "text-purple-500", bg: "bg-purple-50" },
+    { title: "En quarantaine", value: quarantineSamples, trend: "+18.4%", isUp: true, icon: Clock, color: "text-orange-500", bg: "bg-orange-50" },
+    { title: "Détruits / Rejetés", value: destroyedSamples, trend: "-8.4%", isUp: false, icon: Trash2, color: "text-red-500", bg: "bg-red-50" },
+    { title: "Expiration < 30 jours", value: expiringSamples, trend: "+4.2%", isUp: true, icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50" },
+  ]
+
+  // --- 2. CALCUL REPARTITION PAR CATEGORIE ---
+  const categoryCount: Record<string, number> = {}
+  samples.forEach(s => {
+    const cat = s.category || 'Autres'
+    if (!categoryCount[cat]) categoryCount[cat] = 0
+    categoryCount[cat] += (s.quantity || 0)
+  })
+  
+  const categoryData = Object.keys(categoryCount).map(key => ({
+    name: key,
+    value: categoryCount[key]
+  })).filter(cat => cat.value > 0).sort((a, b) => b.value - a.value)
+
+  // --- 3. CALCUL MOUVEMENTS MENSUELS ---
+  // On prend les 6 derniers mois
+  const months = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setMonth(d.getMonth() - i)
+    months.push(d.toLocaleString('fr-FR', { month: 'short' }).replace('.', ''))
+  }
+
+  const movementsData = months.map(m => ({ name: m, Entrées: 0, Sorties: 0 }))
+
+  movements.forEach(mvt => {
+    const d = new Date(mvt.movement_date || mvt.created_at)
+    const monthName = d.toLocaleString('fr-FR', { month: 'short' }).replace('.', '')
+    const monthIndex = movementsData.findIndex(item => item.name === monthName)
+    
+    if (monthIndex !== -1) {
+      if (['Entrée', "Retour d'analyse"].includes(mvt.movement_type)) {
+        movementsData[monthIndex].Entrées += (mvt.quantity || 0)
+      } else if (['Sortie', 'Destruction'].includes(mvt.movement_type)) {
+        movementsData[monthIndex].Sorties += (mvt.quantity || 0)
+      }
+    }
+  })
+
+  // --- 4. ACTIVITÉS RÉCENTES ---
+  const recentMovements = [...movements].sort((a, b) => {
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  }).slice(0, 5)
+
+  // --- 5. ALERTES ---
+  const alerts = []
+  
+  const expiredSamples = samples.filter(s => new Date(s.expiry_date) < new Date())
+  if (expiredSamples.length > 0) {
+    alerts.push({ type: 'Produits expirés', text: `${expiredSamples.length} lot(s) actuellement expiré(s) en stock.`, color: 'text-destructive', bg: 'bg-destructive/10' })
+  }
+
+  if (expiringSamples > 0) {
+    alerts.push({ type: 'Expirations proches', text: `${expiringSamples} unité(s) expirent dans moins de 30 jours.`, color: 'text-warning', bg: 'bg-warning/10' })
+  }
+
+  const quarantineCount = samples.filter(s => s.status === 'En quarantaine').length
+  if (quarantineCount > 0) {
+    alerts.push({ type: 'En quarantaine', text: `${quarantineCount} lot(s) sont en quarantaine.`, color: 'text-orange-500', bg: 'bg-orange-50' })
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({ type: 'Système', text: 'Aucune alerte critique. Tout est en ordre.', color: 'text-emerald-500', bg: 'bg-emerald-50' })
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
+      
+      {/* LIGNE 1 : KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {KPIData.map((kpi, index) => (
+          <Card key={index} className="shadow-sm hover:shadow-md transition-all border-border/50 group">
+            <CardContent className="p-5">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">{kpi.title}</p>
+                  <p className="text-2xl font-bold text-foreground tracking-tight">{kpi.value.toLocaleString('fr-FR')}</p>
+                </div>
+                <div className={`p-2 rounded-lg ${kpi.bg} group-hover:scale-110 transition-transform`}>
+                  <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* RACCOURCIS RAPIDES */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Actions Rapides</h3>
+        <div className="flex flex-wrap gap-3">
+          <Button className="shadow-sm gap-2" asChild><Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle Réception</Link></Button>
+          <Button variant="secondary" className="shadow-sm gap-2" asChild><Link href="/dashboard/movements/new"><ArrowRightLeft className="h-4 w-4" /> Mouvement</Link></Button>
+          <Button variant="outline" className="shadow-sm gap-2 bg-background" asChild><Link href="/dashboard/inventory"><ClipboardList className="h-4 w-4" /> Inventaire</Link></Button>
+          <Button variant="outline" className="shadow-sm gap-2 bg-background" asChild><Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link></Button>
+          <Button variant="outline" className="shadow-sm gap-2 bg-background" asChild><Link href="/dashboard/users"><UserPlus className="h-4 w-4" /> Nouvel utilisateur</Link></Button>
+        </div>
+      </div>
+
+      {/* LIGNE 2 : GRAPHIQUES */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Mouvements Mensuels</CardTitle>
+            <CardDescription>Flux des entrées et sorties sur 6 mois</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={movementsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorEntrees" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorSorties" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0B5ED7" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#0B5ED7" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
+                <Area type="monotone" dataKey="Entrées" stroke="#10B981" fillOpacity={1} fill="url(#colorEntrees)" strokeWidth={2} />
+                <Area type="monotone" dataKey="Sorties" stroke="#0B5ED7" fillOpacity={1} fill="url(#colorSorties)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Répartition par Catégorie Thérapeutique</CardTitle>
+            <CardDescription>Distribution des stocks actuels</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center">
+            {categoryData.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Aucune donnée disponible</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Legend iconType="circle" layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', maxHeight: '200px', overflowY: 'auto' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* LIGNE 3 : FLUX DE DONNÉES */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="shadow-sm border-border/50 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center"><Activity className="mr-2 h-4 w-4 text-primary" /> Activités Récentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentMovements.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune activité récente.</p>
+            ) : (
+              <div className="space-y-4">
+                {recentMovements.map((mvt) => (
+                  <div key={mvt.id} className="flex items-start gap-4 pb-4 border-b border-border/50 last:border-0 last:pb-0">
+                    <div className="bg-primary/10 p-2 rounded-full mt-0.5">
+                      <ArrowRightLeft className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        <Badge variant="outline" className="mr-2">{mvt.movement_type}</Badge>
+                        {mvt.quantity} unité(s) - {mvt.reason || "Mouvement enregistré"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">Le {new Date(mvt.created_at).toLocaleString('fr-FR')} • N° {mvt.mvt_number || mvt.id.substring(0,8)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center text-warning"><BellRing className="mr-2 h-4 w-4" /> Centre d'Alertes</CardTitle>
+          </CardHeader>
+          <CardContent>
+             <div className="space-y-4">
+              {alerts.map((alert, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className={`${alert.bg} ${alert.color} p-1.5 rounded-md shrink-0 mt-0.5`}>
+                    <AlertTriangle className="h-3 w-3" />
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-semibold text-foreground">{alert.type}</p>
+                    <p className="text-muted-foreground text-xs leading-snug mt-0.5">{alert.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" className="w-full mt-6 text-xs">Gérer les alertes</Button>
+          </CardContent>
+        </Card>
+      </div>
+
+    </div>
+  )
+}

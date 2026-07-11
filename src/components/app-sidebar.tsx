@@ -11,7 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuBadge,
 } from "@/components/ui/sidebar"
-import { Home, Box, ArrowRightLeft, ClipboardList, MapPin, FileText, BarChart3, Users, Settings, ScrollText, LogOut, PackageCheck, BellRing, Inbox } from "lucide-react"
+import { Home, Box, ArrowRightLeft, ClipboardList, MapPin, FileText, BarChart3, Users, Settings, ScrollText, LogOut, PackageCheck, BellRing, Inbox, Trash2, Flame } from "lucide-react"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 
@@ -21,6 +21,8 @@ const mainNav = [
   { title: "Réceptions", url: "/dashboard/receptions", icon: Inbox },
   { title: "Échantillons", url: "/dashboard/samples", icon: Box },
   { title: "Mouvements", url: "/dashboard/movements", icon: ArrowRightLeft },
+  { title: "Déchets", url: "/dashboard/waste", icon: Trash2 },
+  { title: "Destructions", url: "/dashboard/destructions", icon: Flame },
   { title: "Inventaires", url: "/dashboard/inventory", icon: ClipboardList, badge: 2 },
   { title: "Localisations", url: "/dashboard/locations", icon: MapPin },
   { title: "Documentation", url: "/dashboard/documents", icon: FileText, badge: 8 },

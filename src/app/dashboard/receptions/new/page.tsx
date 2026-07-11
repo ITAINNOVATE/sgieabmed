@@ -112,7 +112,7 @@ export default function NewReceptionPage() {
       date_reception: new Date().toISOString().split('T')[0],
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
       status: "En attente",
-      samples: [{ commercial_name: "", dci: "", batch: "", exp_date: "", qty: 1 }],
+      samples: [{ commercial_name: "", dci: "", category: "Autres", batch: "", exp_date: "", qty: 1 }],
       check_packaging: false,
       check_boxes: false,
       check_seals: false,
@@ -441,6 +441,27 @@ export default function NewReceptionPage() {
                           <FormField control={form.control} name={`samples.${index}.dci`} render={({ field }) => (
                             <FormItem><FormControl><Input placeholder="DCI..." {...field} /></FormControl><FormMessage /></FormItem>
                           )} />
+                          <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
+                            <FormItem>
+                              <Select onValueChange={field.onChange} defaultValue={field.value || "Autres"}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Antibiotiques">Antibiotiques</SelectItem>
+                                  <SelectItem value="Antalgiques">Antalgiques</SelectItem>
+                                  <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
+                                  <SelectItem value="Antipaludiques">Antipaludiques</SelectItem>
+                                  <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
+                                  <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
+                                  <SelectItem value="Vaccins">Vaccins</SelectItem>
+                                  <SelectItem value="Produits biologiques">Produits biologiques</SelectItem>
+                                  <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
+                                  <SelectItem value="Produits vétérinaires">Produits vétérinaires</SelectItem>
+                                  <SelectItem value="Compléments alimentaires">Compléments alimentaires</SelectItem>
+                                  <SelectItem value="Autres">Autres</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )} />
                         </TableCell>
                         <TableCell className="space-y-2">
                           <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
@@ -486,7 +507,7 @@ export default function NewReceptionPage() {
                   </TableBody>
                 </Table>
               </div>
-              <Button type="button" variant="outline" className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30" onClick={() => append({ commercial_name: "", dci: "", batch: "", exp_date: "", qty: 1 })}>
+              <Button type="button" variant="outline" className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30" onClick={() => append({ commercial_name: "", dci: "", category: "Autres", batch: "", exp_date: "", qty: 1 })}>
                 <Plus className="mr-2 h-4 w-4" /> Ajouter un produit à cette réception
               </Button>
             </CardContent>

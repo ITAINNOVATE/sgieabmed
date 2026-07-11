@@ -24,6 +24,7 @@ const formSchema = z.object({
   expiry_date: z.string().min(1, "Date de péremption requise"),
   status: z.string().min(1, "Statut requis"),
   quantity: z.coerce.number().min(0, "Quantité invalide"),
+  category: z.string().optional(),
 })
 
 export default function EditSamplePage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +44,7 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
       expiry_date: "",
       status: "",
       quantity: 0,
+      category: "Autres",
     },
   })
 
@@ -58,6 +60,7 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
           expiry_date: data.expiry_date,
           status: data.status,
           quantity: data.quantity,
+          category: data.category || "Autres",
         })
       } else {
         toast.error("Impossible de charger l'échantillon.")
@@ -134,6 +137,28 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
               )} />
               <FormField control={form.control} name="expiry_date" render={({ field }) => (
                 <FormItem><FormLabel>Date de Péremption</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="category" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Catégorie</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || "Autres"}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="Antibiotiques">Antibiotiques</SelectItem>
+                      <SelectItem value="Antalgiques">Antalgiques</SelectItem>
+                      <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
+                      <SelectItem value="Antipaludiques">Antipaludiques</SelectItem>
+                      <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
+                      <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
+                      <SelectItem value="Vaccins">Vaccins</SelectItem>
+                      <SelectItem value="Produits biologiques">Produits biologiques</SelectItem>
+                      <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
+                      <SelectItem value="Produits vétérinaires">Produits vétérinaires</SelectItem>
+                      <SelectItem value="Compléments alimentaires">Compléments alimentaires</SelectItem>
+                      <SelectItem value="Autres">Autres</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
               )} />
             </CardContent>
           </Card>
