@@ -15,21 +15,29 @@ import { Home, Box, ArrowRightLeft, ClipboardList, MapPin, FileText, BarChart3, 
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 
-const mainNav = [
+const operationsNav = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Alertes", url: "/dashboard/alerts", icon: BellRing, badge: 5, alert: true },
   { title: "Réceptions", url: "/dashboard/receptions", icon: Inbox },
   { title: "Échantillons", url: "/dashboard/samples", icon: Box },
   { title: "Mouvements", url: "/dashboard/movements", icon: ArrowRightLeft },
-  { title: "Déchets", url: "/dashboard/waste", icon: Trash2 },
-  { title: "Destructions", url: "/dashboard/destructions", icon: Flame },
+]
+
+const stockNav = [
   { title: "Inventaires", url: "/dashboard/inventory", icon: ClipboardList, badge: 2 },
   { title: "Localisations", url: "/dashboard/locations", icon: MapPin },
-  { title: "Documentation", url: "/dashboard/documents", icon: FileText, badge: 8 },
+]
+
+const wasteNav = [
+  { title: "Déchets pharmaceutiques", url: "/dashboard/waste", icon: Trash2 },
+  { title: "Destructions", url: "/dashboard/destructions", icon: Flame },
+]
+
+const analysisNav = [
+  { title: "Rapports & Statistiques", url: "/dashboard/reports", icon: BarChart3 },
+  { title: "Alertes", url: "/dashboard/alerts", icon: BellRing, badge: 5, alert: true },
 ]
 
 const adminNav = [
-  { title: "Rapports & Statistiques", url: "/dashboard/reports", icon: BarChart3 },
   { title: "Utilisateurs", url: "/dashboard/users", icon: Users },
   { title: "Paramètres", url: "/dashboard/settings", icon: Settings },
   { title: "Journal d'audit", url: "/dashboard/audit", icon: ScrollText },
@@ -49,27 +57,43 @@ export function AppSidebar() {
       </SidebarHeader>
       
       <SidebarContent className="px-3 pt-4">
-        {/* Navigation Principale */}
+        
+        {/* OPÉRATIONS */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/60 mb-2 px-2 uppercase tracking-wider">Opérations</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5">
-              {mainNav.map((item) => (
+              {operationsNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={item.title} 
-                    className={`h-10 transition-all duration-150 rounded-xl ${item.alert ? 'text-warning hover:text-warning hover:bg-warning/10' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}
-                  >
+                  <SidebarMenuButton asChild tooltip={item.title} className="h-10 transition-all duration-150 rounded-xl text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" strokeWidth={2} />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <div className="my-2 border-t border-sidebar-border/30 mx-4" />
+
+        {/* STOCK */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/60 mb-2 px-2 uppercase tracking-wider">Stock</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1.5">
+              {stockNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} className="h-10 transition-all duration-150 rounded-xl text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" strokeWidth={2} />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                   {item.badge && (
-                    <SidebarMenuBadge className={item.alert ? 'bg-warning text-warning-foreground rounded-full px-2' : 'bg-sidebar-accent text-sidebar-accent-foreground rounded-full px-2'}>
-                      {item.badge}
-                    </SidebarMenuBadge>
+                    <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground rounded-full px-2">{item.badge}</SidebarMenuBadge>
                   )}
                 </SidebarMenuItem>
               ))}
@@ -77,8 +101,55 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Administration */}
-        <SidebarGroup className="mt-6">
+        <div className="my-2 border-t border-sidebar-border/30 mx-4" />
+
+        {/* DÉCHETS */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/60 mb-2 px-2 uppercase tracking-wider">Déchets</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1.5">
+              {wasteNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} className="h-10 transition-all duration-150 rounded-xl text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" strokeWidth={2} />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <div className="my-2 border-t border-sidebar-border/30 mx-4" />
+
+        {/* ANALYSE */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/60 mb-2 px-2 uppercase tracking-wider">Analyse</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1.5">
+              {analysisNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title} className={`h-10 transition-all duration-150 rounded-xl ${item.alert ? 'text-warning hover:text-warning hover:bg-warning/10' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" strokeWidth={2} />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                  {item.badge && (
+                    <SidebarMenuBadge className={item.alert ? 'bg-warning text-warning-foreground rounded-full px-2' : 'bg-sidebar-accent text-sidebar-accent-foreground rounded-full px-2'}>{item.badge}</SidebarMenuBadge>
+                  )}
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <div className="my-2 border-t border-sidebar-border/30 mx-4" />
+
+        {/* ADMINISTRATION */}
+        <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/60 mb-2 px-2 uppercase tracking-wider">Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5">

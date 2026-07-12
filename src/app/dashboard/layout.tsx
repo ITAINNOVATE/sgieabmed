@@ -22,9 +22,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           {/* Breadcrumb / Titre Mobile */}
           <div className="hidden md:flex flex-col">
-            <span className="text-xs font-medium text-muted-foreground">eGED / Dashboard</span>
+            <span className="text-xs font-medium text-muted-foreground">eGED-ABMed / Dashboard</span>
             <h1 className="text-sm font-semibold text-foreground tracking-tight">
-              Autorité Nationale
+              Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques
             </h1>
           </div>
 
@@ -67,6 +67,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </MotionWrapper>
         </div>
+        <footer className="border-t border-border bg-card/50 py-4 px-6 text-xs text-muted-foreground flex justify-between items-center mt-auto">
+          <div>
+            <span className="font-semibold text-foreground">eGED-ABMed</span> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques
+          </div>
+          <div>
+            &copy; ABMed 2026 | Développé par ITA INNOVATE
+          </div>
+        </footer>
       </main>
     </SidebarProvider>
   )

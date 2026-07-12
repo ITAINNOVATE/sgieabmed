@@ -152,23 +152,40 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
       {/* RACCOURCIS RAPIDES */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Actions Rapides</h3>
-        <div className="flex flex-wrap gap-3">
-          <Button className="shadow-sm gap-2" asChild><Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle Réception</Link></Button>
-          <Button variant="secondary" className="shadow-sm gap-2" asChild><Link href="/dashboard/movements/new"><ArrowRightLeft className="h-4 w-4" /> Mouvement</Link></Button>
-          <Button variant="outline" className="shadow-sm gap-2 bg-background" asChild><Link href="/dashboard/inventory"><ClipboardList className="h-4 w-4" /> Inventaire</Link></Button>
-          <Button variant="outline" className="shadow-sm gap-2 bg-background" asChild><Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link></Button>
-          <Button variant="outline" className="shadow-sm gap-2 bg-background" asChild><Link href="/dashboard/users"><UserPlus className="h-4 w-4" /> Nouvel utilisateur</Link></Button>
+        <div className="flex flex-wrap gap-4">
+          <Button className="h-11 px-6 rounded-xl shadow-sm gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all" asChild>
+            <Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle Réception</Link>
+          </Button>
+          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+            <Link href="/dashboard/movements/new"><ArrowRightLeft className="h-4 w-4" /> Mouvement</Link>
+          </Button>
+          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+            <Link href="/dashboard/inventory"><ClipboardList className="h-4 w-4" /> Inventaire</Link>
+          </Button>
+          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+            <Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link>
+          </Button>
+          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+            <Link href="/dashboard/users"><UserPlus className="h-4 w-4" /> Nouvel utilisateur</Link>
+          </Button>
         </div>
       </div>
 
       {/* LIGNE 2 : GRAPHIQUES */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-sm border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Mouvements Mensuels</CardTitle>
-            <CardDescription>Flux des entrées et sorties sur 6 mois</CardDescription>
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base font-semibold">Mouvements Mensuels</CardTitle>
+              <CardDescription>Flux des entrées et sorties</CardDescription>
+            </div>
+            <div className="flex gap-1 bg-muted p-1 rounded-xl shrink-0 self-start sm:self-auto">
+              {['Aujourd\'hui', 'Semaine', 'Mois', 'Année'].map(f => (
+                <button key={f} className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${f === 'Mois' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{f}</button>
+              ))}
+            </div>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[400px] mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={movementsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -193,12 +210,14 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Répartition par Catégorie Thérapeutique</CardTitle>
-            <CardDescription>Distribution des stocks actuels</CardDescription>
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base font-semibold">Répartition par Catégorie</CardTitle>
+              <CardDescription>Distribution des stocks actuels</CardDescription>
+            </div>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
+          <CardContent className="h-[400px] flex items-center justify-center mt-4">
             {categoryData.length === 0 ? (
               <p className="text-muted-foreground text-sm">Aucune donnée disponible</p>
             ) : (
@@ -229,7 +248,7 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
 
       {/* LIGNE 3 : FLUX DE DONNÉES */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="shadow-sm border-border/50 lg:col-span-2">
+        <Card className="shadow-sm border-border/50 lg:col-span-2 rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center"><Activity className="mr-2 h-4 w-4 text-primary" /> Activités Récentes</CardTitle>
           </CardHeader>
@@ -257,7 +276,7 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-border/50">
+        <Card className="shadow-sm border-border/50 rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center text-warning"><BellRing className="mr-2 h-4 w-4" /> Centre d'Alertes</CardTitle>
           </CardHeader>
