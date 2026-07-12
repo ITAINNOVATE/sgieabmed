@@ -16,14 +16,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1 overflow-auto flex flex-col min-h-screen bg-background/50 relative">
-        <header className="flex h-16 items-center gap-4 border-b border-border/50 bg-card/60 backdrop-blur-xl px-4 sm:px-6 shadow-sm sticky top-0 z-20">
+        <header className="flex h-[72px] items-center gap-4 border-b border-border bg-card px-4 sm:px-6 shadow-sm sticky top-0 z-20">
           <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
           <Separator orientation="vertical" className="h-6 opacity-50" />
           
           {/* Breadcrumb / Titre Mobile */}
           <div className="hidden md:flex flex-col">
             <span className="text-xs font-medium text-muted-foreground">eGED / Dashboard</span>
-            <h1 className="text-sm font-semibold text-foreground">
+            <h1 className="text-sm font-semibold text-foreground tracking-tight">
               Autorité Nationale
             </h1>
           </div>
@@ -31,18 +31,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Recherche Globale */}
           <div className="flex-1 max-w-xl mx-auto ml-4 mr-4">
             <div className="relative group">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 type="search"
                 placeholder="Rechercher un échantillon, DCI, lot, fabricant..."
-                className="w-full pl-9 bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-primary/50 shadow-inner h-9 rounded-full"
+                className="w-full pl-9 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary/50 shadow-inner h-10 rounded-xl"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="hidden lg:flex items-center text-sm font-medium text-muted-foreground mr-2">
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
             <ModeToggle />
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary transition-colors rounded-xl">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-warning border-2 border-card"></span>
             </Button>

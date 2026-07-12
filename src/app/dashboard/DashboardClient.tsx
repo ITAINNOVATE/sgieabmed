@@ -46,12 +46,12 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
   }).reduce((acc, curr) => acc + (curr.quantity || 0), 0)
 
   const KPIData = [
-    { title: "Total des échantillons", value: totalSamples, trend: "+12.5%", isUp: true, icon: Box, color: "text-blue-500", bg: "bg-blue-50" },
-    { title: "Disponibles", value: availableSamples, trend: "+5.2%", isUp: true, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
-    { title: "En analyse", value: analysisSamples, trend: "-2.1%", isUp: false, icon: FlaskConical, color: "text-purple-500", bg: "bg-purple-50" },
-    { title: "En quarantaine", value: quarantineSamples, trend: "+18.4%", isUp: true, icon: Clock, color: "text-orange-500", bg: "bg-orange-50" },
-    { title: "Détruits / Rejetés", value: destroyedSamples, trend: "-8.4%", isUp: false, icon: Trash2, color: "text-red-500", bg: "bg-red-50" },
-    { title: "Expiration < 30 jours", value: expiringSamples, trend: "+4.2%", isUp: true, icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50" },
+    { title: "ÉCHANTILLONS EN STOCK", value: totalSamples, trend: "+12.5%", isUp: true, icon: Box, color: "text-primary", bg: "bg-primary/10", sparkline: [12, 14, 18, 15, 22, 28, 30] },
+    { title: "DISPONIBLES", value: availableSamples, trend: "+5.2%", isUp: true, icon: CheckCircle2, color: "text-validation", bg: "bg-validation/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
+    { title: "EN ANALYSE", value: analysisSamples, trend: "-2.1%", isUp: false, icon: FlaskConical, color: "text-info", bg: "bg-info/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
+    { title: "EN QUARANTAINE", value: quarantineSamples, trend: "+18.4%", isUp: true, icon: Clock, color: "text-warning", bg: "bg-warning/10", sparkline: [2, 3, 5, 4, 8, 12, 15] },
+    { title: "DÉTRUITS / REJETÉS", value: destroyedSamples, trend: "-8.4%", isUp: false, icon: Trash2, color: "text-destructive", bg: "bg-destructive/10", sparkline: [15, 12, 10, 8, 6, 5, 4] },
+    { title: "EXPIRATION < 30 JOURS", value: expiringSamples, trend: "+4.2%", isUp: true, icon: AlertTriangle, color: "text-warning", bg: "bg-warning/10", sparkline: [1, 2, 2, 4, 3, 5, 6] },
   ]
 
   // --- 2. CALCUL REPARTITION PAR CATEGORIE ---
@@ -111,11 +111,11 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
 
   const quarantineCount = samples.filter(s => s.status === 'En quarantaine').length
   if (quarantineCount > 0) {
-    alerts.push({ type: 'En quarantaine', text: `${quarantineCount} lot(s) sont en quarantaine.`, color: 'text-orange-500', bg: 'bg-orange-50' })
+    alerts.push({ type: 'En quarantaine', text: `${quarantineCount} lot(s) sont en quarantaine.`, color: 'text-warning', bg: 'bg-warning/10' })
   }
 
   if (alerts.length === 0) {
-    alerts.push({ type: 'Système', text: 'Aucune alerte critique. Tout est en ordre.', color: 'text-emerald-500', bg: 'bg-emerald-50' })
+    alerts.push({ type: 'Système', text: 'Aucune alerte critique. Tout est en ordre.', color: 'text-validation', bg: 'bg-validation/10' })
   }
 
   return (
@@ -124,18 +124,27 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
       {/* LIGNE 1 : KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {KPIData.map((kpi, index) => (
-          <Card key={index} className="shadow-sm hover:shadow-md transition-all border-border/50 group">
-            <CardContent className="p-5">
-              <div className="flex justify-between items-start">
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">{kpi.title}</p>
-                  <p className="text-2xl font-bold text-foreground tracking-tight">{kpi.value.toLocaleString('fr-FR')}</p>
+          <Card key={index} className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-150 border border-border/60 group rounded-2xl overflow-hidden relative">
+            <CardContent className="p-5 pb-8">
+              <div className="flex justify-between items-start mb-2">
+                <div className={`p-2.5 rounded-full ${kpi.bg}`}>
+                  <kpi.icon className={`h-5 w-5 ${kpi.color}`} strokeWidth={2.5} />
                 </div>
-                <div className={`p-2 rounded-lg ${kpi.bg} group-hover:scale-110 transition-transform`}>
-                  <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-                </div>
+                <Badge variant="outline" className={`border-transparent font-semibold ${kpi.isUp ? 'text-validation bg-validation/10' : 'text-destructive bg-destructive/10'}`}>
+                  {kpi.isUp ? '▲' : '▼'} {kpi.trend}
+                </Badge>
               </div>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-4 mb-1">{kpi.title}</p>
+              <h3 className="text-3xl font-extrabold text-foreground tracking-tight">{kpi.value.toLocaleString('fr-FR')}</h3>
             </CardContent>
+            {/* Sparkline */}
+            <div className="h-12 w-full absolute bottom-0 left-0 opacity-40 group-hover:opacity-100 transition-opacity">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={kpi.sparkline.map((val, i) => ({ val, i }))}>
+                  <Line type="monotone" dataKey="val" stroke={kpi.isUp ? 'var(--validation)' : 'var(--destructive)'} strokeWidth={2} dot={false} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </Card>
         ))}
       </div>
