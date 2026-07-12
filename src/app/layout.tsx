@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SGIE - ABMed",
-  description: "Système de Gestion Informatisé de l'Échantillothèque - ABMed",
+  title: "eGED - ABMed",
+  description: "Système Électronique de Gestion des Échantillons et des Déchets pharmaceutiques - ABMed",
 };
 
 export default function RootLayout({

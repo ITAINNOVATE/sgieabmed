@@ -23,9 +23,9 @@ export default function LoginPage({
               <ShieldCheck className="h-12 w-12 text-primary" strokeWidth={1.5} />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">SGIE</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">eGED</CardTitle>
           <CardDescription className="text-sm font-medium text-muted-foreground">
-            Système de Gestion Informatisé de l'Échantillothèque
+            Système Électronique de Gestion des Échantillons et des Déchets pharmaceutiques
             <br />
             <span className="font-semibold text-foreground/70">ABMed</span>
           </CardDescription>

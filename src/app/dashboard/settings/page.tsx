@@ -13,7 +13,7 @@ export default function SettingsPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-5xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Paramètres du Système</h2>
-        <p className="text-muted-foreground text-sm">Configuration globale de la plateforme SGIE.</p>
+        <p className="text-muted-foreground text-sm">Configuration globale de la plateforme eGED.</p>
       </div>
 
       <Tabs defaultValue="general" className="w-full">

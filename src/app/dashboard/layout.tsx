@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           {/* Breadcrumb / Titre Mobile */}
           <div className="hidden md:flex flex-col">
-            <span className="text-xs font-medium text-muted-foreground">SGIE / Dashboard</span>
+            <span className="text-xs font-medium text-muted-foreground">eGED / Dashboard</span>
             <h1 className="text-sm font-semibold text-foreground">
               Autorité Nationale
             </h1>

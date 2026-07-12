@@ -43,7 +43,7 @@ export function AppSidebar() {
           <PackageCheck className="h-6 w-6" strokeWidth={2} />
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-lg leading-tight text-foreground tracking-tight">SGIE</span>
+          <span className="font-bold text-lg leading-tight text-foreground tracking-tight">eGED</span>
           <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-widest">ABMed</span>
         </div>
       </SidebarHeader>
