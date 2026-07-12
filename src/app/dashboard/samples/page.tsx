@@ -167,7 +167,7 @@ export default function SamplesDataTable() {
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Répertoire des Échantillons</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Liste des échantillons</h2>
           <p className="text-muted-foreground text-sm">Gestion complète du stock pharmaceutique.</p>
         </div>
         <div className="flex gap-2">

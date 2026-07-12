@@ -39,7 +39,7 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center">
             <Trash2 className="mr-3 h-6 w-6 text-primary" />
-            Gestion des Déchets Pharmaceutiques
+            Liste des déchets
           </h2>
           <p className="text-muted-foreground mt-1">Gérez le cycle de vie, la déclaration et le contrôle des déchets (PSQIF).</p>
         </div>

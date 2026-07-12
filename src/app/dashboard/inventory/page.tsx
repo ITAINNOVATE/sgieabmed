@@ -18,7 +18,7 @@ export default function InventoryPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestion des Inventaires</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Inventaire</h2>
           <p className="text-muted-foreground text-sm">Supervision et rapprochement du stock physique et informatique.</p>
         </div>
         <Button className="shadow-sm"><Play className="mr-2 h-4 w-4" /> Démarrer un inventaire</Button>

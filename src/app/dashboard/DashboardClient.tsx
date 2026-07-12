@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { 
   Box, CheckCircle2, FlaskConical, Clock, Trash2, AlertTriangle, Plus, Inbox, 
   ArrowRightLeft, ClipboardList, FileText, UserPlus, TrendingUp, TrendingDown, 
-  Activity, BellRing
+  Activity, BellRing, Flame
 } from "lucide-react"
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
@@ -47,11 +47,9 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
 
   const KPIData = [
     { title: "ÉCHANTILLONS EN STOCK", value: totalSamples, trend: "+12.5%", isUp: true, icon: Box, color: "text-primary", bg: "bg-primary/10", sparkline: [12, 14, 18, 15, 22, 28, 30] },
-    { title: "DISPONIBLES", value: availableSamples, trend: "+5.2%", isUp: true, icon: CheckCircle2, color: "text-validation", bg: "bg-validation/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
-    { title: "EN ANALYSE", value: analysisSamples, trend: "-2.1%", isUp: false, icon: FlaskConical, color: "text-info", bg: "bg-info/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
-    { title: "EN QUARANTAINE", value: quarantineSamples, trend: "+18.4%", isUp: true, icon: Clock, color: "text-warning", bg: "bg-warning/10", sparkline: [2, 3, 5, 4, 8, 12, 15] },
-    { title: "DÉTRUITS / REJETÉS", value: destroyedSamples, trend: "-8.4%", isUp: false, icon: Trash2, color: "text-destructive", bg: "bg-destructive/10", sparkline: [15, 12, 10, 8, 6, 5, 4] },
-    { title: "EXPIRATION < 30 JOURS", value: expiringSamples, trend: "+4.2%", isUp: true, icon: AlertTriangle, color: "text-warning", bg: "bg-warning/10", sparkline: [1, 2, 2, 4, 3, 5, 6] },
+    { title: "DÉCHETS EN STOCK", value: availableSamples, trend: "+5.2%", isUp: true, icon: Trash2, color: "text-validation", bg: "bg-validation/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
+    { title: "DESTRUCTIONS PLANIFIÉES", value: analysisSamples, trend: "-2.1%", isUp: false, icon: Clock, color: "text-warning", bg: "bg-warning/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
+    { title: "DESTRUCTIONS RÉALISÉES", value: destroyedSamples, trend: "+18.4%", isUp: true, icon: Flame, color: "text-info", bg: "bg-info/10", sparkline: [2, 3, 5, 4, 8, 12, 15] },
   ]
 
   // --- 2. CALCUL REPARTITION PAR CATEGORIE ---
@@ -122,7 +120,7 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       
       {/* LIGNE 1 : KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {KPIData.map((kpi, index) => (
           <Card key={index} className="shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-150 border border-border/60 group rounded-2xl overflow-hidden relative">
             <CardContent className="p-5 pb-8">
@@ -154,7 +152,13 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
         <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Actions Rapides</h3>
         <div className="flex flex-wrap gap-4">
           <Button className="h-11 px-6 rounded-xl shadow-sm gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all" asChild>
-            <Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle Réception</Link>
+            <Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle réception</Link>
+          </Button>
+          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+            <Link href="/dashboard/samples/new"><Box className="h-4 w-4" /> Nouvel échantillon</Link>
+          </Button>
+          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+            <Link href="/dashboard/waste/new"><Trash2 className="h-4 w-4" /> Nouveau déchet</Link>
           </Button>
           <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/movements/new"><ArrowRightLeft className="h-4 w-4" /> Mouvement</Link>
@@ -163,10 +167,10 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
             <Link href="/dashboard/inventory"><ClipboardList className="h-4 w-4" /> Inventaire</Link>
           </Button>
           <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
-            <Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link>
+            <Link href="/dashboard/destructions/new"><Flame className="h-4 w-4" /> Planifier une destruction</Link>
           </Button>
           <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
-            <Link href="/dashboard/users"><UserPlus className="h-4 w-4" /> Nouvel utilisateur</Link>
+            <Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link>
           </Button>
         </div>
       </div>
@@ -176,7 +180,7 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
         <Card className="shadow-sm border-border/50 rounded-2xl">
           <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-base font-semibold">Mouvements Mensuels</CardTitle>
+              <CardTitle className="text-base font-semibold">Échantillons par statut</CardTitle>
               <CardDescription>Flux des entrées et sorties</CardDescription>
             </div>
             <div className="flex gap-1 bg-muted p-1 rounded-xl shrink-0 self-start sm:self-auto">
@@ -213,7 +217,7 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
         <Card className="shadow-sm border-border/50 rounded-2xl">
           <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-base font-semibold">Répartition par Catégorie</CardTitle>
+              <CardTitle className="text-base font-semibold">Déchets par catégorie</CardTitle>
               <CardDescription>Distribution des stocks actuels</CardDescription>
             </div>
           </CardHeader>
@@ -248,9 +252,9 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
 
       {/* LIGNE 3 : FLUX DE DONNÉES */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="shadow-sm border-border/50 lg:col-span-2 rounded-2xl">
+        <Card className="shadow-sm border-border/50 lg:col-span-1 rounded-2xl">
           <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center"><Activity className="mr-2 h-4 w-4 text-primary" /> Activités Récentes</CardTitle>
+            <CardTitle className="text-base font-semibold flex items-center"><Activity className="mr-2 h-4 w-4 text-primary" /> Mouvements récents</CardTitle>
           </CardHeader>
           <CardContent>
             {recentMovements.length === 0 ? (
@@ -276,9 +280,18 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-border/50 rounded-2xl">
+        <Card className="shadow-sm border-border/50 lg:col-span-1 rounded-2xl">
           <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center text-warning"><BellRing className="mr-2 h-4 w-4" /> Centre d'Alertes</CardTitle>
+            <CardTitle className="text-base font-semibold flex items-center text-primary"><Flame className="mr-2 h-4 w-4" /> Destructions à venir</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Aucune destruction planifiée.</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-border/50 lg:col-span-1 rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center text-warning"><BellRing className="mr-2 h-4 w-4" /> Alertes récentes</CardTitle>
           </CardHeader>
           <CardContent>
              <div className="space-y-4">

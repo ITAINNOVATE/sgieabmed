@@ -35,7 +35,7 @@ export default function MovementsPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Registre des Mouvements</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Historique des mouvements</h2>
           <p className="text-muted-foreground text-sm">Traçabilité complète des entrées, sorties et transferts.</p>
         </div>
         <Button className="shadow-sm" asChild><Link href="/dashboard/movements/new"><Plus className="mr-2 h-4 w-4" /> Enregistrer un mouvement</Link></Button>
