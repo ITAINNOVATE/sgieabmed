@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { Progress } from '@/components/ui/progress'
 import {
   Settings,
   Building2,
@@ -586,7 +585,9 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
                   <span className="font-medium">Prochain backup dans 8h</span>
                   <span className="text-muted-foreground">67%</span>
                 </div>
-                <Progress value={67} className="h-2" />
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: '67%' }} />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Prochaine sauvegarde automatique : lundi 13 juillet 2026 à 02:00
                 </p>
