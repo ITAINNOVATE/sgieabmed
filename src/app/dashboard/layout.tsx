@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Recherche Globale */}
-          <div className="flex-1 max-w-xl mx-auto ml-4 mr-4">
+          <div className="hidden md:block flex-1 max-w-xl mx-auto ml-4 mr-4">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
@@ -67,7 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </MotionWrapper>
         </div>
-        <footer className="border-t border-border bg-card/50 py-4 px-6 text-xs text-muted-foreground flex justify-between items-center mt-auto">
+        <footer className="border-t border-border bg-card/50 py-6 px-6 text-xs text-muted-foreground flex flex-col md:flex-row gap-4 justify-between items-center text-center md:text-left mt-auto">
           <div>
             <span className="font-semibold text-foreground">eGED-ABMed</span> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques
           </div>

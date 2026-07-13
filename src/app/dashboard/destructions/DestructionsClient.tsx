@@ -101,7 +101,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-border/50 overflow-hidden">
+          <div className="rounded-md border border-border/50 overflow-x-auto">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>

@@ -192,24 +192,24 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
       <Tabs defaultValue="general" className="w-full">
         {/* Tab list */}
-        <TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto p-1 bg-muted/50 rounded-xl mb-6">
-          <TabsTrigger value="general" className="py-2.5 rounded-lg gap-1.5">
+        <TabsList className="flex overflow-x-auto h-auto p-1 bg-muted/50 rounded-xl mb-6 w-full scrollbar-none whitespace-nowrap">
+          <TabsTrigger value="general" className="py-2.5 rounded-lg gap-1.5 shrink-0 flex-1 px-4 sm:px-0">
             <Settings className="h-4 w-4 hidden sm:block" />
             Général
           </TabsTrigger>
-          <TabsTrigger value="institution" className="py-2.5 rounded-lg gap-1.5">
+          <TabsTrigger value="institution" className="py-2.5 rounded-lg gap-1.5 shrink-0 flex-1 px-4 sm:px-0">
             <Building2 className="h-4 w-4 hidden sm:block" />
             Institution
           </TabsTrigger>
-          <TabsTrigger value="security" className="py-2.5 rounded-lg gap-1.5">
+          <TabsTrigger value="security" className="py-2.5 rounded-lg gap-1.5 shrink-0 flex-1 px-4 sm:px-0">
             <Shield className="h-4 w-4 hidden sm:block" />
             Sécurité
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="py-2.5 rounded-lg gap-1.5">
+          <TabsTrigger value="notifications" className="py-2.5 rounded-lg gap-1.5 shrink-0 flex-1 px-4 sm:px-0">
             <Bell className="h-4 w-4 hidden sm:block" />
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="backup" className="py-2.5 rounded-lg gap-1.5">
+          <TabsTrigger value="backup" className="py-2.5 rounded-lg gap-1.5 shrink-0 flex-1 px-4 sm:px-0">
             <HardDrive className="h-4 w-4 hidden sm:block" />
             Sauvegarde
           </TabsTrigger>

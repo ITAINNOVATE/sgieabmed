@@ -334,7 +334,8 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
                 <TableHead className="pl-6">Code / Nom</TableHead>
@@ -445,6 +446,7 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
               )}
             </TableBody>
           </Table>
+        </div>
         </CardContent>
       </Card>
     </div>

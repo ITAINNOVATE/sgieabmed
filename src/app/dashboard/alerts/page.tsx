@@ -469,10 +469,10 @@ export default async function AlertsPage() {
 
       {/* ── Tabs ──────────────────────────────────────────────────────────────── */}
       <Tabs defaultValue="toutes" className="w-full">
-        <TabsList className="bg-muted/60 rounded-xl p-1 h-auto flex-wrap gap-1">
+        <TabsList className="flex overflow-x-auto h-auto p-1 bg-muted/60 rounded-xl w-full scrollbar-none whitespace-nowrap gap-1">
           <TabsTrigger
             value="toutes"
-            className="rounded-lg text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            className="rounded-lg text-sm shrink-0 flex-1 px-4 py-2 data-[state=active]:bg-card data-[state=active]:shadow-sm"
           >
             <BellRing className="h-3.5 w-3.5 mr-1.5" />
             Toutes
@@ -482,7 +482,7 @@ export default async function AlertsPage() {
           </TabsTrigger>
           <TabsTrigger
             value="critiques"
-            className="rounded-lg text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            className="rounded-lg text-sm shrink-0 flex-1 px-4 py-2 data-[state=active]:bg-card data-[state=active]:shadow-sm"
           >
             <AlertTriangle className="h-3.5 w-3.5 mr-1.5 text-red-500" />
             Critiques
@@ -494,7 +494,7 @@ export default async function AlertsPage() {
           </TabsTrigger>
           <TabsTrigger
             value="avertissements"
-            className="rounded-lg text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            className="rounded-lg text-sm shrink-0 flex-1 px-4 py-2 data-[state=active]:bg-card data-[state=active]:shadow-sm"
           >
             <CalendarClock className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
             Avertissements
@@ -506,7 +506,7 @@ export default async function AlertsPage() {
           </TabsTrigger>
           <TabsTrigger
             value="info"
-            className="rounded-lg text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            className="rounded-lg text-sm shrink-0 flex-1 px-4 py-2 data-[state=active]:bg-card data-[state=active]:shadow-sm"
           >
             <ClipboardList className="h-3.5 w-3.5 mr-1.5 text-blue-500" />
             Info
@@ -518,7 +518,7 @@ export default async function AlertsPage() {
           </TabsTrigger>
           <TabsTrigger
             value="resolues"
-            className="rounded-lg text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            className="rounded-lg text-sm shrink-0 flex-1 px-4 py-2 data-[state=active]:bg-card data-[state=active]:shadow-sm"
           >
             <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-500" />
             Résolues

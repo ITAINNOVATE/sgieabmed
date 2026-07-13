@@ -306,7 +306,8 @@ export default async function InventoryPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="font-semibold text-xs uppercase tracking-wide pl-6">
@@ -395,7 +396,8 @@ export default async function InventoryPage() {
                 })
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -426,7 +428,8 @@ export default async function InventoryPage() {
                 <p className="text-sm">Aucun article enregistré pour cet inventaire</p>
               </div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead className="font-semibold text-xs uppercase tracking-wide pl-6">
@@ -509,7 +512,8 @@ export default async function InventoryPage() {
                     );
                   })}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             )}
 
             {/* Summary footer */}

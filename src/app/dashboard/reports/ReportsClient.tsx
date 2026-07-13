@@ -529,7 +529,8 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="pl-6 text-xs font-semibold">Nom du rapport</TableHead>
@@ -570,6 +571,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
               ))}
             </TableBody>
           </Table>
+        </div>
         </CardContent>
       </Card>
     </div>
