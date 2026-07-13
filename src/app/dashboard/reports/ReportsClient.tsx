@@ -40,14 +40,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  BarChart2,
+  BarChart3,
   FileText,
-  FlaskConical,
+  TestTube2,
   Trash2,
   ShieldCheck,
   Download,
   FileSpreadsheet,
-  FilePdf,
+  FileOutput,
   TrendingUp,
   Clock,
 } from 'lucide-react'
@@ -234,7 +234,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
               Échantillons en stock
             </CardTitle>
             <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <FlaskConical className="h-4 w-4 text-indigo-600" />
+              <TestTube2 className="h-4 w-4 text-indigo-600" />
             </div>
           </CardHeader>
           <CardContent>
@@ -395,12 +395,12 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
               className="gap-2"
               onClick={() => handleExport('PDF')}
             >
-              <FilePdf className="h-3.5 w-3.5 text-red-500" />
+              <FileOutput className="h-3.5 w-3.5 text-red-500" />
               Générer PDF
             </Button>
             <div className="ml-auto">
               <Button size="sm" className="gap-2 bg-indigo-600 hover:bg-indigo-700" onClick={handleGenerate}>
-                <BarChart2 className="h-3.5 w-3.5" />
+                <BarChart3 className="h-3.5 w-3.5" />
                 Générer le rapport
               </Button>
             </div>
@@ -421,7 +421,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
           <CardContent>
             {movements.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-56 text-muted-foreground gap-2">
-                <BarChart2 className="h-10 w-10 opacity-30" />
+                <BarChart3 className="h-10 w-10 opacity-30" />
                 <p className="text-sm">Aucun mouvement enregistré</p>
               </div>
             ) : (
@@ -466,7 +466,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
           <CardContent>
             {samples.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-56 text-muted-foreground gap-2">
-                <FlaskConical className="h-10 w-10 opacity-30" />
+                <TestTube2 className="h-10 w-10 opacity-30" />
                 <p className="text-sm">Aucun échantillon disponible</p>
               </div>
             ) : (
