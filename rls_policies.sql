@@ -98,3 +98,15 @@ CREATE POLICY "Insertion destruction_items" ON public.destruction_items FOR INSE
 
 DROP POLICY IF EXISTS "Insertion destruction_validations" ON public.destruction_validations;
 CREATE POLICY "Insertion destruction_validations" ON public.destruction_validations FOR INSERT TO authenticated WITH CHECK (true);
+
+-- 5. RLS pour les Inventaires (Inventories & Inventory Items)
+DROP POLICY IF EXISTS "Insertion inventories" ON public.inventories;
+CREATE POLICY "Insertion inventories" ON public.inventories FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Modification inventories" ON public.inventories;
+CREATE POLICY "Modification inventories" ON public.inventories FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Insertion inventory_items" ON public.inventory_items;
+CREATE POLICY "Insertion inventory_items" ON public.inventory_items FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Modification inventory_items" ON public.inventory_items;
+CREATE POLICY "Modification inventory_items" ON public.inventory_items FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
