@@ -110,3 +110,8 @@ CREATE POLICY "Insertion inventory_items" ON public.inventory_items FOR INSERT T
 DROP POLICY IF EXISTS "Modification inventory_items" ON public.inventory_items;
 CREATE POLICY "Modification inventory_items" ON public.inventory_items FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
+-- 6. RLS pour les Paramètres (Settings)
+DROP POLICY IF EXISTS "Modification des parametres" ON public.settings;
+CREATE POLICY "Modification des parametres" ON public.settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+

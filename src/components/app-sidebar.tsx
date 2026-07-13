@@ -39,6 +39,7 @@ const pilotageNav = [
 ]
 
 const adminNav = [
+  { title: "Initialisation du stock", url: "/dashboard/initialization", icon: PackageCheck },
   { title: "Administration", url: "/dashboard/settings", icon: Settings },
 ]
 
