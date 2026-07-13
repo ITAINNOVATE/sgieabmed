@@ -72,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-semibold text-foreground">eGED-ABMed</span> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques
           </div>
           <div>
-            &copy; ABMed 2026 | Développé par ITA INNOVATE
+            &copy; ABMed 2026 | Développé par SaniNova & ITA INNOVATE
           </div>
         </footer>
       </main>
