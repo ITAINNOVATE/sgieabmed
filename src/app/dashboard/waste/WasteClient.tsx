@@ -10,15 +10,22 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function WasteClient({ initialBatches }: { initialBatches: any[] }) {
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
 
-  const filteredBatches = initialBatches.filter(batch => 
-    batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    batch.waste_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (batch.sample && batch.sample.commercial_name?.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const filteredBatches = initialBatches.filter(batch => {
+    const matchesSearch = 
+      batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      batch.waste_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (batch.sample && batch.sample.commercial_name?.toLowerCase().includes(searchTerm.toLowerCase()))
+      
+    const matchesStatus = statusFilter === "all" || batch.status === statusFilter
+    
+    return matchesSearch && matchesStatus
+  })
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -60,17 +67,30 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
               <CardTitle>Lots de déchets enregistrés</CardTitle>
               <CardDescription>Liste exhaustive des déchets en attente ou détruits.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative w-full md:w-72">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher (N° lot, type, nom...)"
-                  className="pl-9 bg-background"
+                  className="pl-9 bg-background h-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="icon" className="shrink-0 bg-background"><Filter className="h-4 w-4" /></Button>
+              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
+                <SelectTrigger className="h-9 w-full sm:w-44 bg-background">
+                  <SelectValue placeholder="Statut du déchet" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="Déclaré">Déclaré</SelectItem>
+                  <SelectItem value="En contrôle">En contrôle</SelectItem>
+                  <SelectItem value="Validé">Validé</SelectItem>
+                  <SelectItem value="En attente de destruction">En attente de destruction</SelectItem>
+                  <SelectItem value="Détruit">Détruit</SelectItem>
+                  <SelectItem value="Archivé">Archivé</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>

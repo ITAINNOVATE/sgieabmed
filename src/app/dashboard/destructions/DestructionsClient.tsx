@@ -10,14 +10,21 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function DestructionsClient({ initialPlans }: { initialPlans: any[] }) {
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
 
-  const filteredPlans = initialPlans.filter(plan => 
-    plan.plan_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    plan.status.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredPlans = initialPlans.filter(plan => {
+    const matchesSearch = 
+      plan.plan_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.status.toLowerCase().includes(searchTerm.toLowerCase())
+      
+    const matchesStatus = statusFilter === "all" || plan.status === statusFilter
+    
+    return matchesSearch && matchesStatus
+  })
 
   const getStatusBadge = (status: string) => {
     switch(status) {
@@ -86,17 +93,30 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
               <CardTitle>Plans de destruction</CardTitle>
               <CardDescription>Liste des opérations planifiées et leur statut de validation.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative w-full md:w-72">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher un plan..."
-                  className="pl-9 bg-background"
+                  className="pl-9 bg-background h-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="icon" className="shrink-0 bg-background"><Filter className="h-4 w-4" /></Button>
+              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
+                <SelectTrigger className="h-9 w-full sm:w-44 bg-background">
+                  <SelectValue placeholder="Statut d'approbation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="En préparation">En préparation</SelectItem>
+                  <SelectItem value="Validation Responsable">Validation Responsable</SelectItem>
+                  <SelectItem value="Validation Qualité">Validation Qualité</SelectItem>
+                  <SelectItem value="En attente exécution">En attente exécution</SelectItem>
+                  <SelectItem value="Exécuté">Exécuté</SelectItem>
+                  <SelectItem value="Archivé">Archivé</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>

@@ -8,11 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, Filter } from "lucide-react"
 
 export default function MovementsPage() {
   const [movements, setMovements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,6 +35,18 @@ export default function MovementsPage() {
     fetchMovements();
   }, [])
 
+  const filteredMovements = movements.filter(mvt => {
+    const matchesSearch = 
+      (mvt.mvt_number && mvt.mvt_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      mvt.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (mvt.samples && mvt.samples.commercial_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (mvt.samples && mvt.samples.batch_number?.toLowerCase().includes(searchTerm.toLowerCase()))
+      
+    const matchesType = typeFilter === "all" || mvt.movement_type === typeFilter
+    
+    return matchesSearch && matchesType
+  })
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -42,9 +58,43 @@ export default function MovementsPage() {
       </div>
 
       <Card className="shadow-sm border-border/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center"><ArrowRightLeft className="mr-2 h-5 w-5 text-primary" /> Historique des Opérations</CardTitle>
-          <CardDescription>Consultez les dernières opérations effectuées sur le stock.</CardDescription>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-base font-semibold">Historique des Opérations</CardTitle>
+                <CardDescription>Consultez les dernières opérations effectuées sur le stock.</CardDescription>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par produit, lot, N°..."
+                  className="pl-9 bg-background h-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || "all")}>
+                <SelectTrigger className="h-9 w-full sm:w-44 bg-background">
+                  <SelectValue placeholder="Type de mouvement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les types</SelectItem>
+                  <SelectItem value="Entrée">Entrée</SelectItem>
+                  <SelectItem value="Sortie">Sortie</SelectItem>
+                  <SelectItem value="Transfert">Transfert</SelectItem>
+                  <SelectItem value="Mise en quarantaine">Mise en quarantaine</SelectItem>
+                  <SelectItem value="Libération de quarantaine">Libération de quarantaine</SelectItem>
+                  <SelectItem value="Destruction">Destruction</SelectItem>
+                  <SelectItem value="Retour d'analyse">Retour d'analyse</SelectItem>
+                  <SelectItem value="Correction d'inventaire">Correction d'inventaire</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-md border border-border/50">
@@ -62,10 +112,10 @@ export default function MovementsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={6} className="h-24 text-center">Chargement des mouvements...</TableCell></TableRow>
-                ) : movements.length === 0 ? (
+                ) : filteredMovements.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Aucun mouvement enregistré.</TableCell></TableRow>
                 ) : (
-                  movements.map((mvt) => (
+                  filteredMovements.map((mvt) => (
                     <TableRow key={mvt.id}>
                       <TableCell className="font-medium">{mvt.mvt_number || mvt.id.substring(0,8)}</TableCell>
                       <TableCell className="text-muted-foreground">{new Date(mvt.movement_date || mvt.created_at || Date.now()).toLocaleString("fr-FR")}</TableCell>

@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter } from "lucide-react"
 import Link from "next/link"
 
 import { useEffect, useState } from "react"
@@ -13,6 +15,8 @@ import { createClient } from "@/utils/supabase/client"
 export default function ReceptionsPage() {
   const [receptions, setReceptions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
   const supabase = createClient()
 
   useEffect(() => {
@@ -36,6 +40,18 @@ export default function ReceptionsPage() {
     }
     fetchData()
   }, [])
+
+  const filteredReceptions = receptions.filter(rec => {
+    const matchesSearch = 
+      rec.rec_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (rec.supplier && rec.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "validee" && rec.status === "Validée") ||
+      (statusFilter === "en_attente" && (rec.status === "En cours" || rec.status === "En attente" || !rec.status))
+      
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -73,9 +89,34 @@ export default function ReceptionsPage() {
       </div>
 
       <Card className="shadow-sm border-border/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Historique des arrivages</CardTitle>
-          <CardDescription>Suivez l'état de traitement des lots reçus.</CardDescription>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <CardTitle className="text-base">Historique des arrivages</CardTitle>
+              <CardDescription>Suivez l'état de traitement des lots reçus.</CardDescription>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par N° Bon, fournisseur..."
+                  className="pl-9 bg-background h-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
+                <SelectTrigger className="h-9 w-full sm:w-44 bg-background">
+                  <SelectValue placeholder="Filtrer par statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="validee">Validées</SelectItem>
+                  <SelectItem value="en_attente">En attente / En cours</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-md border border-border/50">
@@ -93,10 +134,10 @@ export default function ReceptionsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Chargement des données...</TableCell></TableRow>
-                ) : receptions.length === 0 ? (
+                ) : filteredReceptions.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Aucune réception trouvée.</TableCell></TableRow>
                 ) : (
-                  receptions.map((rec) => (
+                  filteredReceptions.map((rec) => (
                     <TableRow key={rec.id}>
                       <TableCell className="font-medium">{rec.rec_number}</TableCell>
                       <TableCell>{new Date(rec.date_reception).toLocaleDateString("fr-FR")}</TableCell>
