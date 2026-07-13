@@ -150,3 +150,21 @@
     font-size: 17px;
   }
 }
+
+/* Personnalisation de la barre de défilement de la sidebar */
+[data-sidebar="content"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
