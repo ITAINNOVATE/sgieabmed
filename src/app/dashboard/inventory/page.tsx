@@ -1,96 +1,548 @@
-"use client"
+export const dynamic = 'force-dynamic';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ClipboardList, Play, CheckCircle2, AlertTriangle, Search, Filter } from "lucide-react"
+import { createClient } from '@/utils/supabase/server';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  ClipboardList,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  Plus,
+  Eye,
+  ArrowUpDown,
+  PackageSearch,
+} from 'lucide-react';
+import Link from 'next/link';
 
-export default function InventoryPage() {
-  const discrepancies = [
-    { lot: "LOT-992A", dci: "Amoxicilline", location: "Magasin Central > Zone A", stock_it: 500, stock_phys: 498, status: "Écart mineur" },
-    { lot: "LOT-112B", dci: "Ibuprofène", location: "Magasin Central > Zone B", stock_it: 200, stock_phys: 200, status: "Conforme" },
-    { lot: "LOT-334C", dci: "Vaccin Anti-Rabique", location: "Chambre Froide", stock_it: 50, stock_phys: 45, status: "Alerte critique" },
-  ]
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface InventorySample {
+  commercial_name: string;
+  batch_number: string;
+  sample_number: string;
+}
+
+interface InventoryItem {
+  id: string;
+  system_quantity: number;
+  physical_quantity: number;
+  discrepancy_reason: string | null;
+  sample: InventorySample | null;
+}
+
+interface Inventory {
+  id: string;
+  name: string;
+  inventory_type: string;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  items: InventoryItem[];
+}
+
+// ─── Mock Data ────────────────────────────────────────────────────────────────
+
+const MOCK_INVENTORIES: Inventory[] = [
+  {
+    id: '1',
+    name: 'Inventaire Global 2026',
+    inventory_type: 'Annuel',
+    status: 'En cours',
+    created_at: new Date().toISOString(),
+    completed_at: null,
+    items: [
+      {
+        id: '1',
+        system_quantity: 500,
+        physical_quantity: 498,
+        discrepancy_reason: null,
+        sample: {
+          commercial_name: 'Amoxicilline 500mg',
+          batch_number: 'LOT-992A',
+          sample_number: 'ECH-001',
+        },
+      },
+      {
+        id: '2',
+        system_quantity: 200,
+        physical_quantity: 200,
+        discrepancy_reason: null,
+        sample: {
+          commercial_name: 'Ibuprofène 400mg',
+          batch_number: 'LOT-112B',
+          sample_number: 'ECH-002',
+        },
+      },
+      {
+        id: '3',
+        system_quantity: 50,
+        physical_quantity: 45,
+        discrepancy_reason: 'Bris de flacons',
+        sample: {
+          commercial_name: 'Vaccin Anti-Rabique',
+          batch_number: 'LOT-334C',
+          sample_number: 'ECH-003',
+        },
+      },
+    ],
+  },
+  {
+    id: '2',
+    name: 'Inventaire Trimestriel Q1',
+    inventory_type: 'Trimestriel',
+    status: 'Validé',
+    created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+    completed_at: new Date(Date.now() - 80 * 24 * 60 * 60 * 1000).toISOString(),
+    items: [
+      {
+        id: '4',
+        system_quantity: 300,
+        physical_quantity: 300,
+        discrepancy_reason: null,
+        sample: {
+          commercial_name: 'Paracétamol 1g',
+          batch_number: 'LOT-441D',
+          sample_number: 'ECH-004',
+        },
+      },
+    ],
+  },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'En cours':
+      return (
+        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          En cours
+        </Badge>
+      );
+    case 'Validé':
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 gap-1">
+          <CheckCircle2 className="h-3 w-3" />
+          Validé
+        </Badge>
+      );
+    case 'Annulé':
+      return (
+        <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200">
+          Annulé
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function getDiscrepancyBadge(diff: number) {
+  if (diff === 0)
+    return (
+      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+        Conforme
+      </Badge>
+    );
+  return (
+    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 gap-1">
+      <AlertTriangle className="h-3 w-3" />
+      Écart détecté
+    </Badge>
+  );
+}
+
+// ─── Page Component ───────────────────────────────────────────────────────────
+
+export default async function InventoryPage() {
+  const supabase = await createClient();
+
+  const { data: rawInventories, error } = await supabase
+    .from('inventories')
+    .select(
+      `
+      *,
+      items:inventory_items (
+        id,
+        system_quantity,
+        physical_quantity,
+        discrepancy_reason,
+        sample:samples ( commercial_name, batch_number, sample_number )
+      )
+    `
+    )
+    .order('created_at', { ascending: false });
+
+  const inventories: Inventory[] =
+    !error && rawInventories && rawInventories.length > 0
+      ? (rawInventories as Inventory[])
+      : MOCK_INVENTORIES;
+
+  // ── KPI calculations ──────────────────────────────────────────────────────
+  const total = inventories.length;
+  const inProgress = inventories.filter((i) => i.status === 'En cours').length;
+  const validated = inventories.filter((i) => i.status === 'Validé').length;
+
+  const allItems = inventories.flatMap((i) => i.items ?? []);
+  const discrepancyCount = allItems.filter(
+    (item) => item.system_quantity !== item.physical_quantity
+  ).length;
+
+  // ── Active inventory ──────────────────────────────────────────────────────
+  const activeInventory = inventories.find((i) => i.status === 'En cours') ?? null;
+  const activeItems = activeInventory?.items ?? [];
+  const activeDiscrepancies = activeItems.filter(
+    (item) => item.system_quantity !== item.physical_quantity
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-6 p-6">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Inventaire</h2>
-          <p className="text-muted-foreground text-sm">Supervision et rapprochement du stock physique et informatique.</p>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <PackageSearch className="h-6 w-6 text-primary" />
+            Gestion des Inventaires
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Suivi des inventaires physiques et analyse des écarts de stock
+          </p>
         </div>
-        <Button className="shadow-sm"><Play className="mr-2 h-4 w-4" /> Démarrer un inventaire</Button>
+        <Button asChild className="gap-2 mt-3 sm:mt-0">
+          <Link href="/dashboard/inventory/new">
+            <Plus className="h-4 w-4" />
+            Démarrer un nouvel inventaire
+          </Link>
+        </Button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card className="shadow-sm border-border/50 bg-primary/5 border-primary/20">
-          <CardContent className="p-6">
-            <ClipboardList className="h-8 w-8 text-primary mb-4" />
-            <h3 className="text-2xl font-bold text-foreground">Inventaire Global 2026</h3>
-            <p className="text-sm text-muted-foreground mt-1">En cours de réalisation (65% complété)</p>
-            <div className="w-full bg-border rounded-full h-2 mt-4">
-              <div className="bg-primary h-2 rounded-full" style={{ width: '65%' }}></div>
-            </div>
+      {/* ── KPI Cards ───────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total */}
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total inventaires
+            </CardTitle>
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{total}</p>
+            <p className="text-xs text-muted-foreground mt-1">Tous statuts confondus</p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-border/50 md:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center"><AlertTriangle className="mr-2 h-4 w-4 text-warning" /> Analyse des Écarts</CardTitle>
-            <CardDescription>Comparatif temps réel entre le système et le comptage physique</CardDescription>
+        {/* In Progress */}
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              En cours
+            </CardTitle>
+            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Rechercher un lot..." className="pl-9 h-9" />
+            <p className="text-3xl font-bold text-blue-600">{inProgress}</p>
+            <p className="text-xs text-muted-foreground mt-1">Inventaire(s) actif(s)</p>
+          </CardContent>
+        </Card>
+
+        {/* Validated */}
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Validés
+            </CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-emerald-600">{validated}</p>
+            <p className="text-xs text-muted-foreground mt-1">Inventaires clôturés</p>
+          </CardContent>
+        </Card>
+
+        {/* Discrepancies */}
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Écarts détectés
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-amber-600">{discrepancyCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Article(s) avec écart(s) physiques
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Inventories Table ────────────────────────────────────────────── */}
+      <Card className="shadow-sm border-border/50 rounded-2xl">
+        <CardHeader className="border-b border-border/50 pb-4">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            Liste des inventaires
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="font-semibold text-xs uppercase tracking-wide pl-6">
+                  Nom
+                </TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                  Type
+                </TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                  Statut
+                </TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                  Date de création
+                </TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                  Date de clôture
+                </TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                  Articles
+                </TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wide text-right pr-6">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {inventories.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-12 text-muted-foreground"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <PackageSearch className="h-10 w-10 text-muted-foreground/40" />
+                      <p className="text-sm">Aucun inventaire trouvé</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                inventories.map((inventory) => {
+                  const itemCount = inventory.items?.length ?? 0;
+                  const discrepancies = (inventory.items ?? []).filter(
+                    (item) => item.system_quantity !== item.physical_quantity
+                  ).length;
+
+                  return (
+                    <TableRow
+                      key={inventory.id}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
+                      <TableCell className="pl-6 font-medium">
+                        {inventory.name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {inventory.inventory_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(inventory.status)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(inventory.created_at)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(inventory.completed_at)}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
+                          {itemCount} article{itemCount !== 1 ? 's' : ''}
+                          {discrepancies > 0 && (
+                            <span className="ml-2 text-xs text-red-600 font-medium">
+                              ({discrepancies} écart{discrepancies > 1 ? 's' : ''})
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right pr-6">
+                        <Button variant="ghost" size="sm" asChild className="gap-1">
+                          <Link href={`/dashboard/inventory/${inventory.id}`}>
+                            <Eye className="h-3.5 w-3.5" />
+                            Voir
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* ── Active Inventory Discrepancy Analysis ───────────────────────── */}
+      {activeInventory && (
+        <Card className="shadow-sm border-border/50 rounded-2xl">
+          <CardHeader className="border-b border-border/50 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  Analyse des écarts — {activeInventory.name}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Comparaison quantités système vs. quantités physiques relevées
+                </p>
               </div>
-              <Button variant="outline" size="icon" className="h-9 w-9"><Filter className="h-4 w-4" /></Button>
+              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                En cours
+              </Badge>
             </div>
-            <div className="overflow-x-auto rounded-md border border-border/50">
+          </CardHeader>
+          <CardContent className="p-0">
+            {activeItems.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+                <ClipboardList className="h-10 w-10 text-muted-foreground/40" />
+                <p className="text-sm">Aucun article enregistré pour cet inventaire</p>
+              </div>
+            ) : (
               <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow>
-                    <TableHead>Lot / Produit</TableHead>
-                    <TableHead>Localisation</TableHead>
-                    <TableHead className="text-right">Stock SI</TableHead>
-                    <TableHead className="text-right">Stock Physique</TableHead>
-                    <TableHead className="text-right">Écart</TableHead>
-                    <TableHead>Statut</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide pl-6">
+                      Produit
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                      N° Échantillon
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                      Lot
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-right">
+                      Qté Système
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-right">
+                      Qté Physique
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-right">
+                      Différence
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                      Motif écart
+                    </TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide pr-6">
+                      Statut
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {discrepancies.map((item, i) => {
-                    const diff = item.stock_phys - item.stock_it;
+                  {activeItems.map((item) => {
+                    const diff = item.physical_quantity - item.system_quantity;
+                    const isNegative = diff < 0;
+                    const isZero = diff === 0;
+
                     return (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <div className="font-medium">{item.lot}</div>
-                          <div className="text-xs text-muted-foreground">{item.dci}</div>
+                      <TableRow
+                        key={item.id}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <TableCell className="pl-6 font-medium">
+                          {item.sample?.commercial_name ?? '—'}
                         </TableCell>
-                        <TableCell className="text-xs">{item.location}</TableCell>
-                        <TableCell className="text-right">{item.stock_it}</TableCell>
-                        <TableCell className="text-right font-medium">{item.stock_phys}</TableCell>
-                        <TableCell className={`text-right font-bold ${diff === 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {diff > 0 ? `+${diff}` : diff}
+                        <TableCell className="text-sm text-muted-foreground font-mono">
+                          {item.sample?.sample_number ?? '—'}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant={diff === 0 ? "default" : diff > -5 ? "secondary" : "destructive"}>{item.status}</Badge>
+                        <TableCell className="text-sm text-muted-foreground font-mono">
+                          {item.sample?.batch_number ?? '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {item.system_quantity}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {item.physical_quantity}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold">
+                          <span
+                            className={
+                              isZero
+                                ? 'text-emerald-600'
+                                : isNegative
+                                ? 'text-red-600'
+                                : 'text-amber-600'
+                            }
+                          >
+                            {diff > 0 ? '+' : ''}
+                            {diff}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
+                          {item.discrepancy_reason ?? (
+                            <span className="italic text-muted-foreground/60">
+                              Non renseigné
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="pr-6">
+                          {getDiscrepancyBadge(diff)}
                         </TableCell>
                       </TableRow>
-                    )
+                    );
                   })}
                 </TableBody>
               </Table>
-            </div>
-            <div className="flex justify-end mt-4">
-               <Button variant="outline"><CheckCircle2 className="mr-2 h-4 w-4" /> Valider et générer rapport</Button>
-            </div>
+            )}
+
+            {/* Summary footer */}
+            {activeItems.length > 0 && (
+              <div className="flex items-center justify-between px-6 py-3 border-t border-border/50 bg-muted/20">
+                <p className="text-xs text-muted-foreground">
+                  {activeItems.length} article{activeItems.length !== 1 ? 's' : ''} au
+                  total —{' '}
+                  <span className="text-emerald-700 font-medium">
+                    {activeItems.length - activeDiscrepancies.length} conforme
+                    {activeItems.length - activeDiscrepancies.length !== 1 ? 's' : ''}
+                  </span>
+                  {activeDiscrepancies.length > 0 && (
+                    <>
+                      {' '}·{' '}
+                      <span className="text-red-700 font-medium">
+                        {activeDiscrepancies.length} écart
+                        {activeDiscrepancies.length !== 1 ? 's' : ''}
+                      </span>
+                    </>
+                  )}
+                </p>
+                <Button variant="outline" size="sm" asChild className="gap-1 text-xs">
+                  <Link href={`/dashboard/inventory/${activeInventory.id}`}>
+                    <Eye className="h-3.5 w-3.5" />
+                    Voir le détail complet
+                  </Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
-  )
+  );
 }
