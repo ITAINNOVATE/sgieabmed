@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="hidden md:inline"> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques</span>
           </div>
           <div className="shrink-0">
-            &copy; ABMed 2026 | Développé par SaniNova & ITA INNOVATE
+            &copy; ABMed 2026 | Développé par ITA INNOVATE & SaniNova
           </div>
         </footer>
       </main>
