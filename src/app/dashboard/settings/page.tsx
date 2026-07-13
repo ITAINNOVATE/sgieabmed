@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import SettingsClient from './SettingsClient'
 
 export default async function SettingsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: settings, error } = await supabase.from('settings').select('*')
 
   // Build a key-value map from the settings rows for easy consumption

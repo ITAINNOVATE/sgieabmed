@@ -322,7 +322,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
             {/* Report type */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Type de rapport</label>
-              <Select onValueChange={setReportType} value={reportType}>
+              <Select onValueChange={(val) => setReportType(val || '')} value={reportType}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sélectionner..." />
                 </SelectTrigger>
@@ -338,7 +338,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
             {/* Period */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Période</label>
-              <Select onValueChange={setPeriod} value={period}>
+              <Select onValueChange={(val) => setPeriod(val || '')} value={period}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sélectionner..." />
                 </SelectTrigger>
@@ -354,7 +354,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
             {/* Status filter */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Filtre statut</label>
-              <Select onValueChange={setStatusFilter} value={statusFilter}>
+              <Select onValueChange={(val) => setStatusFilter(val || '')} value={statusFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Tous les statuts" />
                 </SelectTrigger>

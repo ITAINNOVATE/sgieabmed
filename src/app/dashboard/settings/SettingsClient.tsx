@@ -243,7 +243,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
               {/* Langue */}
               <FieldRow label="Langue par défaut">
-                <Select value={langue} onValueChange={setLangue}>
+                <Select value={langue} onValueChange={(val) => setLangue(val || '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une langue" />
                   </SelectTrigger>
@@ -258,7 +258,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
               {/* Fuseau horaire */}
               <FieldRow label="Fuseau horaire">
-                <Select value={timezone} onValueChange={setTimezone}>
+                <Select value={timezone} onValueChange={(val) => setTimezone(val || '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un fuseau" />
                   </SelectTrigger>
@@ -410,7 +410,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
               <FieldRow label="Durée de session">
                 <Select
                   value={sessionDuration}
-                  onValueChange={setSessionDuration}
+                  onValueChange={(val) => setSessionDuration(val || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir une durée" />
@@ -444,7 +444,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
               <FieldRow label="Politique de mot de passe">
                 <Select
                   value={passwordPolicy}
-                  onValueChange={setPasswordPolicy}
+                  onValueChange={(val) => setPasswordPolicy(val || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une politique" />
@@ -463,7 +463,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
               <FieldRow label="Durée de validité">
                 <Select
                   value={passwordValidity}
-                  onValueChange={setPasswordValidity}
+                  onValueChange={(val) => setPasswordValidity(val || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Durée de validité" />
@@ -599,7 +599,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
               <FieldRow label="Fréquence de sauvegarde automatique">
                 <Select
                   value={backupFrequency}
-                  onValueChange={setBackupFrequency}
+                  onValueChange={(val) => setBackupFrequency(val || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir une fréquence" />
@@ -616,7 +616,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
               <FieldRow label="Rétention des sauvegardes">
                 <Select
                   value={backupRetention}
-                  onValueChange={setBackupRetention}
+                  onValueChange={(val) => setBackupRetention(val || '')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Durée de rétention" />
