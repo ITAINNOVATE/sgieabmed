@@ -67,11 +67,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </MotionWrapper>
         </div>
-        <footer className="border-t border-border bg-card/50 py-6 px-6 text-xs text-muted-foreground flex flex-col md:flex-row gap-4 justify-between items-center text-center md:text-left mt-auto">
-          <div>
-            <span className="font-semibold text-foreground">eGED-ABMed</span> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques
+        <footer className="border-t border-border bg-card/50 py-4 px-4 sm:px-6 text-[10px] sm:text-xs text-muted-foreground flex flex-row justify-between items-center whitespace-nowrap mt-auto gap-4">
+          <div className="truncate">
+            <span className="font-semibold text-foreground">eGED-ABMed</span>
+            <span className="hidden md:inline"> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques</span>
           </div>
-          <div>
+          <div className="shrink-0">
             &copy; ABMed 2026 | Développé par SaniNova & ITA INNOVATE
           </div>
         </footer>
