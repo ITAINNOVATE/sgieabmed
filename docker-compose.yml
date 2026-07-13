@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL locale (On-Premise)
+  eged-db:
+    image: postgres:16-alpine
+    container_name: eged-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-eged_db}
+      POSTGRES_USER: ${DB_USER:-eged_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ABMed_Secure_Pass_2026}
+    ports:
+      - "${DB_PORT_HOST:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # SQL Scripts executed during first initialization (schema, seed, policies)
+      - ./schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
+      - ./rls_policies.sql:/docker-entrypoint-initdb.d/3-rls_policies.sql
+    networks:
+      - eged-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-eged_admin} -d ${DB_NAME:-eged_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Application Next.js (eGED Frontend + Backend)
+  eged-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eged-app
+    restart: always
+    depends_on:
+      eged-db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT_HOST:-80}:3000"
+    environment:
+      # Database connection
+      DATABASE_URL: postgres://${DB_USER:-eged_admin}:${DB_PASSWORD:-ABMed_Secure_Pass_2026}@eged-db:5432/${DB_NAME:-eged_db}?schema=public
+      
+      # Supabase Config (if used as dev/migration client)
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      
+      # Security & JWT
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-ABMed_Session_Token_Secret_2026_Secure_Key}
+      NEXTAUTH_URL: ${APP_URL:-http://localhost}
+      
+      # Storage Path
+      STORAGE_LOCAL_PATH: /app/uploads
+    volumes:
+      # Uploads folder persistent storage
+      - uploads:/app/uploads
+    networks:
+      - eged-network
+
+volumes:
+  pgdata:
+    driver: local
+  uploads:
+    driver: local
+
+networks:
+  eged-network:
+    driver: bridge
