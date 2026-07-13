@@ -11,7 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuBadge,
 } from "@/components/ui/sidebar"
-import { Home, Package, ArrowLeftRight, ClipboardCheck, Trash, Flame, Folder, ChartColumn, Bell, Settings, LogOut, PackageCheck, Inbox, MapPin } from "lucide-react"
+import { Home, Package, ArrowLeftRight, ClipboardCheck, Trash, Flame, Folder, ChartColumn, Bell, Settings, LogOut, PackageCheck, Inbox, MapPin, LayoutDashboard, Users, Shield, Key, Building2, History, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 
@@ -39,8 +39,14 @@ const pilotageNav = [
 ]
 
 const adminNav = [
+  { title: "Tableau de bord Admin", url: "/dashboard/admin", icon: LayoutDashboard },
+  { title: "Utilisateurs", url: "/dashboard/admin/users", icon: Users },
+  { title: "Rôles", url: "/dashboard/admin/roles", icon: Shield },
+  { title: "Permissions", url: "/dashboard/admin/permissions", icon: Key },
+  { title: "Services / Directions", url: "/dashboard/admin/services", icon: Building2 },
+  { title: "Journaux d'audit", url: "/dashboard/admin/audit", icon: History },
+  { title: "Paramètres de sécurité", url: "/dashboard/admin/security", icon: ShieldCheck },
   { title: "Initialisation du stock", url: "/dashboard/initialization", icon: PackageCheck },
-  { title: "Administration", url: "/dashboard/settings", icon: Settings },
 ]
 
 export function AppSidebar() {
