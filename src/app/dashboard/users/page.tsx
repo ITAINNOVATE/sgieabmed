@@ -377,12 +377,12 @@ export default async function UsersPage() {
 
           <div className="flex items-center gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <Button variant="default" className="gap-2 rounded-xl shadow-sm">
                   <UserPlus className="h-4 w-4" />
                   Nouvel utilisateur
                 </Button>
-              </TooltipTrigger>
+              } />
               <TooltipContent side="bottom" className="max-w-xs text-center">
                 <div className="flex items-start gap-2">
                   <Info className="h-4 w-4 shrink-0 mt-0.5 text-blue-400" />
@@ -540,11 +540,11 @@ export default async function UsersPage() {
                       {/* Last login */}
                       <TableCell>
                         <Tooltip>
-                          <TooltipTrigger asChild>
+                          <TooltipTrigger render={
                             <span className="text-sm text-muted-foreground cursor-default">
                               {formatLastLogin(user.last_login)}
                             </span>
-                          </TooltipTrigger>
+                          } />
                           <TooltipContent>
                             {formatLastLoginFull(user.last_login)}
                           </TooltipContent>
