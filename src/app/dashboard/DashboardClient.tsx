@@ -16,40 +16,33 @@ import Link from "next/link"
 
 const COLORS = ['#0B5ED7', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#14B8A6', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#64748B'];
 
-export default function DashboardClient({ samples, movements, receptions }: { samples: any[], movements: any[], receptions?: any[] }) {
+export default function DashboardClient({ 
+  samples, 
+  movements, 
+  receptions,
+  wasteBatches = [],
+  destructions = []
+}: { 
+  samples: any[], 
+  movements: any[], 
+  receptions?: any[],
+  wasteBatches?: any[],
+  destructions?: any[]
+}) {
 
   // --- 1. CALCUL DES KPIs ---
-  const totalSamples = samples.reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+  const activeSamples = samples.filter(s => s.status !== 'Détruit')
+  const totalSamples = activeSamples.reduce((acc, curr) => acc + (curr.quantity || 0), 0)
   
-  const availableSamples = samples
-    .filter(s => ['Disponible', 'À localiser'].includes(s.status))
-    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
-    
-  const analysisSamples = samples
-    .filter(s => s.status === 'En analyse')
-    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
-    
-  const quarantineSamples = samples
-    .filter(s => s.status === 'En quarantaine')
-    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
-    
-  const destroyedSamples = samples
-    .filter(s => ['Détruit', 'Rejeté'].includes(s.status))
-    .reduce((acc, curr) => acc + (curr.quantity || 0), 0)
-
-  const thirtyDaysFromNow = new Date()
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
-  const expiringSamples = samples.filter(s => {
-    if (!s.expiry_date) return false
-    const expDate = new Date(s.expiry_date)
-    return expDate <= thirtyDaysFromNow && expDate >= new Date()
-  }).reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+  const totalWaste = wasteBatches.filter((w: any) => w.status !== 'Détruit' && w.status !== 'detruit').length
+  const plannedDestructions = destructions.filter((d: any) => d.status === 'Planifié' || d.status === 'planifie').length
+  const completedDestructions = destructions.filter((d: any) => d.status === 'Exécuté' || d.status === 'execute').length
 
   const KPIData = [
     { title: "ÉCHANTILLONS EN STOCK", value: totalSamples, trend: "+12.5%", isUp: true, icon: Box, color: "text-primary", bg: "bg-primary/10", sparkline: [12, 14, 18, 15, 22, 28, 30] },
-    { title: "DÉCHETS EN STOCK", value: availableSamples, trend: "+5.2%", isUp: true, icon: Trash2, color: "text-validation", bg: "bg-validation/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
-    { title: "DESTRUCTIONS PLANIFIÉES", value: analysisSamples, trend: "-2.1%", isUp: false, icon: Clock, color: "text-warning", bg: "bg-warning/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
-    { title: "DESTRUCTIONS RÉALISÉES", value: destroyedSamples, trend: "+18.4%", isUp: true, icon: Flame, color: "text-info", bg: "bg-info/10", sparkline: [2, 3, 5, 4, 8, 12, 15] },
+    { title: "DÉCHETS EN STOCK", value: totalWaste, trend: "+5.2%", isUp: true, icon: Trash2, color: "text-validation", bg: "bg-validation/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
+    { title: "DESTRUCTIONS PLANIFIÉES", value: plannedDestructions, trend: "-2.1%", isUp: false, icon: Clock, color: "text-warning", bg: "bg-warning/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
+    { title: "DESTRUCTIONS RÉALISÉES", value: completedDestructions, trend: "+18.4%", isUp: true, icon: Flame, color: "text-info", bg: "bg-info/10", sparkline: [2, 3, 5, 4, 8, 12, 15] },
   ]
 
   // --- 2. CALCUL REPARTITION PAR CATEGORIE ---
@@ -98,19 +91,36 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
   // --- 5. ALERTES ---
   const alerts = []
   
-  const expiredSamples = samples.filter(s => new Date(s.expiry_date) < new Date())
+  const expiredSamples = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) < new Date())
   if (expiredSamples.length > 0) {
     alerts.push({ type: 'Produits expirés', text: `${expiredSamples.length} lot(s) actuellement expiré(s) en stock.`, color: 'text-destructive', bg: 'bg-destructive/10' })
   }
 
-  if (expiringSamples > 0) {
-    alerts.push({ type: 'Expirations proches', text: `${expiringSamples} unité(s) expirent dans moins de 30 jours.`, color: 'text-warning', bg: 'bg-warning/10' })
+  const expiringSamplesCount = activeSamples.filter(s => {
+    if (!s.expiry_date) return false
+    const expDate = new Date(s.expiry_date)
+    const thirtyDaysFromNow = new Date()
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
+    return expDate <= thirtyDaysFromNow && expDate >= new Date()
+  }).reduce((acc, curr) => acc + (curr.quantity || 0), 0)
+
+  if (expiringSamplesCount > 0) {
+    alerts.push({ type: 'Expirations proches', text: `${expiringSamplesCount} unité(s) expirent dans moins de 30 jours.`, color: 'text-warning', bg: 'bg-warning/10' })
   }
 
-  const quarantineCount = samples.filter(s => s.status === 'En quarantaine').length
+  const quarantineCount = activeSamples.filter(s => s.status === 'En quarantaine').length
   if (quarantineCount > 0) {
     alerts.push({ type: 'En quarantaine', text: `${quarantineCount} lot(s) sont en quarantaine.`, color: 'text-warning', bg: 'bg-warning/10' })
   }
+
+  const upcomingDestructions = destructions
+    .filter((d: any) => d.status === 'Planifié' || d.status === 'planifie')
+    .sort((a, b) => {
+      const dateA = a.scheduled_date ? new Date(a.scheduled_date).getTime() : 0
+      const dateB = b.scheduled_date ? new Date(b.scheduled_date).getTime() : 0
+      return dateA - dateB
+    })
+    .slice(0, 5)
 
   if (alerts.length === 0) {
     alerts.push({ type: 'Système', text: 'Aucune alerte critique. Tout est en ordre.', color: 'text-validation', bg: 'bg-validation/10' })
@@ -285,7 +295,28 @@ export default function DashboardClient({ samples, movements, receptions }: { sa
             <CardTitle className="text-base font-semibold flex items-center text-primary"><Flame className="mr-2 h-4 w-4" /> Destructions à venir</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Aucune destruction planifiée.</p>
+            {upcomingDestructions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune destruction planifiée.</p>
+            ) : (
+              <div className="space-y-4">
+                {upcomingDestructions.map((d: any) => (
+                  <div key={d.id} className="flex items-start gap-4 pb-4 border-b border-border/50 last:border-0 last:pb-0">
+                    <div className="bg-destructive/10 p-2 rounded-full mt-0.5">
+                      <Flame className="h-4 w-4 text-destructive" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Plan {d.plan_number || d.id.substring(0, 8)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Prévu le : {d.scheduled_date ? new Date(d.scheduled_date).toLocaleDateString('fr-FR') : 'Non défini'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">{d.description || "Aucune description"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
