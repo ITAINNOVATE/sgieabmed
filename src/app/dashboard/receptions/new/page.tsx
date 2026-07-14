@@ -21,8 +21,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { 
   ArrowLeft, Save, Building2, FileSignature, Truck, CheckSquare, 
-  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2
+  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X
 } from "lucide-react"
+import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 
 // --- ZOD SCHEMA ---
 const formSchema = z.object({
@@ -102,6 +103,8 @@ const formSchema = z.object({
 
 export default function NewReceptionPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string }>>([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -207,6 +210,22 @@ export default function NewReceptionPage() {
           }));
           const { error: mvtError } = await supabase.from('movements').insert(movementsToInsert);
           if (mvtError) throw mvtError;
+
+          // Inserer les documents rattachés
+          if (attachedFiles.length > 0) {
+            const firstSampleId = insertedSamples[0].id;
+            const { data: { user } } = await supabase.auth.getUser();
+            const docsToInsert = attachedFiles.map(file => ({
+              title: file.name,
+              document_type: file.type,
+              file_url: file.url,
+              sample_id: firstSampleId,
+              uploaded_by: user?.id || null,
+              version: 1
+            }));
+            const { error: docError } = await supabase.from('documents').insert(docsToInsert);
+            if (docError) console.error("Error saving documents:", docError.message);
+          }
         }
       }
 
@@ -223,6 +242,57 @@ export default function NewReceptionPage() {
   const onDraft = () => {
     toast.info("Brouillon sauvegardé automatiquement.");
   }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setIsUploadingFile(true);
+    const toastId = toast.loading("Téléversement du document joint...");
+    
+    try {
+      const file = e.target.files[0];
+      const recNumber = form.getValues("rec_number");
+      
+      const fileExt = file.name.substring(file.name.lastIndexOf('.'));
+      const filePath = `receptions/${recNumber}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+        
+      if (uploadError) {
+        if (uploadError.message.includes('bucket not found') || uploadError.message.includes('does not exist')) {
+          const { error: bucketError } = await supabase.storage.createBucket('documents', { public: true });
+          if (bucketError) throw new Error("Le bucket 'documents' n'a pas pu être créé.");
+          
+          const { error: retryError } = await supabase.storage.from('documents').upload(filePath, file);
+          if (retryError) throw retryError;
+        } else {
+          throw uploadError;
+        }
+      }
+      
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
+      
+      setAttachedFiles(prev => [...prev, {
+        name: file.name,
+        url: urlData.publicUrl,
+        type: file.type.includes("pdf") ? "Certificat d'analyse" : "Autre"
+      }]);
+      
+      toast.success(`Fichier "${file.name}" attaché avec succès !`, { id: toastId });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Erreur d'importation : ${err.message || "Erreur inconnue"}`, { id: toastId });
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    const values = form.getValues();
+    exportReceptionVoucherPDF(values, values.samples);
+  };
 
   const handlePrint = () => window.print();
 
@@ -242,7 +312,7 @@ export default function NewReceptionPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Button type="button" variant="ghost" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
-          <Button type="button" variant="ghost"><Download className="mr-2 h-4 w-4" /> PDF</Button>
+          <Button type="button" variant="ghost" onClick={handleExportPDF}><Download className="mr-2 h-4 w-4" /> PDF</Button>
           <Button type="button" variant="secondary" onClick={onDraft}><Save className="mr-2 h-4 w-4" /> Brouillon</Button>
           <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="shadow-md">
             {isSaving ? "Traitement..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
@@ -520,13 +590,47 @@ export default function NewReceptionPage() {
               <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
                 <CardTitle className="flex items-center text-lg"><Paperclip className="mr-2 h-5 w-5 text-primary" /> 6. Documents joints</CardTitle>
               </CardHeader>
-              <CardContent className="pt-6">
-                <div className="border-2 border-dashed border-border/50 rounded-xl p-8 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground hover:bg-muted/20 transition-colors cursor-pointer">
-                  <UploadCloud className="h-10 w-10 mb-3 text-primary/50" />
-                  <p className="font-medium text-foreground">Glissez-déposez vos fichiers ici</p>
-                  <p className="text-sm mt-1 mb-4">BL, Facture, Certificats d'analyse (PDF, JPG, PNG)</p>
-                  <Button type="button" variant="secondary" size="sm">Parcourir les fichiers</Button>
+              <CardContent className="pt-6 space-y-4">
+                <div className="relative border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground hover:bg-muted/20 transition-colors cursor-pointer">
+                  <UploadCloud className="h-8 w-8 mb-2 text-primary/50" />
+                  <p className="font-medium text-foreground text-sm">Sélectionnez un fichier à joindre</p>
+                  <p className="text-xs mt-0.5 mb-3">BL, Facture, Certificats d'analyse (PDF, JPG, PNG)</p>
+                  <input 
+                    type="file" 
+                    id="reception-file-input"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleFileUpload}
+                    disabled={isUploadingFile}
+                  />
+                  <Button type="button" variant="secondary" size="sm" disabled={isUploadingFile}>
+                    {isUploadingFile ? "Téléversement..." : "Parcourir"}
+                  </Button>
                 </div>
+                
+                {attachedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-foreground/80">Fichiers rattachés :</p>
+                    <div className="divide-y divide-border/50 border border-border/50 rounded-lg overflow-hidden bg-background">
+                      {attachedFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
+                          <span className="font-medium text-foreground truncate max-w-[250px]">{file.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border/50">{file.type}</span>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                              onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

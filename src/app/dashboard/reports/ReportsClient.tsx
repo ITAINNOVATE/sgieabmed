@@ -51,6 +51,7 @@ import {
   TrendingUp,
   Clock,
 } from 'lucide-react'
+import { exportToCSV, exportToExcel, exportToPDF } from "@/utils/exportUtils"
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -192,9 +193,112 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
   // ── Handlers ──────────────────────────────────────────────
 
   const handleExport = (format: string) => {
-    toast.info(`Export ${format}`, {
-      description: 'Fonctionnalité en cours de développement',
-    })
+    if (!reportType) {
+      toast.warning('Veuillez sélectionner un type de rapport à exporter.')
+      return
+    }
+
+    let exportData: any[] = []
+    let headers: string[] = []
+    let pdfRows: any[][] = []
+    let title = ""
+    let filename = `rapport_${reportType}`
+
+    if (reportType === 'stock') {
+      title = "ABMed - Rapport d'État du Stock"
+      headers = ["N° Échantillon", "Nom Commercial", "DCI", "Lot", "Quantité", "Statut"]
+      exportData = samples.map((s: any) => ({
+        "N° Échantillon": s.sample_number || 'N/A',
+        "Nom Commercial": s.commercial_name || 'N/A',
+        "DCI": s.dci || 'N/A',
+        "Lot": s.batch_number || 'N/A',
+        "Quantité": s.quantity || 0,
+        "Statut": s.status || 'N/A'
+      }))
+      pdfRows = samples.map((s: any) => [
+        s.sample_number || 'N/A',
+        s.commercial_name || 'N/A',
+        s.dci || 'N/A',
+        s.batch_number || 'N/A',
+        String(s.quantity || 0),
+        s.status || 'N/A'
+      ])
+    } else if (reportType === 'movements') {
+      title = "ABMed - Rapport d'Historique des Mouvements"
+      headers = ["N° Mouvement", "Type", "Quantité", "Motif", "Date"]
+      exportData = movements.map((m: any) => ({
+        "N° Mouvement": m.mvt_number || 'N/A',
+        "Type": m.movement_type || 'N/A',
+        "Quantité": m.quantity || 0,
+        "Motif": m.reason || 'N/A',
+        "Date": m.created_at ? new Date(m.created_at).toLocaleDateString('fr-FR') : 'N/A'
+      }))
+      pdfRows = movements.map((m: any) => [
+        m.mvt_number || 'N/A',
+        m.movement_type || 'N/A',
+        String(m.quantity || 0),
+        m.reason || 'N/A',
+        m.created_at ? new Date(m.created_at).toLocaleDateString('fr-FR') : 'N/A'
+      ])
+    } else if (reportType === 'destruction') {
+      title = "ABMed - Rapport des Destructions"
+      headers = ["N° Plan", "Statut", "Date programmée", "Description"]
+      exportData = destructions.map((d: any) => ({
+        "N° Plan": d.plan_number || 'N/A',
+        "Statut": d.status || 'N/A',
+        "Date programmée": d.scheduled_date ? new Date(d.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
+        "Description": d.description || 'N/A'
+      }))
+      pdfRows = destructions.map((d: any) => [
+        d.plan_number || 'N/A',
+        d.status || 'N/A',
+        d.scheduled_date ? new Date(d.scheduled_date).toLocaleDateString('fr-FR') : 'N/A',
+        d.description || 'N/A'
+      ])
+    } else if (reportType === 'expiry') {
+      title = "ABMed - Rapport des Produits Expirés / Expirants (90 jours)"
+      
+      const now = new Date()
+      const threshold = new Date()
+      threshold.setDate(now.getDate() + 90)
+      
+      const expiringSamples = samples.filter((s: any) => {
+        if (!s.expiry_date) return false
+        const expDate = new Date(s.expiry_date)
+        return expDate <= threshold
+      })
+      
+      headers = ["N° Échantillon", "Nom Commercial", "DCI", "Lot", "Péremption", "Statut"]
+      exportData = expiringSamples.map((s: any) => ({
+        "N° Échantillon": s.sample_number || 'N/A',
+        "Nom Commercial": s.commercial_name || 'N/A',
+        "DCI": s.dci || 'N/A',
+        "Lot": s.batch_number || 'N/A',
+        "Péremption": s.expiry_date ? new Date(s.expiry_date).toLocaleDateString('fr-FR') : 'N/A',
+        "Statut": s.status || 'N/A'
+      }))
+      pdfRows = expiringSamples.map((s: any) => [
+        s.sample_number || 'N/A',
+        s.commercial_name || 'N/A',
+        s.dci || 'N/A',
+        s.batch_number || 'N/A',
+        s.expiry_date ? new Date(s.expiry_date).toLocaleDateString('fr-FR') : 'N/A',
+        s.status || 'N/A'
+      ])
+    }
+
+    if (exportData.length === 0) {
+      toast.warning("Aucune donnée disponible pour le rapport sélectionné.")
+      return
+    }
+
+    if (format === 'CSV') {
+      exportToCSV(exportData, headers, filename)
+    } else if (format === 'Excel') {
+      exportToExcel(exportData, headers, filename)
+    } else if (format === 'PDF') {
+      exportToPDF(title, headers, pdfRows, filename)
+    }
   }
 
   const handleGenerate = () => {

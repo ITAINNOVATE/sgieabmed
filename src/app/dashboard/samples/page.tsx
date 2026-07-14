@@ -23,6 +23,7 @@ import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { exportToExcel, exportToPDF } from "@/utils/exportUtils"
 
 export type Sample = {
   id: string
@@ -163,6 +164,48 @@ export default function SamplesDataTable() {
     state: { sorting, columnFilters },
   })
 
+  const handleExportExcel = () => {
+    if (data.length === 0) {
+      toast.warning("Aucun échantillon à exporter.")
+      return
+    }
+    const excelData = data.map(item => ({
+      "N° Échantillon": item.sample_number,
+      "Réf Réception": item.reception_ref || "N/A",
+      "Nom Commercial": item.commercial_name,
+      "DCI": item.dci,
+      "Lot": item.batch_number,
+      "Quantité": item.quantity,
+      "Péremption": new Date(item.expiry_date).toLocaleDateString("fr-FR"),
+      "Emplacement": item.current_location || "Non défini",
+      "Statut": item.status
+    }))
+    
+    exportToExcel(excelData, ["N° Échantillon", "Réf Réception", "Nom Commercial", "DCI", "Lot", "Quantité", "Péremption", "Emplacement", "Statut"], "liste_echantillons")
+    toast.success("Fichier Excel exporté avec succès !")
+  }
+
+  const handleExportPDF = () => {
+    if (data.length === 0) {
+      toast.warning("Aucun échantillon à exporter.")
+      return
+    }
+    const headers = ["N° Échantillon", "Réf Réception", "Nom Commercial", "DCI", "Lot", "Qté", "Péremption", "Statut"]
+    const rows = data.map(item => [
+      item.sample_number,
+      item.reception_ref || "N/A",
+      item.commercial_name,
+      item.dci,
+      item.batch_number,
+      String(item.quantity),
+      new Date(item.expiry_date).toLocaleDateString("fr-FR"),
+      item.status
+    ])
+    
+    exportToPDF("ABMed - Liste et Inventaire des Échantillons", headers, rows, "liste_echantillons")
+    toast.success("Rapport PDF exporté avec succès !")
+  }
+
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -171,8 +214,8 @@ export default function SamplesDataTable() {
           <p className="text-muted-foreground text-sm">Gestion complète du stock pharmaceutique.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm"><Download className="mr-2 h-4 w-4" /> Export CSV</Button>
-          <Button variant="outline" className="shadow-sm"><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
+          <Button variant="outline" className="shadow-sm" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
+          <Button variant="outline" className="shadow-sm" onClick={handleExportPDF}><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
         </div>
       </div>
 
