@@ -26,16 +26,21 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     async function fetchSample() {
-      const { data: sampleData, error } = await supabase.from('samples').select('*').eq('id', resolvedParams.id).single()
-      if (sampleData) {
-        setSample(sampleData)
-        const { data: mvtData } = await supabase.from('movements').select('*').eq('sample_id', resolvedParams.id).order('movement_date', { ascending: false })
-        if (mvtData) setMovements(mvtData)
+      const [sampleRes, mvtRes] = await Promise.all([
+        supabase.from('samples').select('*').eq('id', resolvedParams.id).single(),
+        supabase.from('movements').select('*').eq('sample_id', resolvedParams.id).order('movement_date', { ascending: false })
+      ])
+      
+      if (sampleRes.data) {
+        setSample(sampleRes.data)
+      }
+      if (mvtRes.data) {
+        setMovements(mvtRes.data)
       }
       setLoading(false)
     }
     fetchSample()
-  }, [resolvedParams.id])
+  }, [resolvedParams.id, supabase])
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement de la fiche échantillon...</div>
   if (!sample) return <div className="p-8 text-center text-destructive">Échantillon introuvable.</div>
