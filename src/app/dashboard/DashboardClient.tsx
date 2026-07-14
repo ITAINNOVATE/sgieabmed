@@ -160,26 +160,26 @@ export default function DashboardClient({
       {/* RACCOURCIS RAPIDES */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Actions Rapides</h3>
-        <div className="flex flex-wrap gap-4">
-          <Button className="h-11 px-6 rounded-xl shadow-sm gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all" asChild>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <Button className="h-11 w-full rounded-xl shadow-sm gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all" asChild>
             <Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle réception</Link>
           </Button>
-          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+          <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/samples/new"><Box className="h-4 w-4" /> Nouvel échantillon</Link>
           </Button>
-          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+          <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/waste/new"><Trash2 className="h-4 w-4" /> Nouveau déchet</Link>
           </Button>
-          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+          <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/movements/new"><ArrowRightLeft className="h-4 w-4" /> Mouvement</Link>
           </Button>
-          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+          <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/inventory"><ClipboardList className="h-4 w-4" /> Inventaire</Link>
           </Button>
-          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+          <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/destructions/new"><Flame className="h-4 w-4" /> Planifier une destruction</Link>
           </Button>
-          <Button variant="outline" className="h-11 px-6 rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
+          <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link>
           </Button>
         </div>

@@ -490,7 +490,7 @@ export default function NewReceptionPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="overflow-x-auto rounded-lg border border-border/50">
+              <div className="hidden md:block overflow-x-auto rounded-lg border border-border/50">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow>
@@ -576,6 +576,86 @@ export default function NewReceptionPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+
+              {/* MOBILE CARDS VIEW */}
+              <div className="space-y-4 md:hidden">
+                {fields.map((item, index) => (
+                  <div key={item.id} className="p-4 border border-border/50 bg-muted/10 rounded-xl space-y-4 relative">
+                    <div className="flex justify-between items-center pb-2 border-b border-sidebar-border/30">
+                      <span className="font-bold text-xs text-muted-foreground">Produit #{index + 1}</span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="h-7 w-7 text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid gap-3">
+                      <FormField control={form.control} name={`samples.${index}.commercial_name`} render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Nom commercial *</FormLabel><FormControl><Input placeholder="Nom commercial..." {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name={`samples.${index}.dci`} render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">DCI *</FormLabel><FormControl><Input placeholder="DCI..." {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value || "Autres"}>
+                            <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Catégorie" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Antibiotiques">Antibiotiques</SelectItem>
+                              <SelectItem value="Antalgiques">Antalgiques</SelectItem>
+                              <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
+                              <SelectItem value="Antipaludiques">Antipaludiques</SelectItem>
+                              <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
+                              <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
+                              <SelectItem value="Vaccins">Vaccins</SelectItem>
+                              <SelectItem value="Produits biologiques">Produits biologiques</SelectItem>
+                              <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
+                              <SelectItem value="Produits vétérinaires">Produits vétérinaires</SelectItem>
+                              <SelectItem value="Compléments alimentaires">Compléments alimentaires</SelectItem>
+                              <SelectItem value="Autres">Autres</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><Input placeholder="Ex: Comprimé..." {...field} /></FormControl></FormItem>
+                        )} />
+                        <FormField control={form.control} name={`samples.${index}.dosage`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Dosage</FormLabel><FormControl><Input placeholder="Ex: 500mg..." {...field} /></FormControl></FormItem>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot *</FormLabel><FormControl><Input placeholder="Lot N°..." {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name={`samples.${index}.exp_date`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Péremption *</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField control={form.control} name={`samples.${index}.qty`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Quantité *</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name={`samples.${index}.unit`} render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-foreground/80">Unité</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Boite">Boîte</SelectItem>
+                                <SelectItem value="Flacon">Flacon</SelectItem>
+                                <SelectItem value="Ampoule">Ampoule</SelectItem>
+                                <SelectItem value="Seringue">Seringue</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
               <Button type="button" variant="outline" className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30" onClick={() => append({ commercial_name: "", dci: "", category: "Autres", batch: "", exp_date: "", qty: 1 })}>
                 <Plus className="mr-2 h-4 w-4" /> Ajouter un produit à cette réception
