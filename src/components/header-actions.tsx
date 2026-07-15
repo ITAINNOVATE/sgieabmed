@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { QRCodeScannerDialog } from "@/components/qrcode-scanner-dialog"
+import dynamic from "next/dynamic"
+
+const QRCodeScannerDialog = dynamic(
+  () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
+  { ssr: false }
+)
 
 export function HeaderActions() {
   const [isScannerOpen, setIsScannerOpen] = useState(false)
@@ -14,7 +19,7 @@ export function HeaderActions() {
   return (
     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
       {/* Date du jour */}
-      <div className="hidden lg:flex items-center text-sm font-medium text-muted-foreground mr-2">
+      <div suppressHydrationWarning className="hidden lg:flex items-center text-sm font-medium text-muted-foreground mr-2">
         {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
       </div>
 

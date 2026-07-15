@@ -14,7 +14,11 @@ import {
 } from "recharts"
 import Link from "next/link"
 import { useState } from "react"
-import { QRCodeScannerDialog } from "@/components/qrcode-scanner-dialog"
+import dynamic from "next/dynamic"
+const QRCodeScannerDialog = dynamic(
+  () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
+  { ssr: false }
+)
 
 const COLORS = ['#0B5ED7', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#14B8A6', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#64748B'];
 
