@@ -153,7 +153,7 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">Actions</div>
                             <DropdownMenuItem asChild className="cursor-pointer">
                               <Link href={`/dashboard/waste/${batch.id}`}><Eye className="mr-2 h-4 w-4" /> Voir détails</Link>
                             </DropdownMenuItem>

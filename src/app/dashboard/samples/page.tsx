@@ -119,7 +119,7 @@ export const columns: ColumnDef<Sample>[] = [
             <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Menu</span><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">Actions</div>
             <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}`}><Eye className="mr-2 h-4 w-4"/> Consulter</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-4 w-4"/> Modifier</Link></DropdownMenuItem>
             <DropdownMenuItem asChild onClick={() => toast.info("Naviguez vers l'onglet Historique de la fiche échantillon.")}><Link href={`/dashboard/samples/${sample.id}`}><History className="mr-2 h-4 w-4"/> Historique</Link></DropdownMenuItem>
