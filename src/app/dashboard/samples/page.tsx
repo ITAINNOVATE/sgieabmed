@@ -12,7 +12,7 @@ import {
   useReactTable,
   ColumnFiltersState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, History } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, History, Printer } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,8 @@ import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { exportToExcel, exportToPDF } from "@/utils/exportUtils"
+import { generateQRCodeDataUrl } from "@/utils/qrCode"
+import { printLabel, downloadLabelPDF } from "@/utils/printUtils"
 
 export type Sample = {
   id: string
@@ -117,9 +119,44 @@ export const columns: ColumnDef<Sample>[] = [
             <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Menu</span><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}`}><Eye className="mr-2 h-4 w-4"/> Consulter</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-4 w-4"/> Modifier</Link></DropdownMenuItem>
             <DropdownMenuItem asChild onClick={() => toast.info("Naviguez vers l'onglet Historique de la fiche échantillon.")}><Link href={`/dashboard/samples/${sample.id}`}><History className="mr-2 h-4 w-4"/> Historique</Link></DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+              const url = `${origin}/dashboard/samples/${sample.id}`
+              const qrUrl = await generateQRCodeDataUrl(url)
+              if (qrUrl) {
+                printLabel({
+                  itemNumber: sample.sample_number,
+                  productName: sample.commercial_name || sample.dci,
+                  batchNumber: sample.batch_number,
+                  expiryDate: new Date(sample.expiry_date).toLocaleDateString("fr-FR"),
+                  qrCodeUrl: qrUrl
+                })
+                toast.success("Impression de l'étiquette lancée")
+              }
+            }}>
+              <Printer className="mr-2 h-4 w-4"/> Imprimer l&apos;étiquette
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+              const url = `${origin}/dashboard/samples/${sample.id}`
+              const qrUrl = await generateQRCodeDataUrl(url)
+              if (qrUrl) {
+                downloadLabelPDF({
+                  itemNumber: sample.sample_number,
+                  productName: sample.commercial_name || sample.dci,
+                  batchNumber: sample.batch_number,
+                  expiryDate: new Date(sample.expiry_date).toLocaleDateString("fr-FR"),
+                  qrCodeUrl: qrUrl
+                })
+              }
+            }}>
+              <Download className="mr-2 h-4 w-4"/> Télécharger l&apos;étiquette (PDF)
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" onClick={async () => {
               if (window.confirm("Êtes-vous sûr de vouloir supprimer cet échantillon ?")) {

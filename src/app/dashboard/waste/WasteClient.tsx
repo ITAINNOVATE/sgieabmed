@@ -2,7 +2,10 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, Trash2, Search, Filter, Flame, Eye, MoreHorizontal } from "lucide-react"
+import { Plus, Trash2, Search, Filter, Flame, Eye, MoreHorizontal, Printer, Download } from "lucide-react"
+import { toast } from "sonner"
+import { generateQRCodeDataUrl } from "@/utils/qrCode"
+import { printLabel, downloadLabelPDF } from "@/utils/printUtils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -155,11 +158,36 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
                               <Link href={`/dashboard/waste/${batch.id}`}><Eye className="mr-2 h-4 w-4" /> Voir détails</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="cursor-pointer">
-                              Contrôler le lot
+                            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+                              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+                              const url = `${origin}/dashboard/waste/${batch.id}`
+                              const qrUrl = await generateQRCodeDataUrl(url)
+                              if (qrUrl) {
+                                printLabel({
+                                  itemNumber: batch.batch_number,
+                                  productName: batch.sample ? `DECHET : ${batch.sample.commercial_name}` : `DECHET : ${batch.waste_type}`,
+                                  batchNumber: batch.sample?.batch_number || 'N/A',
+                                  qrCodeUrl: qrUrl
+                                })
+                                toast.success("Impression de l'étiquette lancée")
+                              }
+                            }}>
+                              <Printer className="mr-2 h-4 w-4" /> Imprimer l&apos;étiquette
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer text-blue-600">
-                              Imprimer QR Code
+                            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+                              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+                              const url = `${origin}/dashboard/waste/${batch.id}`
+                              const qrUrl = await generateQRCodeDataUrl(url)
+                              if (qrUrl) {
+                                downloadLabelPDF({
+                                  itemNumber: batch.batch_number,
+                                  productName: batch.sample ? `DECHET : ${batch.sample.commercial_name}` : `DECHET : ${batch.waste_type}`,
+                                  batchNumber: batch.sample?.batch_number || 'N/A',
+                                  qrCodeUrl: qrUrl
+                                })
+                              }
+                            }}>
+                              <Download className="mr-2 h-4 w-4" /> Télécharger l&apos;étiquette (PDF)
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

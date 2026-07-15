@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button"
 import { 
   Box, CheckCircle2, FlaskConical, Clock, Trash2, AlertTriangle, Plus, Inbox, 
   ArrowRightLeft, ClipboardList, FileText, UserPlus, TrendingUp, TrendingDown, 
-  Activity, BellRing, Flame
+  Activity, BellRing, Flame, Scan
 } from "lucide-react"
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
 } from "recharts"
 import Link from "next/link"
+import { useState } from "react"
+import { QRCodeScannerDialog } from "@/components/qrcode-scanner-dialog"
 
 const COLORS = ['#0B5ED7', '#10B981', '#F97316', '#8B5CF6', '#EF4444', '#14B8A6', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#64748B'];
 
@@ -29,6 +31,7 @@ export default function DashboardClient({
   wasteBatches?: any[],
   destructions?: any[]
 }) {
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   // --- 1. CALCUL DES KPIs ---
   const activeSamples = samples.filter(s => s.status !== 'Détruit')
@@ -160,7 +163,7 @@ export default function DashboardClient({
       {/* RACCOURCIS RAPIDES */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Actions Rapides</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <Button className="h-11 w-full rounded-xl shadow-sm gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all" asChild>
             <Link href="/dashboard/receptions/new"><Inbox className="h-4 w-4" /> Nouvelle réception</Link>
           </Button>
@@ -181,6 +184,13 @@ export default function DashboardClient({
           </Button>
           <Button variant="outline" className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card" asChild>
             <Link href="/dashboard/reports"><FileText className="h-4 w-4" /> Rapport</Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsScannerOpen(true)}
+            className="h-11 w-full rounded-xl shadow-sm gap-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all bg-card cursor-pointer"
+          >
+            <Scan className="h-4 w-4" /> Scanner QR
           </Button>
         </div>
       </div>
@@ -343,6 +353,10 @@ export default function DashboardClient({
         </Card>
       </div>
 
+      <QRCodeScannerDialog 
+        isOpen={isScannerOpen} 
+        onClose={() => setIsScannerOpen(false)} 
+      />
     </div>
   )
 }
