@@ -229,8 +229,11 @@ export default function NewReceptionPage() {
         }
       }
 
-      toast.success("Réception validée et échantillons générés avec succès !");
-      router.push("/dashboard/receptions");
+      toast.success("Réception validée ! Assignez maintenant les emplacements des échantillons.", {
+        description: `${values.samples.length} échantillon${values.samples.length > 1 ? 's' : ''} en attente de localisation.`,
+        duration: 6000,
+      });
+      router.push("/dashboard/samples?localiser=1");
     } catch (error: any) {
       console.error("Erreur d'insertion:", error);
       toast.error(`Erreur: ${error.message || "Impossible de sauvegarder la réception."}`);

@@ -18,6 +18,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Sample } from "../page"
 import { generateQRCodeDataUrl } from "@/utils/qrCode"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
+import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { toast } from "sonner"
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -51,9 +52,15 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
   }, [resolvedParams.id, supabase])
 
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
 
   const handlePrint = () => {
     setIsPrintDialogOpen(true)
+  }
+
+  const refreshSample = async () => {
+    const { data } = await supabase.from('samples').select('*').eq('id', resolvedParams.id).single()
+    if (data) setSample(data)
   }
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement de la fiche échantillon...</div>
@@ -90,6 +97,11 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="bg-background" asChild><Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-4 w-4" /> Modifier</Link></Button>
+          {(!sample.shelf_id || sample.status === 'À localiser') && (
+            <Button size="sm" onClick={() => setIsLocationDialogOpen(true)} className="bg-orange-600 hover:bg-orange-700 text-white gap-2">
+              <MapPin className="h-4 w-4" /> Assigner un emplacement
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handlePrint} className="bg-background cursor-pointer"><Printer className="mr-2 h-4 w-4" /> Imprimer l&apos;étiquette</Button>
         </div>
       </div>
@@ -338,6 +350,13 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
           items={[sample]}
         />
       )}
+
+      <SampleLocationDialog
+        open={isLocationDialogOpen}
+        onOpenChange={setIsLocationDialogOpen}
+        sample={sample}
+        onSuccess={refreshSample}
+      />
     </div>
   )
 }

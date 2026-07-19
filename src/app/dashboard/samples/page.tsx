@@ -12,7 +12,7 @@ import {
   useReactTable,
   ColumnFiltersState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, History, Printer } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, History, Printer, MapPin } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +26,7 @@ import { toast } from "sonner"
 import { exportToExcel, exportToPDF } from "@/utils/exportUtils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
+import { SampleLocationDialog } from "@/components/sample-location-dialog"
 
 export type Sample = {
   id: string
@@ -38,6 +39,7 @@ export type Sample = {
   status: string
   expiry_date: string
   current_location: string
+  shelf_id?: string | null
 }
 
 export const columns: ColumnDef<Sample>[] = [
@@ -111,16 +113,32 @@ export const columns: ColumnDef<Sample>[] = [
   {
     accessorKey: "status",
     header: "Statut",
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const status = row.getValue("status") as string
+      const sample = row.original
+      const meta = table.options.meta as any
       let variant: "default" | "secondary" | "destructive" | "outline" = "default"
       if (status === "Rejeté") variant = "destructive"
       else if (status === "En quarantaine") variant = "secondary"
       else if (status === "À localiser") variant = "outline"
+
+      if (status === "À localiser") {
+        return (
+          <button
+            onClick={() => meta?.onAssignLocation(sample)}
+            title="Cliquer pour assigner un emplacement"
+          >
+            <Badge variant="outline" className="bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-300 cursor-pointer flex items-center gap-1 transition-colors">
+              <MapPin className="h-3 w-3" />
+              À localiser
+            </Badge>
+          </button>
+        )
+      }
+
       return (
         <Badge variant={variant} className={
           status === "En quarantaine" ? "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-300" :
-          status === "À localiser" ? "bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-200" :
           status === "Rejeté" ? "" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200"
         }>
           {status}
@@ -144,6 +162,9 @@ export const columns: ColumnDef<Sample>[] = [
             <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-4 w-4"/> Modifier</Link></DropdownMenuItem>
             <DropdownMenuItem asChild onClick={() => toast.info("Naviguez vers l'onglet Historique de la fiche échantillon.")}><Link href={`/dashboard/samples/${sample.id}`}><History className="mr-2 h-4 w-4"/> Historique</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onClick={() => meta?.onAssignLocation(sample)}>
+              <MapPin className="mr-2 h-4 w-4 text-orange-500"/> Assigner un emplacement
+            </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onClick={() => {
               meta?.onPrintLabel(sample)
             }}>
@@ -173,16 +194,19 @@ export default function SamplesDataTable() {
   const [rowSelection, setRowSelection] = useState({})
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
   const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
+  const [locationSample, setLocationSample] = useState<Sample | null>(null)
   const supabase = createClient()
 
-  useEffect(() => {
-    async function fetchData() {
-      const { data: samples, error } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
-      if (samples) setData(samples)
-      setLoading(false)
-    }
-    fetchData()
-  }, [])
+  const fetchData = async () => {
+    const { data: samples } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
+    if (samples) setData(samples)
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchData() }, [])
+
+  const unlocatedCount = data.filter(s => s.status === 'À localiser').length
 
   const table = useReactTable({
     data,
@@ -199,6 +223,10 @@ export default function SamplesDataTable() {
       onPrintLabel: (sample: Sample) => {
         setPrintDialogItems([sample])
         setIsPrintDialogOpen(true)
+      },
+      onAssignLocation: (sample: Sample) => {
+        setLocationSample(sample)
+        setIsLocationDialogOpen(true)
       }
     }
   })
@@ -250,6 +278,17 @@ export default function SamplesDataTable() {
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      {unlocatedCount > 0 && (
+        <div className="flex items-center gap-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
+          <MapPin className="h-5 w-5 text-orange-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
+              {unlocatedCount} échantillon{unlocatedCount > 1 ? 's' : ''} en attente de localisation
+            </p>
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Cliquez sur le badge <strong>«À localiser»</strong> ou utilisez le menu ⋯ pour assigner un emplacement.</p>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Liste des échantillons</h2>
@@ -351,6 +390,16 @@ export default function SamplesDataTable() {
         }}
         type="sample"
         items={printDialogItems}
+      />
+
+      <SampleLocationDialog
+        open={isLocationDialogOpen}
+        onOpenChange={setIsLocationDialogOpen}
+        sample={locationSample}
+        onSuccess={() => {
+          setLocationSample(null)
+          fetchData()
+        }}
       />
     </div>
   )
