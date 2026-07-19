@@ -24,8 +24,8 @@ import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { exportToExcel, exportToPDF } from "@/utils/exportUtils"
-import { generateQRCodeDataUrl } from "@/utils/qrCode"
-import { printLabel, downloadLabelPDF } from "@/utils/printUtils"
+import { Checkbox } from "@/components/ui/checkbox"
+import { LabelPrintDialog } from "@/components/label-print-dialog"
 
 export type Sample = {
   id: string
@@ -41,6 +41,25 @@ export type Sample = {
 }
 
 export const columns: ColumnDef<Sample>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={table.getIsAllPageRowsSelected()}
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "sample_number",
     header: "N° Échantillon",
@@ -111,8 +130,9 @@ export const columns: ColumnDef<Sample>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const sample = row.original
+      const meta = table.options.meta as any
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -124,38 +144,10 @@ export const columns: ColumnDef<Sample>[] = [
             <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-4 w-4"/> Modifier</Link></DropdownMenuItem>
             <DropdownMenuItem asChild onClick={() => toast.info("Naviguez vers l'onglet Historique de la fiche échantillon.")}><Link href={`/dashboard/samples/${sample.id}`}><History className="mr-2 h-4 w-4"/> Historique</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
-              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-              const url = `${origin}/dashboard/samples/${sample.id}`
-              const qrUrl = await generateQRCodeDataUrl(url)
-              if (qrUrl) {
-                printLabel({
-                  itemNumber: sample.sample_number,
-                  productName: sample.commercial_name || sample.dci,
-                  batchNumber: sample.batch_number,
-                  expiryDate: new Date(sample.expiry_date).toLocaleDateString("fr-FR"),
-                  qrCodeUrl: qrUrl
-                })
-                toast.success("Impression de l'étiquette lancée")
-              }
+            <DropdownMenuItem className="cursor-pointer" onClick={() => {
+              meta?.onPrintLabel(sample)
             }}>
-              <Printer className="mr-2 h-4 w-4"/> Imprimer l&apos;étiquette
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
-              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-              const url = `${origin}/dashboard/samples/${sample.id}`
-              const qrUrl = await generateQRCodeDataUrl(url)
-              if (qrUrl) {
-                downloadLabelPDF({
-                  itemNumber: sample.sample_number,
-                  productName: sample.commercial_name || sample.dci,
-                  batchNumber: sample.batch_number,
-                  expiryDate: new Date(sample.expiry_date).toLocaleDateString("fr-FR"),
-                  qrCodeUrl: qrUrl
-                })
-              }
-            }}>
-              <Download className="mr-2 h-4 w-4"/> Télécharger l&apos;étiquette (PDF)
+              <Printer className="mr-2 h-4 w-4"/> Étiqueter (Imprimer/PDF)
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" onClick={async () => {
@@ -178,6 +170,9 @@ export default function SamplesDataTable() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [data, setData] = useState<Sample[]>([])
   const [loading, setLoading] = useState(true)
+  const [rowSelection, setRowSelection] = useState({})
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
+  const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
   const supabase = createClient()
 
   useEffect(() => {
@@ -198,8 +193,18 @@ export default function SamplesDataTable() {
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
-    state: { sorting, columnFilters },
+    onRowSelectionChange: setRowSelection,
+    state: { sorting, columnFilters, rowSelection },
+    meta: {
+      onPrintLabel: (sample: Sample) => {
+        setPrintDialogItems([sample])
+        setIsPrintDialogOpen(true)
+      }
+    }
   })
+
+  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedItems = selectedRows.map(row => row.original)
 
   const handleExportExcel = () => {
     if (data.length === 0) {
@@ -251,8 +256,19 @@ export default function SamplesDataTable() {
           <p className="text-muted-foreground text-sm">Gestion complète du stock pharmaceutique.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
-          <Button variant="outline" className="shadow-sm" onClick={handleExportPDF}><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
+          {selectedItems.length > 0 && (
+            <Button 
+              onClick={() => {
+                setPrintDialogItems(selectedItems)
+                setIsPrintDialogOpen(true)
+              }}
+              className="shadow-md bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl"
+            >
+              <Printer className="h-4 w-4" /> Étiqueter ({selectedItems.length})
+            </Button>
+          )}
+          <Button variant="outline" className="shadow-sm rounded-xl" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
+          <Button variant="outline" className="shadow-sm rounded-xl" onClick={handleExportPDF}><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
         </div>
       </div>
 
@@ -325,6 +341,17 @@ export default function SamplesDataTable() {
           </div>
         </CardContent>
       </Card>
+
+      <LabelPrintDialog 
+        isOpen={isPrintDialogOpen}
+        onClose={() => {
+          setIsPrintDialogOpen(false)
+          setPrintDialogItems([])
+          setRowSelection({})
+        }}
+        type="sample"
+        items={printDialogItems}
+      />
     </div>
   )
 }

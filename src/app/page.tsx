@@ -32,10 +32,16 @@ export default function LoginPage({
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {searchParams?.error && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-xl p-3 text-sm flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{Array.isArray(searchParams.error) ? searchParams.error[0] : searchParams.error}</span>
+            </div>
+          )}
           <form action={login}>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground/80 font-medium">Nom d'utilisateur</Label>
-              <Input id="email" name="email" type="text" placeholder="Entrez votre identifiant" required className="h-11 shadow-sm transition-all focus-visible:ring-primary/50" />
+              <Label htmlFor="email" className="text-foreground/80 font-medium">Nom d'utilisateur / Email</Label>
+              <Input id="email" name="email" type="text" defaultValue="admin@sgie.com" placeholder="admin@sgie.com" required className="h-11 shadow-sm transition-all focus-visible:ring-primary/50" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">

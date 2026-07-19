@@ -4,8 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { Plus, Trash2, Search, Filter, Flame, Eye, MoreHorizontal, Printer, Download } from "lucide-react"
 import { toast } from "sonner"
-import { generateQRCodeDataUrl } from "@/utils/qrCode"
-import { printLabel, downloadLabelPDF } from "@/utils/printUtils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,10 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { LabelPrintDialog } from "@/components/label-print-dialog"
 
 export default function WasteClient({ initialBatches }: { initialBatches: any[] }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
+  const [printDialogItems, setPrintDialogItems] = useState<any[]>([])
 
   const filteredBatches = initialBatches.filter(batch => {
     const matchesSearch = 
@@ -54,10 +57,22 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
           <p className="text-muted-foreground mt-1">Gérez le cycle de vie, la déclaration et le contrôle des déchets (PSQIF).</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="outline" asChild className="gap-2 bg-background shadow-sm">
+          {selectedIds.length > 0 && (
+            <Button
+              onClick={() => {
+                const itemsToPrint = filteredBatches.filter(b => selectedIds.includes(b.id))
+                setPrintDialogItems(itemsToPrint)
+                setIsPrintDialogOpen(true)
+              }}
+              className="gap-2 shadow-md bg-orange-600 hover:bg-orange-700 text-white rounded-xl"
+            >
+              <Printer className="h-4 w-4" /> Étiqueter ({selectedIds.length})
+            </Button>
+          )}
+          <Button variant="outline" asChild className="gap-2 bg-background shadow-sm rounded-xl">
             <Link href="/dashboard/destructions"><Flame className="h-4 w-4 text-orange-500" /> Planifier Destruction</Link>
           </Button>
-          <Button asChild className="gap-2 shadow-md">
+          <Button asChild className="gap-2 shadow-md rounded-xl">
             <Link href="/dashboard/waste/new"><Plus className="h-4 w-4" /> Déclarer un lot</Link>
           </Button>
         </div>
@@ -102,6 +117,18 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={selectedIds.length === filteredBatches.length && filteredBatches.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedIds(filteredBatches.map(b => b.id))
+                        } else {
+                          setSelectedIds([])
+                        }
+                      }}
+                    />
+                  </TableHead>
                   <TableHead>N° Lot</TableHead>
                   <TableHead>Type de déchet</TableHead>
                   <TableHead>Produit d'origine</TableHead>
@@ -114,13 +141,25 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
               <TableBody>
                 {filteredBatches.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">
                       Aucun déchet enregistré.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredBatches.map((batch) => (
                     <TableRow key={batch.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="w-12">
+                        <Checkbox 
+                          checked={selectedIds.includes(batch.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedIds(prev => [...prev, batch.id])
+                            } else {
+                              setSelectedIds(prev => prev.filter(id => id !== batch.id))
+                            }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium font-mono text-xs">{batch.batch_number}</TableCell>
                       <TableCell>{batch.waste_type}</TableCell>
                       <TableCell>
@@ -158,36 +197,11 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
                               <Link href={`/dashboard/waste/${batch.id}`}><Eye className="mr-2 h-4 w-4" /> Voir détails</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
-                              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-                              const url = `${origin}/dashboard/waste/${batch.id}`
-                              const qrUrl = await generateQRCodeDataUrl(url)
-                              if (qrUrl) {
-                                printLabel({
-                                  itemNumber: batch.batch_number,
-                                  productName: batch.sample ? `DECHET : ${batch.sample.commercial_name}` : `DECHET : ${batch.waste_type}`,
-                                  batchNumber: batch.sample?.batch_number || 'N/A',
-                                  qrCodeUrl: qrUrl
-                                })
-                                toast.success("Impression de l'étiquette lancée")
-                              }
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => {
+                              setPrintDialogItems([batch])
+                              setIsPrintDialogOpen(true)
                             }}>
-                              <Printer className="mr-2 h-4 w-4" /> Imprimer l&apos;étiquette
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer" onClick={async () => {
-                              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-                              const url = `${origin}/dashboard/waste/${batch.id}`
-                              const qrUrl = await generateQRCodeDataUrl(url)
-                              if (qrUrl) {
-                                downloadLabelPDF({
-                                  itemNumber: batch.batch_number,
-                                  productName: batch.sample ? `DECHET : ${batch.sample.commercial_name}` : `DECHET : ${batch.waste_type}`,
-                                  batchNumber: batch.sample?.batch_number || 'N/A',
-                                  qrCodeUrl: qrUrl
-                                })
-                              }
-                            }}>
-                              <Download className="mr-2 h-4 w-4" /> Télécharger l&apos;étiquette (PDF)
+                              <Printer className="mr-2 h-4 w-4" /> Étiqueter (Imprimer/PDF)
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -200,6 +214,17 @@ export default function WasteClient({ initialBatches }: { initialBatches: any[] 
           </div>
         </CardContent>
       </Card>
+
+      <LabelPrintDialog 
+        isOpen={isPrintDialogOpen}
+        onClose={() => {
+          setIsPrintDialogOpen(false)
+          setPrintDialogItems([])
+          setSelectedIds([])
+        }}
+        type="waste"
+        items={printDialogItems}
+      />
     </div>
   )
 }

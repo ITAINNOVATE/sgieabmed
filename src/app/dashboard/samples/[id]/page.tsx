@@ -17,7 +17,7 @@ import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
 import { Sample } from "../page"
 import { generateQRCodeDataUrl } from "@/utils/qrCode"
-import { printLabel, downloadLabelPDF } from "@/utils/printUtils"
+import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { toast } from "sonner"
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,38 +50,10 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
     fetchSample()
   }, [resolvedParams.id, supabase])
 
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
+
   const handlePrint = () => {
-    if (!sample || !qrCodeUrl) return
-    printLabel({
-      itemNumber: sample.sample_number,
-      productName: sample.commercial_name || sample.dci,
-      batchNumber: sample.batch_number,
-      expiryDate: new Date(sample.expiry_date).toLocaleDateString("fr-FR"),
-      qrCodeUrl: qrCodeUrl
-    })
-  }
-
-  const handleDownloadPNG = () => {
-    if (!sample || !qrCodeUrl) return
-    const link = document.createElement('a')
-    link.href = qrCodeUrl
-    link.download = `qrcode_${sample.sample_number}.png`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success("QR Code PNG téléchargé avec succès !")
-  }
-
-  const handleDownloadPDF = () => {
-    if (!sample || !qrCodeUrl) return
-    downloadLabelPDF({
-      itemNumber: sample.sample_number,
-      productName: sample.commercial_name || sample.dci,
-      batchNumber: sample.batch_number,
-      expiryDate: new Date(sample.expiry_date).toLocaleDateString("fr-FR"),
-      qrCodeUrl: qrCodeUrl
-    })
-    toast.success("Étiquette PDF téléchargée avec succès !")
+    setIsPrintDialogOpen(true)
   }
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement de la fiche échantillon...</div>
@@ -335,14 +307,14 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
                 <div className="grid grid-cols-2 gap-2">
                   <Button 
                     variant="outline" 
-                    onClick={handleDownloadPNG}
+                    onClick={handlePrint}
                     className="h-9 rounded-xl text-xs gap-1 border-border/60 hover:bg-muted cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" /> PNG
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={handleDownloadPDF}
+                    onClick={handlePrint}
                     className="h-9 rounded-xl text-xs gap-1 border-border/60 hover:bg-muted cursor-pointer"
                   >
                     <FileText className="h-3.5 w-3.5" /> PDF
@@ -357,6 +329,15 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
           </Card>
         </div>
       </div>
+
+      {sample && (
+        <LabelPrintDialog 
+          isOpen={isPrintDialogOpen}
+          onClose={() => setIsPrintDialogOpen(false)}
+          type="sample"
+          items={[sample]}
+        />
+      )}
     </div>
   )
 }

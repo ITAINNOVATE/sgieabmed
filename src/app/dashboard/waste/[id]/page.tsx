@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 
 import { createClient } from "@/utils/supabase/client"
 import { generateQRCodeDataUrl } from "@/utils/qrCode"
-import { printLabel, downloadLabelPDF } from "@/utils/printUtils"
+import { LabelPrintDialog } from "@/components/label-print-dialog"
 
 export default function WasteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -48,36 +48,10 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
     fetchWasteBatch()
   }, [resolvedParams.id, supabase])
 
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
+
   const handlePrint = () => {
-    if (!wasteBatch || !qrCodeUrl) return
-    printLabel({
-      itemNumber: wasteBatch.batch_number,
-      productName: wasteBatch.sample ? `DECHET : ${wasteBatch.sample.commercial_name}` : `DECHET : ${wasteBatch.waste_type}`,
-      batchNumber: wasteBatch.sample?.batch_number || 'N/A',
-      qrCodeUrl: qrCodeUrl
-    })
-  }
-
-  const handleDownloadPNG = () => {
-    if (!wasteBatch || !qrCodeUrl) return
-    const link = document.createElement('a')
-    link.href = qrCodeUrl
-    link.download = `qrcode_dechet_${wasteBatch.batch_number}.png`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success("QR Code PNG téléchargé avec succès !")
-  }
-
-  const handleDownloadPDF = () => {
-    if (!wasteBatch || !qrCodeUrl) return
-    downloadLabelPDF({
-      itemNumber: wasteBatch.batch_number,
-      productName: wasteBatch.sample ? `DECHET : ${wasteBatch.sample.commercial_name}` : `DECHET : ${wasteBatch.waste_type}`,
-      batchNumber: wasteBatch.sample?.batch_number || 'N/A',
-      qrCodeUrl: qrCodeUrl
-    })
-    toast.success("Étiquette PDF téléchargée avec succès !")
+    setIsPrintDialogOpen(true)
   }
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement...</div>
@@ -209,14 +183,14 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
                 <div className="grid grid-cols-2 gap-2">
                   <Button 
                     variant="outline" 
-                    onClick={handleDownloadPNG}
+                    onClick={handlePrint}
                     className="h-9 rounded-xl text-xs gap-1 border-border/60 hover:bg-muted cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" /> PNG
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={handleDownloadPDF}
+                    onClick={handlePrint}
                     className="h-9 rounded-xl text-xs gap-1 border-border/60 hover:bg-muted cursor-pointer"
                   >
                     <FileText className="h-3.5 w-3.5" /> PDF
@@ -232,6 +206,15 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
       </div>
+
+      {wasteBatch && (
+        <LabelPrintDialog 
+          isOpen={isPrintDialogOpen}
+          onClose={() => setIsPrintDialogOpen(false)}
+          type="waste"
+          items={[wasteBatch]}
+        />
+      )}
     </div>
   )
 }
