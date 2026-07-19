@@ -162,7 +162,7 @@ export default function NewReceptionPage() {
       date_reception: new Date().toISOString().split('T')[0],
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
       status: "En attente",
-      samples: [{ commercial_name: "", dci: "", category: "Autres", batch: "", exp_date: "", qty: 1 }],
+      samples: [{ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 }],
       check_packaging: false,
       check_boxes: false,
       check_seals: false,
@@ -363,7 +363,7 @@ export default function NewReceptionPage() {
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Button type="button" variant="ghost" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
           <Button type="button" variant="ghost" onClick={handleExportPDF}><Download className="mr-2 h-4 w-4" /> PDF</Button>
-          <Button type="button" variant="secondary" onClick={onDraft}><Save className="mr-2 h-4 w-4" /> Brouillon</Button>
+          <Button type="button" variant="secondary" onClick={onDraft}><Save className="mr-2 h-4 w-4" /> Sauvegarder</Button>
           <Button type="button" onClick={form.handleSubmit(onSubmit, onError)} disabled={isSaving} className="shadow-md">
             {isSaving ? "Traitement..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
           </Button>
@@ -540,101 +540,10 @@ export default function NewReceptionPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="hidden md:block overflow-x-auto rounded-lg border border-border/50">
-                <Table>
-                  <TableHeader className="bg-muted/30">
-                    <TableRow>
-                      <TableHead className="min-w-[200px]">Nom commercial / DCI</TableHead>
-                      <TableHead className="min-w-[150px]">Forme & Dosage</TableHead>
-                      <TableHead className="min-w-[150px]">N° Lot & Péremption</TableHead>
-                      <TableHead className="min-w-[120px]">Quantité</TableHead>
-                      <TableHead className="w-[80px] text-center">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fields.map((item, index) => (
-                      <TableRow key={item.id} className="align-top">
-                        <TableCell className="space-y-2">
-                          <FormField control={form.control} name={`samples.${index}.commercial_name`} render={({ field }) => (
-                            <FormItem><FormControl><UppercaseInput placeholder="Nom commercial..." {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={form.control} name={`samples.${index}.dci`} render={({ field }) => (
-                            <FormItem><FormControl><UppercaseInput placeholder="DCI..." {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
-                            <FormItem>
-                              <Select onValueChange={field.onChange} defaultValue={field.value || "Autres"}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Classe Thérapeutique" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  <SelectItem value="Analgésiques / Antipyrétiques">Analgésiques / Antipyrétiques</SelectItem>
-                                  <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
-                                  <SelectItem value="Antibiotiques / Antibactériens">Antibiotiques / Antibactériens</SelectItem>
-                                  <SelectItem value="Antifongiques">Antifongiques</SelectItem>
-                                  <SelectItem value="Antiviraux">Antiviraux</SelectItem>
-                                  <SelectItem value="Antiparasitaires / Antipaludéens">Antiparasitaires / Antipaludéens</SelectItem>
-                                  <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
-                                  <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
-                                  <SelectItem value="Antihistaminiques">Antihistaminiques</SelectItem>
-                                  <SelectItem value="Gastro-entérologie">Gastro-entérologie</SelectItem>
-                                  <SelectItem value="Vitamines et Suppléments">Vitamines et Suppléments</SelectItem>
-                                  <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
-                                  <SelectItem value="Anesthésiques">Anesthésiques</SelectItem>
-                                  <SelectItem value="Corticoïdes">Corticoïdes</SelectItem>
-                                  <SelectItem value="Psychotropes / Neurologie">Psychotropes / Neurologie</SelectItem>
-                                  <SelectItem value="Dispositifs médicaux / Consommables">Dispositifs médicaux / Consommables</SelectItem>
-                                  <SelectItem value="Autres">Autres</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
-                          )} />
-                        </TableCell>
-                        <TableCell className="space-y-2">
-                          <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
-                            <FormItem><FormControl><UppercaseInput placeholder="Ex: Comprimé..." {...field} /></FormControl></FormItem>
-                          )} />
-                          <FormField control={form.control} name={`samples.${index}.dosage`} render={({ field }) => (
-                            <FormItem><FormControl><UppercaseInput placeholder="Ex: 500mg..." {...field} /></FormControl></FormItem>
-                          )} />
-                        </TableCell>
-                        <TableCell className="space-y-2">
-                          <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
-                            <FormItem><FormControl><UppercaseInput placeholder="Lot N°..." {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={form.control} name={`samples.${index}.exp_date`} render={({ field }) => (
-                            <FormItem><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget).showPicker()} {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                        </TableCell>
-                        <TableCell className="space-y-2">
-                          <FormField control={form.control} name={`samples.${index}.qty`} render={({ field }) => (
-                            <FormItem><FormControl><Input type="number" min="1" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={form.control} name={`samples.${index}.unit`} render={({ field }) => (
-                            <FormItem>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  <SelectItem value="Boite">Boîte</SelectItem>
-                                  <SelectItem value="Flacon">Flacon</SelectItem>
-                                  <SelectItem value="Ampoule">Ampoule</SelectItem>
-                                  <SelectItem value="Seringue">Seringue</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
-                          )} />
-                        </TableCell>
-                        <TableCell className="text-center pt-4">
-                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:bg-destructive/10">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              
 
               {/* MOBILE CARDS VIEW */}
-              <div className="space-y-4 md:hidden">
+              <div className="space-y-4">
                 {fields.map((item, index) => (
                   <div key={item.id} className="p-4 border border-border/50 bg-muted/10 rounded-xl space-y-4 relative">
                     <div className="flex justify-between items-center pb-2 border-b border-sidebar-border/30">
@@ -654,7 +563,7 @@ export default function NewReceptionPage() {
                       <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs font-semibold text-foreground/80">Classe Thérapeutique</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || "Autres"}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                             <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Classe Thérapeutique" /></SelectTrigger></FormControl>
                             <SelectContent>
                                   <SelectItem value="Analgésiques / Antipyrétiques">Analgésiques / Antipyrétiques</SelectItem>
@@ -717,7 +626,7 @@ export default function NewReceptionPage() {
                   </div>
                 ))}
               </div>
-              <Button type="button" variant="outline" className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30" onClick={() => append({ commercial_name: "", dci: "", category: "Autres", batch: "", exp_date: "", qty: 1 })}>
+              <Button type="button" variant="outline" className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30" onClick={() => append({ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 })}>
                 <Plus className="mr-2 h-4 w-4" /> Ajouter un produit à cette réception
               </Button>
             </CardContent>
