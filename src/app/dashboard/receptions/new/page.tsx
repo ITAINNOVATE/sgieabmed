@@ -134,6 +134,24 @@ export default function NewReceptionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string }>>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [validators, setValidators] = useState<{id: string, name: string}[]>([]);
+
+  React.useEffect(() => {
+    async function loadValidators() {
+      const supabase = createClient();
+      const { data } = await supabase.from('users').select('id, first_name, last_name').eq('is_active', true);
+      if (data) {
+        setValidators(data.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}` })));
+      }
+    }
+    loadValidators();
+  }, []);
+
+  const onError = (errors: any) => {
+    toast.error("Veuillez remplir tous les champs obligatoires en rouge.");
+    console.error("Form validation errors:", errors);
+  };
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -346,14 +364,14 @@ export default function NewReceptionPage() {
           <Button type="button" variant="ghost" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
           <Button type="button" variant="ghost" onClick={handleExportPDF}><Download className="mr-2 h-4 w-4" /> PDF</Button>
           <Button type="button" variant="secondary" onClick={onDraft}><Save className="mr-2 h-4 w-4" /> Brouillon</Button>
-          <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="shadow-md">
+          <Button type="button" onClick={form.handleSubmit(onSubmit, onError)} disabled={isSaving} className="shadow-md">
             {isSaving ? "Traitement..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
           </Button>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-8">
           
           <div className="grid lg:grid-cols-2 gap-6">
             
@@ -546,19 +564,24 @@ export default function NewReceptionPage() {
                           <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                             <FormItem>
                               <Select onValueChange={field.onChange} defaultValue={field.value || "Autres"}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Classe Thérapeutique" /></SelectTrigger></FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Antibiotiques">Antibiotiques</SelectItem>
-                                  <SelectItem value="Antalgiques">Antalgiques</SelectItem>
+                                  <SelectItem value="Analgésiques / Antipyrétiques">Analgésiques / Antipyrétiques</SelectItem>
                                   <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
-                                  <SelectItem value="Antipaludiques">Antipaludiques</SelectItem>
+                                  <SelectItem value="Antibiotiques / Antibactériens">Antibiotiques / Antibactériens</SelectItem>
+                                  <SelectItem value="Antifongiques">Antifongiques</SelectItem>
+                                  <SelectItem value="Antiviraux">Antiviraux</SelectItem>
+                                  <SelectItem value="Antiparasitaires / Antipaludéens">Antiparasitaires / Antipaludéens</SelectItem>
                                   <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
                                   <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
-                                  <SelectItem value="Vaccins">Vaccins</SelectItem>
-                                  <SelectItem value="Produits biologiques">Produits biologiques</SelectItem>
-                                  <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
-                                  <SelectItem value="Produits vétérinaires">Produits vétérinaires</SelectItem>
-                                  <SelectItem value="Compléments alimentaires">Compléments alimentaires</SelectItem>
+                                  <SelectItem value="Antihistaminiques">Antihistaminiques</SelectItem>
+                                  <SelectItem value="Gastro-entérologie">Gastro-entérologie</SelectItem>
+                                  <SelectItem value="Vitamines et Suppléments">Vitamines et Suppléments</SelectItem>
+                                  <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
+                                  <SelectItem value="Anesthésiques">Anesthésiques</SelectItem>
+                                  <SelectItem value="Corticoïdes">Corticoïdes</SelectItem>
+                                  <SelectItem value="Psychotropes / Neurologie">Psychotropes / Neurologie</SelectItem>
+                                  <SelectItem value="Dispositifs médicaux / Consommables">Dispositifs médicaux / Consommables</SelectItem>
                                   <SelectItem value="Autres">Autres</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -630,23 +653,28 @@ export default function NewReceptionPage() {
                       )} />
                       <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground/80">Classe Thérapeutique</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value || "Autres"}>
-                            <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Catégorie" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Classe Thérapeutique" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              <SelectItem value="Antibiotiques">Antibiotiques</SelectItem>
-                              <SelectItem value="Antalgiques">Antalgiques</SelectItem>
-                              <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
-                              <SelectItem value="Antipaludiques">Antipaludiques</SelectItem>
-                              <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
-                              <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
-                              <SelectItem value="Vaccins">Vaccins</SelectItem>
-                              <SelectItem value="Produits biologiques">Produits biologiques</SelectItem>
-                              <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
-                              <SelectItem value="Produits vétérinaires">Produits vétérinaires</SelectItem>
-                              <SelectItem value="Compléments alimentaires">Compléments alimentaires</SelectItem>
-                              <SelectItem value="Autres">Autres</SelectItem>
-                            </SelectContent>
+                                  <SelectItem value="Analgésiques / Antipyrétiques">Analgésiques / Antipyrétiques</SelectItem>
+                                  <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
+                                  <SelectItem value="Antibiotiques / Antibactériens">Antibiotiques / Antibactériens</SelectItem>
+                                  <SelectItem value="Antifongiques">Antifongiques</SelectItem>
+                                  <SelectItem value="Antiviraux">Antiviraux</SelectItem>
+                                  <SelectItem value="Antiparasitaires / Antipaludéens">Antiparasitaires / Antipaludéens</SelectItem>
+                                  <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
+                                  <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
+                                  <SelectItem value="Antihistaminiques">Antihistaminiques</SelectItem>
+                                  <SelectItem value="Gastro-entérologie">Gastro-entérologie</SelectItem>
+                                  <SelectItem value="Vitamines et Suppléments">Vitamines et Suppléments</SelectItem>
+                                  <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
+                                  <SelectItem value="Anesthésiques">Anesthésiques</SelectItem>
+                                  <SelectItem value="Corticoïdes">Corticoïdes</SelectItem>
+                                  <SelectItem value="Psychotropes / Neurologie">Psychotropes / Neurologie</SelectItem>
+                                  <SelectItem value="Dispositifs médicaux / Consommables">Dispositifs médicaux / Consommables</SelectItem>
+                                  <SelectItem value="Autres">Autres</SelectItem>
+                                </SelectContent>
                           </Select>
                         </FormItem>
                       )} />
@@ -732,10 +760,10 @@ export default function NewReceptionPage() {
                               type="button" 
                               variant="ghost" 
                               size="icon" 
-                              className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                              className="h-6 px-2 text-destructive hover:bg-destructive/10 text-xs"
                               onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-3.5 w-3.5 mr-1" /> Supprimer
                             </Button>
                           </div>
                         </div>
@@ -754,7 +782,17 @@ export default function NewReceptionPage() {
               <CardContent className="grid gap-4 pt-6">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <FormField control={form.control} name="validator_name" render={({ field }) => (
-                    <FormItem><FormLabel>Responsable validation</FormLabel><FormControl><UppercaseInput {...field} /></FormControl></FormItem>
+                    <FormItem>
+                      <FormLabel>Responsable validation</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {validators.map(v => (
+                            <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="validation_date" render={({ field }) => (
                     <FormItem><FormLabel>Date de validation</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget).showPicker()} {...field} /></FormControl></FormItem>
