@@ -393,6 +393,8 @@ export default function NewReceptionPage() {
                         <SelectItem value="Enregistrement">Enregistrement</SelectItem>
                         <SelectItem value="Renouvellement">Renouvellement</SelectItem>
                         <SelectItem value="Variation">Variation</SelectItem>
+                        <SelectItem value="Inspection">Inspection</SelectItem>
+                        <SelectItem value="Controle qualite">Contrôle qualité</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
