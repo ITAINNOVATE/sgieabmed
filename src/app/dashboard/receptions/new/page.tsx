@@ -386,14 +386,13 @@ export default function NewReceptionPage() {
                 )} />
                 <FormField control={form.control} name="type_reception" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Type</FormLabel>
+                    <FormLabel>Type de demande</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                       <SelectContent>
-                        <SelectItem value="Inspection">Inspection</SelectItem>
-                        <SelectItem value="Depot">Dépôt</SelectItem>
-                        <SelectItem value="Livraison">Livraison standard</SelectItem>
-                        <SelectItem value="Echantillonnage">Échantillonnage terrain</SelectItem>
+                        <SelectItem value="Enregistrement">Enregistrement</SelectItem>
+                        <SelectItem value="Renouvellement">Renouvellement</SelectItem>
+                        <SelectItem value="Variation">Variation</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
