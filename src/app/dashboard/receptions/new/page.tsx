@@ -562,28 +562,17 @@ export default function NewReceptionPage() {
                       )} />
                       <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs font-semibold text-foreground/80">Classe Thérapeutique</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie de produit</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                            <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Classe Thérapeutique" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Catégorie de produit" /></SelectTrigger></FormControl>
                             <SelectContent>
-                                  <SelectItem value="Analgésiques / Antipyrétiques">Analgésiques / Antipyrétiques</SelectItem>
-                                  <SelectItem value="Anti-inflammatoires">Anti-inflammatoires</SelectItem>
-                                  <SelectItem value="Antibiotiques / Antibactériens">Antibiotiques / Antibactériens</SelectItem>
-                                  <SelectItem value="Antifongiques">Antifongiques</SelectItem>
-                                  <SelectItem value="Antiviraux">Antiviraux</SelectItem>
-                                  <SelectItem value="Antiparasitaires / Antipaludéens">Antiparasitaires / Antipaludéens</SelectItem>
-                                  <SelectItem value="Antihypertenseurs">Antihypertenseurs</SelectItem>
-                                  <SelectItem value="Antidiabétiques">Antidiabétiques</SelectItem>
-                                  <SelectItem value="Antihistaminiques">Antihistaminiques</SelectItem>
-                                  <SelectItem value="Gastro-entérologie">Gastro-entérologie</SelectItem>
-                                  <SelectItem value="Vitamines et Suppléments">Vitamines et Suppléments</SelectItem>
-                                  <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
-                                  <SelectItem value="Anesthésiques">Anesthésiques</SelectItem>
-                                  <SelectItem value="Corticoïdes">Corticoïdes</SelectItem>
-                                  <SelectItem value="Psychotropes / Neurologie">Psychotropes / Neurologie</SelectItem>
-                                  <SelectItem value="Dispositifs médicaux / Consommables">Dispositifs médicaux / Consommables</SelectItem>
-                                  <SelectItem value="Autres">Autres</SelectItem>
-                                </SelectContent>
+                              <SelectItem value="Médicaments conventionnels">Médicaments conventionnels</SelectItem>
+                              <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
+                              <SelectItem value="Médicaments à base de plantes">Médicaments à base de plantes</SelectItem>
+                              <SelectItem value="Compléments nutritionnels">Compléments nutritionnels</SelectItem>
+                              <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
+                              <SelectItem value="Produits cosmétiques">Produits cosmétiques</SelectItem>
+                            </SelectContent>
                           </Select>
                         </FormItem>
                       )} />
