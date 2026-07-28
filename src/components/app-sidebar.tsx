@@ -44,8 +44,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur */}
-      <SidebarHeader className="h-[68px] px-3 flex flex-row items-center gap-2.5 bg-white dark:bg-card border-b border-border/80 text-foreground shrink-0">
+      {/* En-tête sur fond BLANC pur - Hauteur 72px identique au header principal */}
+      <SidebarHeader className="h-[72px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-card border-b border-border text-foreground shrink-0">
         <div className="text-[#1B5C2E] p-1.5 bg-[#1B5C2E]/10 rounded-xl shrink-0">
           <FlaskConical className="h-6 w-6" strokeWidth={2.2} />
         </div>
