@@ -124,12 +124,10 @@ export function AppSidebar() {
                   <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-4 pl-2 space-y-0.5">
                     {adminSubNav.map((sub) => (
                       <SidebarMenuSubItem key={sub.title}>
-                        <SidebarMenuSubButton asChild className="h-7 text-[11px] hover:bg-sidebar-accent rounded-md">
-                          <Link href={sub.url} className="flex items-center gap-2">
-                            <sub.icon className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{sub.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
+                        <Link href={sub.url} className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-md transition-colors w-full">
+                          <sub.icon className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{sub.title}</span>
+                        </Link>
                       </SidebarMenuSubItem>
                     ))}
                   </SidebarMenuSub>
