@@ -133,25 +133,25 @@ export default function WasteClient({
         </div>
 
         {/* ─── ONGLET 1: TABLEAU DE BORD DÉCHETS STATIQUE ───────────────────── */}
-        <TabsContent value="dashboard" className="space-y-4 mt-0">
+        <TabsContent value="dashboard" className="space-y-3 mt-0">
           
           {/* LIGNE 1 : KPIs DÉCHETS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {KPIData.map((kpi, index) => (
               <Card key={index} className="shadow-2xs border border-border/70 rounded-xl overflow-hidden relative bg-card">
-                <CardContent className="p-4 pb-6">
+                <CardContent className="p-3.5 pb-5">
                   <div className="flex justify-between items-start">
-                    <div className={`p-2 rounded-lg ${kpi.bg}`}>
-                      <kpi.icon className={`h-4.5 w-4.5 ${kpi.color}`} strokeWidth={2.2} />
+                    <div className={`p-1.5 rounded-lg ${kpi.bg}`}>
+                      <kpi.icon className={`h-4 w-4 ${kpi.color}`} strokeWidth={2.2} />
                     </div>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
                       {kpi.isUp ? '▲' : '▼'} {kpi.trend}
                     </span>
                   </div>
-                  <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider mt-3 mb-0.5">{kpi.title}</p>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mt-2.5 mb-0.5">{kpi.title}</p>
                   <h2 className="text-2xl font-black text-foreground tracking-tight">{kpi.value}</h2>
                 </CardContent>
-                <div className="h-6 w-full absolute bottom-0 left-0 opacity-60">
+                <div className="h-5 w-full absolute bottom-0 left-0 opacity-60">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={kpi.sparkline.map((val, i) => ({ val, i }))}>
                       <Line type="monotone" dataKey="val" stroke={kpi.isUp ? '#2E7D32' : '#E53935'} strokeWidth={1.8} dot={false} isAnimationActive={false} />
@@ -167,15 +167,15 @@ export default function WasteClient({
             
             {/* DONUT 1 : DÉCHETS PAR CATÉGORIE */}
             <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-              <CardHeader className="p-3.5 pb-0">
+              <CardHeader className="p-3 pb-0">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">DÉCHETS PAR CATÉGORIE (KG)</CardTitle>
               </CardHeader>
-              <CardContent className="p-3.5 pt-1">
-                <div className="flex items-center justify-between h-[150px]">
+              <CardContent className="p-3 pt-1">
+                <div className="flex items-center justify-between h-[140px]">
                   <div className="w-1/2 h-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value" stroke="none">
+                        <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={32} outerRadius={54} paddingAngle={3} dataKey="value" stroke="none">
                           {wasteByCategory.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={WASTE_CATEGORIES_COLORS[index % WASTE_CATEGORIES_COLORS.length]} />
                           ))}
@@ -205,15 +205,15 @@ export default function WasteClient({
 
             {/* DONUT 2 : STATUT DES LOTS DE DÉCHETS */}
             <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-              <CardHeader className="p-3.5 pb-0">
+              <CardHeader className="p-3 pb-0">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">STATUT DU STOCK DÉCHETS</CardTitle>
               </CardHeader>
-              <CardContent className="p-3.5 pt-1">
-                <div className="flex items-center justify-between h-[150px]">
+              <CardContent className="p-3 pt-1">
+                <div className="flex items-center justify-between h-[140px]">
                   <div className="w-1/2 h-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value" stroke="none">
+                        <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={32} outerRadius={54} paddingAngle={3} dataKey="value" stroke="none">
                           {wasteByStatus.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={WASTE_STATUS_COLORS[index % WASTE_STATUS_COLORS.length]} />
                           ))}
@@ -243,13 +243,13 @@ export default function WasteClient({
 
             {/* COLONNE 3 : ALERTES DÉCHETS */}
             <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-              <CardHeader className="p-3.5 pb-2 flex flex-row items-center justify-between">
+              <CardHeader className="p-3 pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ALERTES DÉCHETS (PSQIF)</CardTitle>
                 <Link href="/dashboard/alerts" className="text-[11px] font-semibold text-[#E53935] hover:underline">Voir tout</Link>
               </CardHeader>
-              <CardContent className="p-3.5 pt-0 space-y-2.5">
+              <CardContent className="p-3 pt-0 space-y-2">
                 {wasteAlerts.map((al, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[11px] gap-2 pb-1.5 border-b border-border/30 last:border-0 last:pb-0">
+                  <div key={idx} className="flex items-center justify-between text-[11px] gap-2 pb-1 border-b border-border/30 last:border-0 last:pb-0">
                     <div className="flex items-center gap-2 truncate">
                       <div className={`p-1 rounded-md shrink-0 ${al.type === 'error' ? 'bg-red-50 text-red-600' : al.type === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
                         <AlertTriangle className="h-3 w-3" />
