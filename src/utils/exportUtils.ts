@@ -2,7 +2,7 @@
 
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 
 // 1. Export CSV
 export function exportToCSV(data: any[], headers: string[], filename: string) {
@@ -82,13 +82,12 @@ export function exportToPDF(title: string, headers: string[], rows: any[][], fil
   doc.setTextColor(79, 70, 229) // indigo-600
   doc.text(title, 14, 40)
   
-  // @ts-ignore
-  doc.autoTable({
+  autoTable(doc, {
     startY: 46,
     head: [headers],
     body: rows,
     theme: "striped",
-    headStyles: { fillDouble: false, fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+    headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
     styles: { fontSize: 8.5, cellPadding: 2.5 },
     margin: { left: 14, right: 14 }
   })
@@ -122,6 +121,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   doc.text(`Date & Heure : ${reception.date_reception || 'N/A'} ${reception.time_reception || ''}`, 14, 56)
   doc.text(`Inspecteur : ${reception.inspector || 'N/A'}`, 14, 62)
   doc.text(`Réf Doc (BL/Facture) : ${reception.ref_document || 'N/A'}`, 14, 68)
+  doc.text(`Type de demande : ${reception.type_reception || 'N/A'}`, 14, 74)
   
   doc.text(`Fournisseur : ${reception.supplier || 'N/A'}`, 110, 50)
   doc.text(`Fabricant : ${reception.manufacturer || 'N/A'}`, 110, 56)
@@ -130,45 +130,44 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   
   // Conformity Section
   doc.setFontSize(12)
-  doc.text("2. Contrôle de Conformité", 14, 80)
-  doc.line(14, 82, 196, 82)
+  doc.text("2. Contrôle de Conformité", 14, 86)
+  doc.line(14, 88, 196, 88)
   
   const getConformSymbol = (val: boolean) => val ? "[X] Conforme" : "[ ] Non conforme"
   
   doc.setFontSize(9)
-  doc.text(`Emballage : ${getConformSymbol(reception.check_packaging)}`, 14, 88)
-  doc.text(`Boîtes/Colis : ${getConformSymbol(reception.check_boxes)}`, 14, 94)
-  doc.text(`Scellés : ${getConformSymbol(reception.check_seals)}`, 14, 100)
+  doc.text(`Emballage : ${getConformSymbol(reception.check_packaging)}`, 14, 94)
+  doc.text(`Boîtes/Colis : ${getConformSymbol(reception.check_boxes)}`, 14, 100)
+  doc.text(`Scellés : ${getConformSymbol(reception.check_seals)}`, 14, 106)
   
-  doc.text(`Quantité reçue : ${getConformSymbol(reception.check_qty)}`, 110, 88)
-  doc.text(`Documents joints : ${getConformSymbol(reception.check_docs)}`, 110, 94)
-  doc.text(`Intégrité physique : ${getConformSymbol(reception.check_damage)}`, 110, 100)
+  doc.text(`Quantité reçue : ${getConformSymbol(reception.check_qty)}`, 110, 94)
+  doc.text(`Documents joints : ${getConformSymbol(reception.check_docs)}`, 110, 100)
+  doc.text(`Intégrité physique : ${getConformSymbol(reception.check_damage)}`, 110, 106)
   
   doc.setFontSize(10)
-  doc.text(`CONFORMITÉ GLOBALE : ${reception.check_conform ? "CONFORME" : "NON CONFORME / RÉSERVES"}`, 14, 108)
+  doc.text(`CONFORMITÉ GLOBALE : ${reception.check_conform ? "CONFORME" : "NON CONFORME / RÉSERVES"}`, 14, 114)
   
   if (reception.anomalies) {
     doc.setFontSize(9)
-    doc.text(`Anomalies constatées : ${reception.anomalies}`, 14, 114)
+    doc.text(`Anomalies constatées : ${reception.anomalies}`, 14, 120)
   }
   
   // Samples List Section
   doc.setFontSize(12)
-  doc.text("3. Produits et Échantillons Reçus", 14, 126)
-  doc.line(14, 128, 196, 128)
+  doc.text("3. Produits et Échantillons Reçus", 14, 132)
+  doc.line(14, 134, 196, 134)
   
   const tableHeaders = ["Nom commercial / DCI", "Catégorie", "N° Lot", "Date Péremption", "Quantité"]
-  const tableRows = samples.map(s => [
+  const tableRows = (samples || []).map(s => [
     `${s.commercial_name || ''}\n(${s.dci || ''})`,
-    s.category || 'Autres',
+    s.category || 'N/A',
     s.batch || s.batch_number || 'N/A',
     s.exp_date || s.expiry_date || 'N/A',
     `${s.qty || s.quantity || 0} ${s.unit || 'unités'}`
   ])
   
-  // @ts-ignore
-  doc.autoTable({
-    startY: 132,
+  autoTable(doc, {
+    startY: 138,
     head: [tableHeaders],
     body: tableRows,
     theme: "grid",
@@ -178,8 +177,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   })
   
   // Validation / Signature Section
-  // @ts-ignore
-  const finalY = doc.lastAutoTable.finalY + 12
+  const finalY = (doc as any).lastAutoTable.finalY + 12
   
   doc.setFontSize(12)
   doc.text("4. Validation de la Réception", 14, finalY)

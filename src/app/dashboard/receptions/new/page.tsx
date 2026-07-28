@@ -17,13 +17,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 import { 
   ArrowLeft, Save, Building2, FileSignature, Truck, CheckSquare, 
   Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
+import React from 'react'
 
 // --- ZOD SCHEMA ---
 const formSchema = z.object({
@@ -31,13 +31,13 @@ const formSchema = z.object({
   rec_number: z.string(),
   date_reception: z.string().min(1, "Date requise"),
   time_reception: z.string().min(1, "Heure requise"),
-  ref_document: z.string().min(1, "Référence requise"),
-  type_reception: z.string().min(1, "Type requis"),
-  inspector: z.string().min(1, "Inspecteur requis"),
+  ref_document: z.string().optional(),
+  type_reception: z.string().optional(),
+  inspector: z.string().optional(),
   status: z.string(),
 
   // 2. Provenance
-  supplier: z.string().min(1, "Fournisseur requis"),
+  supplier: z.string().optional(),
   manufacturer: z.string().optional(),
   country: z.string().optional(),
   city: z.string().optional(),
@@ -68,19 +68,18 @@ const formSchema = z.object({
 
   // 5. Échantillons (Dynamic Array)
   samples: z.array(z.object({
-    commercial_name: z.string().min(1, "Requis"),
-    dci: z.string().min(1, "Requis"),
+    commercial_name: z.string().optional(),
+    dci: z.string().optional(),
     form: z.string().optional(),
     dosage: z.string().optional(),
     presentation: z.string().optional(),
-    batch: z.string().min(1, "Requis"),
+    batch: z.string().optional(),
     mfg_date: z.string().optional(),
-    exp_date: z.string().min(1, "Requis"),
-    qty: z.coerce.number().min(1, "> 0"),
+    exp_date: z.string().optional(),
+    qty: z.coerce.number().min(1).default(1),
     unit: z.string().optional(),
     category: z.string().optional(),
-  })),
-
+  })).default([]),
 
   // 7. Validation
   validator_name: z.string().optional(),
@@ -91,71 +90,58 @@ const formSchema = z.object({
 
   // 8. Commentaires
   global_comments: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if ((data.decision === "Rejetée" || data.decision === "Acceptée avec réserve") && !data.decision_reason) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Le motif est obligatoire pour cette décision.",
-      path: ["decision_reason"]
-    });
-  }
-});
+})
 
-
-import React from 'react';
+type FormValues = z.infer<typeof formSchema>
 
 const UppercaseInput = React.forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(({ onChange, className, ...props }, ref) => (
   <Input
     ref={ref}
     className={`uppercase ${className || ''}`}
     onChange={(e) => {
-      e.target.value = e.target.value.toUpperCase();
-      if (onChange) onChange(e);
+      e.target.value = e.target.value.toUpperCase()
+      if (onChange) onChange(e)
     }}
     {...props}
   />
-));
-UppercaseInput.displayName = 'UppercaseInput';
+))
+UppercaseInput.displayName = 'UppercaseInput'
 
 const UppercaseTextarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<typeof Textarea>>(({ onChange, className, ...props }, ref) => (
   <Textarea
     ref={ref}
     className={`uppercase ${className || ''}`}
     onChange={(e) => {
-      e.target.value = e.target.value.toUpperCase();
-      if (onChange) onChange(e);
+      e.target.value = e.target.value.toUpperCase()
+      if (onChange) onChange(e)
     }}
     {...props}
   />
-));
-UppercaseTextarea.displayName = 'UppercaseTextarea';
+))
+UppercaseTextarea.displayName = 'UppercaseTextarea'
 
 export default function NewReceptionPage() {
-  const [isSaving, setIsSaving] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string }>>([]);
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [validators, setValidators] = useState<{id: string, name: string}[]>([]);
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDrafting, setIsDrafting] = useState(false)
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string }>>([])
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const [validators, setValidators] = useState<{id: string, name: string}[]>([])
 
   React.useEffect(() => {
     async function loadValidators() {
-      const supabase = createClient();
-      const { data } = await supabase.from('users').select('id, first_name, last_name').eq('is_active', true);
+      const supabase = createClient()
+      const { data } = await supabase.from('users').select('id, first_name, last_name').eq('is_active', true)
       if (data) {
-        setValidators(data.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}` })));
+        setValidators(data.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}` })))
       }
     }
-    loadValidators();
-  }, []);
+    loadValidators()
+  }, [])
 
-  const onError = (errors: any) => {
-    toast.error("Veuillez remplir tous les champs obligatoires en rouge.");
-    console.error("Form validation errors:", errors);
-  };
+  const router = useRouter()
+  const supabase = createClient()
 
-  const router = useRouter();
-  const supabase = createClient();
-
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
       rec_number: "REC-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000),
@@ -171,40 +157,35 @@ export default function NewReceptionPage() {
       check_damage: false,
       check_conform: false,
     },
-  });
+  })
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "samples",
-  });
+  })
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setIsSaving(true);
-    
+  // ─── Sauvegarder en brouillon (statut = "Brouillon") ──────────────────────
+  const onDraft = async () => {
+    setIsDrafting(true)
+    const toastId = toast.loading("Sauvegarde en cours...")
     try {
-      // 1. Inserer la réception
-      const { error: receptionError } = await supabase.from('receptions').insert({
+      const values = form.getValues()
+      const { error } = await supabase.from('receptions').insert({
         rec_number: values.rec_number,
         date_reception: values.date_reception,
         time_reception: values.time_reception,
-        ref_document: values.ref_document,
-        type_reception: values.type_reception,
-        inspector: values.inspector,
-        status: values.status,
-        supplier: values.supplier,
-        manufacturer: values.manufacturer,
-        country: values.country,
-        city: values.city,
-        contact_person: values.contact_person,
-        phone: values.phone,
-        email: values.email,
-        carrier: values.carrier,
-        package_number: values.package_number,
-        total_packages: values.total_packages,
-        received_packages: values.received_packages,
-        shipping_date: values.shipping_date || null,
-        arrival_date: values.arrival_date || null,
-        transport_mode: values.transport_mode,
+        ref_document: values.ref_document || null,
+        type_reception: values.type_reception || null,
+        inspector: values.inspector || null,
+        status: "Brouillon",
+        supplier: values.supplier || null,
+        manufacturer: values.manufacturer || null,
+        country: values.country || null,
+        city: values.city || null,
+        contact_person: values.contact_person || null,
+        phone: values.phone || null,
+        carrier: values.carrier || null,
+        transport_mode: values.transport_mode || null,
         check_packaging: values.check_packaging,
         check_boxes: values.check_boxes,
         check_seals: values.check_seals,
@@ -212,39 +193,93 @@ export default function NewReceptionPage() {
         check_docs: values.check_docs,
         check_damage: values.check_damage,
         check_conform: values.check_conform,
-        anomalies: values.anomalies,
-        measures: values.measures,
-        validator_name: values.validator_name,
-        validator_role: values.validator_role,
+        anomalies: values.anomalies || null,
+        measures: values.measures || null,
+        global_comments: values.global_comments || null,
+      })
+      if (error) throw error
+      toast.success("Brouillon sauvegardé avec succès !", { id: toastId })
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Erreur : ${err.message || "Impossible de sauvegarder le brouillon."}`, { id: toastId })
+    } finally {
+      setIsDrafting(false)
+    }
+  }
+
+  // ─── Valider la réception ─────────────────────────────────────────────────
+  const onSubmit = async (values: FormValues) => {
+    setIsSaving(true)
+    const toastId = toast.loading("Validation en cours...")
+    
+    try {
+      const { error: receptionError } = await supabase.from('receptions').insert({
+        rec_number: values.rec_number,
+        date_reception: values.date_reception,
+        time_reception: values.time_reception,
+        ref_document: values.ref_document || null,
+        type_reception: values.type_reception || null,
+        inspector: values.inspector || null,
+        status: "En attente",
+        supplier: values.supplier || null,
+        manufacturer: values.manufacturer || null,
+        country: values.country || null,
+        city: values.city || null,
+        contact_person: values.contact_person || null,
+        phone: values.phone || null,
+        email: values.email || null,
+        carrier: values.carrier || null,
+        package_number: values.package_number || null,
+        total_packages: values.total_packages || null,
+        received_packages: values.received_packages || null,
+        shipping_date: values.shipping_date || null,
+        arrival_date: values.arrival_date || null,
+        transport_mode: values.transport_mode || null,
+        check_packaging: values.check_packaging,
+        check_boxes: values.check_boxes,
+        check_seals: values.check_seals,
+        check_qty: values.check_qty,
+        check_docs: values.check_docs,
+        check_damage: values.check_damage,
+        check_conform: values.check_conform,
+        anomalies: values.anomalies || null,
+        measures: values.measures || null,
+        validator_name: values.validator_name || null,
+        validator_role: values.validator_role || null,
         validation_date: values.validation_date || null,
-        decision: values.decision,
-        decision_reason: values.decision_reason,
-        global_comments: values.global_comments,
-      });
+        decision: values.decision || null,
+        decision_reason: values.decision_reason || null,
+        global_comments: values.global_comments || null,
+      })
 
-      if (receptionError) throw receptionError;
+      if (receptionError) throw receptionError
 
-      // 2. Inserer les échantillons
-      if (values.samples && values.samples.length > 0) {
-        const samplesToInsert = values.samples.map(sample => ({
+      // Insérer les échantillons valides (avec au moins un nom)
+      const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
+      if (validSamples.length > 0) {
+        const samplesToInsert = validSamples.map(sample => ({
           sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
           reception_ref: values.rec_number,
           commercial_name: sample.commercial_name,
-          dci: sample.dci,
-          form: sample.form,
-          dosage: sample.dosage,
-          presentation: sample.presentation,
-          batch_number: sample.batch,
+          dci: sample.dci || null,
+          form: sample.form || null,
+          dosage: sample.dosage || null,
+          presentation: sample.presentation || null,
+          batch_number: sample.batch || null,
           mfg_date: sample.mfg_date || null,
-          expiry_date: sample.exp_date,
-          quantity: sample.qty,
-          unit: sample.unit,
-          category: sample.category,
+          expiry_date: sample.exp_date || null,
+          quantity: sample.qty || 1,
+          unit: sample.unit || null,
+          category: sample.category || null,
           status: 'À localiser'
-        }));
+        }))
 
-        const { data: insertedSamples, error: samplesError } = await supabase.from('samples').insert(samplesToInsert).select();
-        if (samplesError) throw samplesError;
+        const { data: insertedSamples, error: samplesError } = await supabase
+          .from('samples')
+          .insert(samplesToInsert)
+          .select()
+        
+        if (samplesError) throw samplesError
 
         if (insertedSamples && insertedSamples.length > 0) {
           const movementsToInsert = insertedSamples.map(sample => ({
@@ -254,14 +289,13 @@ export default function NewReceptionPage() {
             quantity: sample.quantity,
             reason: 'Réception initiale',
             observations: `Création automatique suite à la réception ${values.rec_number}`,
-          }));
-          const { error: mvtError } = await supabase.from('movements').insert(movementsToInsert);
-          if (mvtError) throw mvtError;
+          }))
+          const { error: mvtError } = await supabase.from('movements').insert(movementsToInsert)
+          if (mvtError) console.error("Erreur mouvements:", mvtError.message)
 
-          // Inserer les documents rattachés
           if (attachedFiles.length > 0) {
-            const firstSampleId = insertedSamples[0].id;
-            const { data: { user } } = await supabase.auth.getUser();
+            const firstSampleId = insertedSamples[0].id
+            const { data: { user } } = await supabase.auth.getUser()
             const docsToInsert = attachedFiles.map(file => ({
               title: file.name,
               document_type: file.type,
@@ -269,87 +303,75 @@ export default function NewReceptionPage() {
               sample_id: firstSampleId,
               uploaded_by: user?.id || null,
               version: 1
-            }));
-            const { error: docError } = await supabase.from('documents').insert(docsToInsert);
-            if (docError) console.error("Error saving documents:", docError.message);
+            }))
+            const { error: docError } = await supabase.from('documents').insert(docsToInsert)
+            if (docError) console.error("Erreur documents:", docError.message)
           }
         }
       }
 
-      toast.success("Réception validée ! Assignez maintenant les emplacements des échantillons.", {
-        description: `${values.samples.length} échantillon${values.samples.length > 1 ? 's' : ''} en attente de localisation.`,
-        duration: 6000,
-      });
-      router.push("/dashboard/samples?localiser=1");
+      toast.success("Réception validée avec succès !", {
+        id: toastId,
+        description: validSamples.length > 0
+          ? `${validSamples.length} échantillon(s) enregistré(s).`
+          : "Aucun échantillon ajouté.",
+        duration: 5000,
+      })
+      router.push("/dashboard/receptions")
     } catch (error: any) {
-      console.error("Erreur d'insertion:", error);
-      toast.error(`Erreur: ${error.message || "Impossible de sauvegarder la réception."}`);
+      console.error("Erreur d'insertion:", error)
+      toast.error(`Erreur : ${error.message || "Impossible de valider la réception."}`, { id: toastId })
     } finally {
-      setIsSaving(false);
+      setIsSaving(false)
     }
-  };
-
-  const onDraft = () => {
-    toast.info("Brouillon sauvegardé automatiquement.");
   }
 
+  // ─── Upload fichier ───────────────────────────────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    
-    setIsUploadingFile(true);
-    const toastId = toast.loading("Téléversement du document joint...");
-    
+    if (!e.target.files || e.target.files.length === 0) return
+    setIsUploadingFile(true)
+    const toastId = toast.loading("Téléversement du document joint...")
     try {
-      const file = e.target.files[0];
-      const recNumber = form.getValues("rec_number");
+      const file = e.target.files[0]
+      const recNumber = form.getValues("rec_number")
+      const fileExt = file.name.substring(file.name.lastIndexOf('.'))
+      const filePath = `receptions/${recNumber}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}${fileExt}`
       
-      const fileExt = file.name.substring(file.name.lastIndexOf('.'));
-      const filePath = `receptions/${recNumber}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
+      if (uploadError) throw uploadError
       
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
-        
-      if (uploadError) {
-        if (uploadError.message.includes('bucket not found') || uploadError.message.includes('does not exist')) {
-          const { error: bucketError } = await supabase.storage.createBucket('documents', { public: true });
-          if (bucketError) throw new Error("Le bucket 'documents' n'a pas pu être créé.");
-          
-          const { error: retryError } = await supabase.storage.from('documents').upload(filePath, file);
-          if (retryError) throw retryError;
-        } else {
-          throw uploadError;
-        }
-      }
-      
-      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
-      
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
       setAttachedFiles(prev => [...prev, {
         name: file.name,
         url: urlData.publicUrl,
         type: file.type.includes("pdf") ? "Certificat d'analyse" : "Autre"
-      }]);
-      
-      toast.success(`Fichier "${file.name}" attaché avec succès !`, { id: toastId });
+      }])
+      toast.success(`Fichier "${file.name}" attaché !`, { id: toastId })
     } catch (err: any) {
-      console.error(err);
-      toast.error(`Erreur d'importation : ${err.message || "Erreur inconnue"}`, { id: toastId });
+      toast.error(`Erreur d'importation : ${err.message || "Erreur inconnue"}`, { id: toastId })
     } finally {
-      setIsUploadingFile(false);
+      setIsUploadingFile(false)
     }
-  };
+  }
 
+  // ─── Export PDF ───────────────────────────────────────────────────────────
   const handleExportPDF = () => {
-    const values = form.getValues();
-    exportReceptionVoucherPDF(values, values.samples);
-  };
+    try {
+      const values = form.getValues()
+      exportReceptionVoucherPDF(values, values.samples || [])
+      toast.success("PDF généré avec succès !")
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Erreur PDF : ${err.message || "Impossible de générer le PDF."}`)
+    }
+  }
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => window.print()
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out max-w-[1400px] mx-auto pb-20">
       
-      {/* BARRE D'ACTIONS (Header Fixe) */}
+      {/* BARRE D'ACTIONS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/80 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm sticky top-20 z-10">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" asChild className="h-10 w-10 shrink-0 rounded-full">
@@ -361,17 +383,24 @@ export default function NewReceptionPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <Button type="button" variant="ghost" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
-          <Button type="button" variant="ghost" onClick={handleExportPDF}><Download className="mr-2 h-4 w-4" /> PDF</Button>
-          <Button type="button" variant="secondary" onClick={onDraft}><Save className="mr-2 h-4 w-4" /> Sauvegarder</Button>
-          <Button type="button" onClick={form.handleSubmit(onSubmit, onError)} disabled={isSaving} className="shadow-md">
-            {isSaving ? "Traitement..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
+          <Button type="button" variant="ghost" onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" /> Imprimer
+          </Button>
+          <Button type="button" variant="ghost" onClick={handleExportPDF}>
+            <Download className="mr-2 h-4 w-4" /> PDF
+          </Button>
+          <Button type="button" variant="secondary" onClick={onDraft} disabled={isDrafting}>
+            <Save className="mr-2 h-4 w-4" />
+            {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
+          </Button>
+          <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="shadow-md">
+            {isSaving ? "Validation..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
           </Button>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           
           <div className="grid lg:grid-cols-2 gap-6">
             
@@ -387,7 +416,7 @@ export default function NewReceptionPage() {
                 <FormField control={form.control} name="type_reception" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type de demande</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Enregistrement">Enregistrement</SelectItem>
@@ -401,16 +430,16 @@ export default function NewReceptionPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="date_reception" render={({ field }) => (
-                  <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget).showPicker()} {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="time_reception" render={({ field }) => (
                   <FormItem><FormLabel>Heure</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="ref_document" render={({ field }) => (
-                  <FormItem><FormLabel>Réf. Document (BL, Facture...)</FormLabel><FormControl><UppercaseInput placeholder="BL-2026-..." {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Réf. Document (BL, Facture...)</FormLabel><FormControl><UppercaseInput placeholder="BL-2026-..." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="inspector" render={({ field }) => (
-                  <FormItem><FormLabel>Inspecteur / Agent</FormLabel><FormControl><UppercaseInput {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Inspecteur / Agent</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                 )} />
               </CardContent>
             </Card>
@@ -424,29 +453,21 @@ export default function NewReceptionPage() {
                 <FormField control={form.control} name="supplier" render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Fournisseur / Laboratoire</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner ou saisir..." /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Sanofi Aventis">Sanofi Aventis</SelectItem>
-                        <SelectItem value="Pfizer">Pfizer</SelectItem>
-                        <SelectItem value="Moderna">Moderna</SelectItem>
-                        <SelectItem value="OMS">OMS</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl><UppercaseInput placeholder="Nom du fournisseur..." {...field} value={field.value ?? ""} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="manufacturer" render={({ field }) => (
-                  <FormItem><FormLabel>Fabricant (si différent)</FormLabel><FormControl><UppercaseInput {...field} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Fabricant (si différent)</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="country" render={({ field }) => (
-                  <FormItem><FormLabel>Pays d'origine</FormLabel><FormControl><UppercaseInput {...field} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Pays d'origine</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="contact_person" render={({ field }) => (
-                  <FormItem><FormLabel>Personne de contact</FormLabel><FormControl><UppercaseInput {...field} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Personne de contact</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel>Téléphone</FormLabel><FormControl><UppercaseInput {...field} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Téléphone</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
               </CardContent>
             </Card>
@@ -458,12 +479,12 @@ export default function NewReceptionPage() {
               </CardHeader>
               <CardContent className="grid sm:grid-cols-2 gap-4 pt-6">
                 <FormField control={form.control} name="carrier" render={({ field }) => (
-                  <FormItem><FormLabel>Transporteur</FormLabel><FormControl><UppercaseInput placeholder="Ex: DHL, Interne..." {...field} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Transporteur</FormLabel><FormControl><UppercaseInput placeholder="Ex: DHL, Interne..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="transport_mode" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Moyen de transport</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Aerien">Aérien</SelectItem>
@@ -474,14 +495,14 @@ export default function NewReceptionPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="package_number" render={({ field }) => (
-                  <FormItem><FormLabel>N° de colis (Tracking)</FormLabel><FormControl><UppercaseInput {...field} /></FormControl></FormItem>
+                  <FormItem><FormLabel>N° de colis (Tracking)</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <div className="flex gap-4">
                   <FormField control={form.control} name="received_packages" render={({ field }) => (
-                    <FormItem className="flex-1"><FormLabel>Colis Reçus</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                    <FormItem className="flex-1"><FormLabel>Colis Reçus</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="total_packages" render={({ field }) => (
-                    <FormItem className="flex-1"><FormLabel>Colis Total</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                    <FormItem className="flex-1"><FormLabel>Colis Total</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                   )} />
                 </div>
               </CardContent>
@@ -518,10 +539,10 @@ export default function NewReceptionPage() {
                 </div>
                 <div className="space-y-3">
                   <FormField control={form.control} name="anomalies" render={({ field }) => (
-                    <FormItem><FormLabel>Anomalies constatées</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Anomalies constatées</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name="measures" render={({ field }) => (
-                    <FormItem><FormLabel>Mesures prises</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Mesures prises</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                   )} />
                 </div>
               </CardContent>
@@ -529,7 +550,7 @@ export default function NewReceptionPage() {
 
           </div>
 
-          {/* 5. ÉCHANTILLONS REÇUS (TABLEAU DYNAMIQUE) */}
+          {/* 5. ÉCHANTILLONS REÇUS */}
           <Card className="shadow-sm border-border/50">
             <CardHeader className="bg-primary/5 border-b border-border/50 pb-4">
               <div className="flex justify-between items-center">
@@ -537,13 +558,10 @@ export default function NewReceptionPage() {
                   <CardTitle className="flex items-center text-lg"><Box className="mr-2 h-5 w-5 text-primary" /> 5. Échantillons reçus</CardTitle>
                   <CardDescription className="mt-1">Saisie multiple des produits contenus dans cette réception.</CardDescription>
                 </div>
-                <Badge variant="outline" className="text-sm px-3 py-1 bg-background">Total Produits : {fields.length}</Badge>
+                <Badge variant="outline" className="text-sm px-3 py-1 bg-background">Total : {fields.length}</Badge>
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              
-
-              {/* MOBILE CARDS VIEW */}
               <div className="space-y-4">
                 {fields.map((item, index) => (
                   <div key={item.id} className="p-4 border border-border/50 bg-muted/10 rounded-xl space-y-4 relative">
@@ -556,15 +574,15 @@ export default function NewReceptionPage() {
                     
                     <div className="grid gap-3">
                       <FormField control={form.control} name={`samples.${index}.commercial_name`} render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Nom commercial *</FormLabel><FormControl><UppercaseInput placeholder="Nom commercial..." {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Nom commercial</FormLabel><FormControl><UppercaseInput placeholder="Nom commercial..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name={`samples.${index}.dci`} render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">DCI *</FormLabel><FormControl><UppercaseInput placeholder="DCI..." {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">DCI</FormLabel><FormControl><UppercaseInput placeholder="DCI..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie de produit</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Catégorie de produit" /></SelectTrigger></FormControl>
                             <SelectContent>
                               <SelectItem value="Médicaments conventionnels">Médicaments conventionnels</SelectItem>
@@ -579,34 +597,36 @@ export default function NewReceptionPage() {
                       )} />
                       <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><UppercaseInput placeholder="Ex: Comprimé..." {...field} /></FormControl></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><UppercaseInput placeholder="Ex: Comprimé..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                         <FormField control={form.control} name={`samples.${index}.dosage`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Dosage</FormLabel><FormControl><UppercaseInput placeholder="Ex: 500mg..." {...field} /></FormControl></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Dosage</FormLabel><FormControl><UppercaseInput placeholder="Ex: 500mg..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot *</FormLabel><FormControl><UppercaseInput placeholder="Lot N°..." {...field} /></FormControl><FormMessage /></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput placeholder="Lot N°..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                         <FormField control={form.control} name={`samples.${index}.exp_date`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Péremption *</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget).showPicker()} {...field} /></FormControl><FormMessage /></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Péremption</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.qty`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Quantité *</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl><FormMessage /></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Quantité</FormLabel><FormControl><Input type="number" min="1" {...field} value={field.value ?? 1} /></FormControl></FormItem>
                         )} />
                         <FormField control={form.control} name={`samples.${index}.unit`} render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs font-semibold text-foreground/80">Unité</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
                               <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
                               <SelectContent>
                                 <SelectItem value="Boite">Boîte</SelectItem>
                                 <SelectItem value="Flacon">Flacon</SelectItem>
                                 <SelectItem value="Ampoule">Ampoule</SelectItem>
                                 <SelectItem value="Seringue">Seringue</SelectItem>
+                                <SelectItem value="Sachet">Sachet</SelectItem>
+                                <SelectItem value="Tube">Tube</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormItem>
@@ -616,7 +636,12 @@ export default function NewReceptionPage() {
                   </div>
                 ))}
               </div>
-              <Button type="button" variant="outline" className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30" onClick={() => append({ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 })}>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30"
+                onClick={() => append({ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 })}
+              >
                 <Plus className="mr-2 h-4 w-4" /> Ajouter un produit à cette réception
               </Button>
             </CardContent>
@@ -683,7 +708,7 @@ export default function NewReceptionPage() {
                   <FormField control={form.control} name="validator_name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Responsable validation</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                         <SelectContent>
                           {validators.map(v => (
@@ -694,13 +719,13 @@ export default function NewReceptionPage() {
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="validation_date" render={({ field }) => (
-                    <FormItem><FormLabel>Date de validation</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget).showPicker()} {...field} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Date de validation</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
                   )} />
                 </div>
                 <FormField control={form.control} name="decision" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Décision finale</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une décision" /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Acceptée">Acceptée</SelectItem>
@@ -710,9 +735,9 @@ export default function NewReceptionPage() {
                     </Select>
                   </FormItem>
                 )} />
-                {form.watch("decision") && form.watch("decision") !== "Acceptée" && (
+                {(form.watch("decision") === "Rejetée" || form.watch("decision") === "Acceptée avec réserve") && (
                   <FormField control={form.control} name="decision_reason" render={({ field }) => (
-                    <FormItem><FormLabel className="text-destructive">Motif (Obligatoire)</FormLabel><FormControl><UppercaseTextarea className="border-destructive/50" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="text-destructive">Motif (Obligatoire)</FormLabel><FormControl><UppercaseTextarea className="border-destructive/50" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                 )}
               </CardContent>
@@ -727,7 +752,7 @@ export default function NewReceptionPage() {
                 <FormField control={form.control} name="global_comments" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Observations complémentaires</FormLabel>
-                    <FormControl><UppercaseTextarea placeholder="Notes libres relatives à cette réception..." className="min-h-[150px]" {...field} /></FormControl>
+                    <FormControl><UppercaseTextarea placeholder="Notes libres relatives à cette réception..." className="min-h-[150px]" {...field} value={field.value ?? ""} /></FormControl>
                   </FormItem>
                 )} />
               </CardContent>
