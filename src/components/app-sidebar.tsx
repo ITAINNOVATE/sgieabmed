@@ -16,7 +16,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { 
-  Home, LayoutDashboard, Package, Trash2, ChartColumn, 
+  Home, LayoutDashboard, Package, Trash2, ChartColumn, Bell,
   Settings, Inbox, ArrowLeftRight, ClipboardCheck, Folder, 
   Flame, MapPin, Building2, LogOut, FlaskConical, ChevronRight, ChevronDown,
   Users, Shield, Key, History, ShieldCheck, PackageCheck
@@ -30,6 +30,8 @@ export function AppSidebar() {
     dashboards: false,
     samples: true,      // Ouvert par défaut pour accès rapide
     waste: false,
+    reports: false,
+    alerts: false,
     admin: false,
   })
 
@@ -218,14 +220,72 @@ export function AppSidebar() {
                 )}
               </SidebarMenuItem>
 
-              {/* 5. RAPPORTS ET STATISTIQUES (Pas de sous-menu) */}
+              {/* 5. RAPPORTS ET STATISTIQUES (Avec sous-menus) */}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className="h-9 px-2.5 text-xs rounded-lg hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                  <Link href="/dashboard/reports" className="flex items-center gap-2.5 w-full">
+                <SidebarMenuButton 
+                  onClick={() => toggleSection('reports')}
+                  className="h-9 px-2.5 text-xs rounded-lg hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
                     <ChartColumn className="h-4 w-4 shrink-0" />
-                    <span className="font-medium">Rapports et statistiques</span>
-                  </Link>
+                    <span className="font-medium truncate">Rapports & Statistiques</span>
+                  </div>
+                  {openSections.reports ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/60 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/40 shrink-0" />
+                  )}
                 </SidebarMenuButton>
+                {openSections.reports && (
+                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                    <SidebarMenuSubItem>
+                      <Link href="/dashboard/reports" className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent rounded-md transition-colors w-full">
+                        <Package className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Échantillothèque</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link href="/dashboard/reports" className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent rounded-md transition-colors w-full">
+                        <Trash2 className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Déchets pharmaceutiques</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
+              {/* 6. ALERTES (Avec sous-menus) */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={() => toggleSection('alerts')}
+                  className="h-9 px-2.5 text-xs rounded-lg hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Bell className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span className="font-medium truncate">Alertes</span>
+                  </div>
+                  {openSections.alerts ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/60 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/40 shrink-0" />
+                  )}
+                </SidebarMenuButton>
+                {openSections.alerts && (
+                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                    <SidebarMenuSubItem>
+                      <Link href="/dashboard/alerts" className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent rounded-md transition-colors w-full">
+                        <Package className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Échantillothèque</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link href="/dashboard/alerts" className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent rounded-md transition-colors w-full">
+                        <Trash2 className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Déchets pharmaceutiques</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                )}
               </SidebarMenuItem>
 
               {/* 6. ADMINISTRATION (Avec sous-menus) */}
