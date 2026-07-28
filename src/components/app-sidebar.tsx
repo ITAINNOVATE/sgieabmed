@@ -51,7 +51,7 @@ const adminNav = [
 
 export function AppSidebar() {
   return (
-    <Sidebar variant="inset" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
+    <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
       {/* En-tête sur fond BLANC pur pour afficher le logo eGED-ABMed comme sur la maquette */}
       <SidebarHeader className="h-[72px] px-4 flex flex-row items-center gap-3 bg-white dark:bg-card border-b border-border/80 text-foreground">
         <div className="text-[#1B5C2E] p-1 bg-[#1B5C2E]/10 rounded-xl">
