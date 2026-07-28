@@ -40,6 +40,7 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
   const [selectedShelf,   setSelectedShelf]   = useState("")
   const [positionDetail,  setPositionDetail]  = useState("")
   const [stillAvailable,  setStillAvailable]  = useState<"yes" | "no">("yes")
+  const [resetKey,        setResetKey]        = useState(0)
 
   const [filteredZones,    setFilteredZones]    = useState<Zone[]>([])
   const [filteredCabinets, setFilteredCabinets] = useState<Cabinet[]>([])
@@ -75,6 +76,7 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
       setFilteredZones(zones.filter(z => z.room_id === selectedRoom))
       setSelectedZone(""); setSelectedCabinet(""); setSelectedShelf("")
       setFilteredCabinets([]); setFilteredShelves([])
+      setResetKey(k => k + 1) // force remount des selects enfants
     }
   }, [selectedRoom, zones])
 
@@ -205,12 +207,22 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
             {/* Zone */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">2. Zone</Label>
-              <Select value={selectedZone} onValueChange={(v) => setSelectedZone(v || "")} disabled={!selectedRoom}>
+              <Select
+                key={`zone-${resetKey}`}
+                value={selectedZone}
+                onValueChange={(v) => setSelectedZone(v || "")}
+                disabled={!selectedRoom || filteredZones.length === 0}
+              >
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choisir..." />
+                  <SelectValue placeholder={!selectedRoom ? "Choisir d'abord une salle" : "Choisir..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredZones.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}
+                  {filteredZones.length === 0 && selectedRoom && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Aucune zone disponible</div>
+                  )}
+                  {filteredZones.map(z => (
+                    <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -218,12 +230,22 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
             {/* Armoire */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">3. Armoire / Frigo</Label>
-              <Select value={selectedCabinet} onValueChange={(v) => setSelectedCabinet(v || "")} disabled={!selectedZone}>
+              <Select
+                key={`cabinet-${resetKey}-${selectedZone}`}
+                value={selectedCabinet}
+                onValueChange={(v) => setSelectedCabinet(v || "")}
+                disabled={!selectedZone || filteredCabinets.length === 0}
+              >
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choisir..." />
+                  <SelectValue placeholder={!selectedZone ? "Choisir d'abord une zone" : "Choisir..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredCabinets.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {filteredCabinets.length === 0 && selectedZone && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Aucune armoire disponible</div>
+                  )}
+                  {filteredCabinets.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -231,15 +253,22 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
             {/* Étagère */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">4. Étagère</Label>
-              <Select value={selectedShelf} onValueChange={(v) => setSelectedShelf(v || "")} disabled={!selectedCabinet}>
+              <Select
+                key={`shelf-${resetKey}-${selectedCabinet}`}
+                value={selectedShelf}
+                onValueChange={(v) => setSelectedShelf(v || "")}
+                disabled={!selectedCabinet || filteredShelves.length === 0}
+              >
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choisir..." />
+                  <SelectValue placeholder={!selectedCabinet ? "Choisir d'abord une armoire" : "Choisir..."} />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredShelves.length === 0 && selectedCabinet && (
                     <div className="px-3 py-2 text-xs text-muted-foreground">Toutes les étagères sont pleines</div>
                   )}
-                  {filteredShelves.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  {filteredShelves.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
