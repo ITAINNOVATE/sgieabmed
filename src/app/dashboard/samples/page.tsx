@@ -65,41 +65,42 @@ export const columns: ColumnDef<Sample>[] = [
   {
     accessorKey: "sample_number",
     header: "N° Échantillon",
-    cell: ({ row }) => <div className="font-medium">{row.getValue("sample_number")}</div>,
-  },
-  {
-    accessorKey: "reception_ref",
-    header: "Origine (Réf)",
-    cell: ({ row }) => <Badge variant="outline" className="font-mono text-xs">{row.getValue("reception_ref") || "REC-2026-..."}</Badge>,
+    cell: ({ row }) => <div className="font-semibold text-xs text-foreground font-mono">{row.getValue("sample_number")}</div>,
   },
   {
     accessorKey: "commercial_name",
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
-          Nom Commercial <ArrowUpDown className="ml-2 h-4 w-4" />
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-3 text-xs p-1 h-auto font-semibold">
+          Produit (Nom / DCI) <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       )
     },
-  },
-  {
-    accessorKey: "dci",
-    header: "DCI",
+    cell: ({ row }) => (
+      <div className="flex flex-col min-w-[140px]">
+        <span className="font-bold text-xs text-foreground leading-tight">{row.original.commercial_name}</span>
+        <span className="text-[11px] text-muted-foreground leading-tight">{row.original.dci || "—"}</span>
+      </div>
+    )
   },
   {
     accessorKey: "batch_number",
     header: "Lot",
+    cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.getValue("batch_number")}</span>
   },
   {
     accessorKey: "quantity",
     header: "Quantité",
+    cell: ({ row }) => <span className="font-bold text-xs">{row.getValue("quantity")}</span>
   },
   {
     accessorKey: "expiry_date",
     header: "Péremption",
     cell: ({ row }) => {
-      const date = new Date(row.getValue("expiry_date"))
-      return <div>{date.toLocaleDateString("fr-FR")}</div>
+      const val = row.getValue("expiry_date") as string
+      if (!val) return <span className="text-muted-foreground text-xs">—</span>
+      const date = new Date(val)
+      return <div className="text-xs text-muted-foreground">{date.toLocaleDateString("fr-FR")}</div>
     }
   },
   {
@@ -107,80 +108,56 @@ export const columns: ColumnDef<Sample>[] = [
     header: "Emplacement",
     cell: ({ row }) => {
       const loc = row.getValue("current_location") as string
-      return <div className="font-mono text-xs">{loc || "Non défini"}</div>
+      return <div className="font-mono text-[11px] text-muted-foreground truncate max-w-[140px]">{loc || "Non défini"}</div>
     }
   },
   {
-    accessorKey: "status",
-    header: "Statut",
-    cell: ({ row, table }) => {
-      const status = row.getValue("status") as string
-      const sample = row.original
-      const meta = table.options.meta as any
-      let variant: "default" | "secondary" | "destructive" | "outline" = "default"
-      if (status === "Rejeté") variant = "destructive"
-      else if (status === "En quarantaine") variant = "secondary"
-      else if (status === "À localiser") variant = "outline"
-
-      if (status === "À localiser") {
-        return (
-          <button
-            onClick={() => meta?.onAssignLocation(sample)}
-            title="Cliquer pour assigner un emplacement"
-          >
-            <Badge variant="outline" className="bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-300 cursor-pointer flex items-center gap-1 transition-colors">
-              <MapPin className="h-3 w-3" />
-              À localiser
-            </Badge>
-          </button>
-        )
-      }
-
-      return (
-        <Badge variant={variant} className={
-          status === "En quarantaine" ? "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-300" :
-          status === "Rejeté" ? "" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200"
-        }>
-          {status}
-        </Badge>
-      )
-    },
-  },
-  {
     id: "actions",
+    header: () => <span className="text-right block pr-2">Actions</span>,
     cell: ({ row, table }) => {
       const sample = row.original
       const meta = table.options.meta as any
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Menu</span><MoreHorizontal className="h-4 w-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">Actions</div>
-            <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}`}><Eye className="mr-2 h-4 w-4"/> Consulter</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-4 w-4"/> Modifier</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild onClick={() => toast.info("Naviguez vers l'onglet Historique de la fiche échantillon.")}><Link href={`/dashboard/samples/${sample.id}`}><History className="mr-2 h-4 w-4"/> Historique</Link></DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" onClick={() => meta?.onAssignLocation(sample)}>
-              <MapPin className="mr-2 h-4 w-4 text-orange-500"/> Assigner un emplacement
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" onClick={() => {
-              meta?.onPrintLabel(sample)
-            }}>
-              <Printer className="mr-2 h-4 w-4"/> Étiqueter (Imprimer/PDF)
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer" onClick={async () => {
-              if (window.confirm("Êtes-vous sûr de vouloir supprimer cet échantillon ?")) {
-                const supabase = createClient()
-                await supabase.from('samples').delete().eq('id', sample.id)
-                toast.success("Échantillon supprimé")
-                window.location.reload()
-              }
-            }}><Trash className="mr-2 h-4 w-4"/> Supprimer</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="text-right pr-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 rounded-lg hover:bg-muted">
+                <span className="sr-only">Menu actions</span>
+                <MoreHorizontal className="h-4 w-4 text-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Actions Échantillon</div>
+              <DropdownMenuItem asChild className="cursor-pointer text-xs">
+                <Link href={`/dashboard/samples/${sample.id}`}><Eye className="mr-2 h-3.5 w-3.5 text-emerald-600"/> Voir le détail</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="cursor-pointer text-xs">
+                <Link href={`/dashboard/samples/${sample.id}/edit`}><Edit className="mr-2 h-3.5 w-3.5 text-blue-600"/> Modifier</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild onClick={() => toast.info("Naviguez vers l'onglet Historique de la fiche échantillon.")} className="cursor-pointer text-xs">
+                <Link href={`/dashboard/samples/${sample.id}`}><History className="mr-2 h-3.5 w-3.5 text-purple-600"/> Historique & Mouvements</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => meta?.onAssignLocation(sample)}>
+                <MapPin className="mr-2 h-3.5 w-3.5 text-orange-500"/> Assigner un emplacement
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => meta?.onPrintLabel(sample)}>
+                <Printer className="mr-2 h-3.5 w-3.5 text-slate-700"/> Étiqueter (Imprimer / PDF)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer text-xs" onClick={async () => {
+                if (window.confirm("Êtes-vous sûr de vouloir supprimer cet échantillon ?")) {
+                  const supabase = createClient()
+                  await supabase.from('samples').delete().eq('id', sample.id)
+                  toast.success("Échantillon supprimé")
+                  window.location.reload()
+                }
+              }}>
+                <Trash className="mr-2 h-3.5 w-3.5"/> Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )
     },
   },
