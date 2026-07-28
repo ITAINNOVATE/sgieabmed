@@ -52,7 +52,6 @@ export function AppSidebar() {
         <div className="flex flex-col min-w-0">
           <div className="flex items-center">
             <span className="font-bold text-base leading-none text-[#1B5C2E]">eGED</span>
-            <span className="font-bold text-base leading-none text-[#1E3A8A]">-PH</span>
           </div>
           <span className="text-[8px] text-muted-foreground leading-tight mt-0.5 font-medium truncate">
             Gestion des échantillons & déchets<br />pharmaceutiques
