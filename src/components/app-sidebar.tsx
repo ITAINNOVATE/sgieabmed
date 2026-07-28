@@ -94,7 +94,7 @@ export function AppSidebar() {
                 {openSections.dashboards && (
                   <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
-                      <Link href="/dashboard" className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent rounded-md transition-colors w-full">
+                      <Link href="/dashboard/analytics" className="flex items-center gap-2 h-7 px-2 text-[11px] text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent rounded-md transition-colors w-full">
                         <Package className="h-3 w-3 shrink-0" />
                         <span className="truncate">Échantillon pharmaceutique</span>
                       </Link>
