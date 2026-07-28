@@ -11,7 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuBadge,
 } from "@/components/ui/sidebar"
-import { Home, Package, ArrowLeftRight, ClipboardCheck, Trash, Flame, Folder, ChartColumn, Bell, Settings, LogOut, PackageCheck, Inbox, MapPin, LayoutDashboard, Users, Shield, Key, Building2, History, ShieldCheck } from "lucide-react"
+import { Home, Package, ArrowLeftRight, ClipboardCheck, Trash, Flame, Folder, ChartColumn, Bell, LogOut, PackageCheck, Inbox, MapPin, LayoutDashboard, Users, Shield, Key, Building2, History, ShieldCheck, FlaskConical, ShieldAlert } from "lucide-react"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 
@@ -35,7 +35,7 @@ const wasteNav = [
 
 const pilotageNav = [
   { title: "Rapports & Statistiques", url: "/dashboard/reports", icon: ChartColumn },
-  { title: "Alertes", url: "/dashboard/alerts", icon: Bell, badge: 5, alert: true },
+  { title: "Alertes", url: "/dashboard/alerts", icon: Bell, badge: 8, alert: true },
 ]
 
 const adminNav = [
@@ -52,13 +52,19 @@ const adminNav = [
 export function AppSidebar() {
   return (
     <Sidebar variant="inset" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      <SidebarHeader className="p-4 flex flex-row items-center gap-3 border-b border-sidebar-border/50">
-        <div className="bg-sidebar-accent p-1.5 rounded-xl text-sidebar-accent-foreground shadow-sm">
-          <PackageCheck className="h-6 w-6" strokeWidth={2} />
+      {/* En-tête sur fond BLANC pur pour afficher le logo eGED-ABMed comme sur la maquette */}
+      <SidebarHeader className="h-[72px] px-4 flex flex-row items-center gap-3 bg-white dark:bg-card border-b border-border/80 text-foreground">
+        <div className="text-[#1B5C2E] p-1 bg-[#1B5C2E]/10 rounded-xl">
+          <FlaskConical className="h-7 w-7" strokeWidth={2.2} />
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-lg leading-tight text-sidebar-foreground tracking-tight">eGED</span>
-          <span className="text-[10px] uppercase font-semibold text-sidebar-foreground/70 tracking-widest">ABMed</span>
+          <div className="flex items-center">
+            <span className="font-bold text-lg leading-none text-[#1B5C2E]">eGED</span>
+            <span className="font-bold text-lg leading-none text-[#1E3A8A]">-ABMed</span>
+          </div>
+          <span className="text-[9px] text-muted-foreground leading-tight mt-0.5 font-medium">
+            Gestion électronique des échantillons<br />et des déchets pharmaceutiques
+          </span>
         </div>
       </SidebarHeader>
       
@@ -144,7 +150,7 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                   {item.badge && (
-                    <SidebarMenuBadge className={item.alert ? 'bg-warning text-warning-foreground rounded-full px-2' : 'bg-sidebar-accent text-sidebar-accent-foreground rounded-full px-2'}>{item.badge}</SidebarMenuBadge>
+                    <SidebarMenuBadge className={item.alert ? 'bg-amber-500 text-white rounded-full px-2 font-bold' : 'bg-sidebar-accent text-sidebar-accent-foreground rounded-full px-2'}>{item.badge}</SidebarMenuBadge>
                   )}
                 </SidebarMenuItem>
               ))}
@@ -174,17 +180,26 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border/50">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <form action={logout}>
-              <SidebarMenuButton type="submit" className="h-10 text-sidebar-foreground/80 hover:text-white hover:bg-destructive/80 transition-colors duration-150 rounded-xl w-full justify-start">
-                <LogOut className="h-4 w-4" strokeWidth={2} />
-                <span>Déconnexion</span>
-              </SidebarMenuButton>
-            </form>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      {/* PIED DE LA SIDEBAR : Logo institutionnel ABMed + Bouton Déconnexion */}
+      <SidebarFooter className="p-4 border-t border-sidebar-border/50 space-y-3">
+        <div className="flex items-center gap-3 px-1 pt-1">
+          <div className="bg-white/10 p-2 rounded-xl text-white">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-base text-white leading-none">ABMed</span>
+            <span className="text-[9px] text-white/70 leading-tight mt-0.5">
+              Agence Béninoise du Médicament<br />et des autres produits de santé
+            </span>
+          </div>
+        </div>
+
+        <form action={logout}>
+          <SidebarMenuButton type="submit" className="h-9 text-white/80 hover:text-white hover:bg-destructive/80 transition-colors duration-150 rounded-xl w-full justify-start text-xs">
+            <LogOut className="h-3.5 w-3.5 mr-2" strokeWidth={2} />
+            <span>Déconnexion</span>
+          </SidebarMenuButton>
+        </form>
       </SidebarFooter>
     </Sidebar>
   )

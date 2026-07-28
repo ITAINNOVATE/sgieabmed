@@ -4,54 +4,47 @@ import { Separator } from "@/components/ui/separator"
 import { HeaderActions } from "@/components/header-actions"
 
 import { MotionWrapper } from "@/components/motion-wrapper"
-
-import { Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { ShieldCheck } from "lucide-react"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 overflow-auto flex flex-col min-h-screen bg-background/50 relative">
-        <header className="flex h-[72px] items-center gap-4 border-b border-border bg-card px-4 sm:px-6 shadow-sm sticky top-0 z-20">
-          <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
-          <Separator orientation="vertical" className="h-6 opacity-50" />
-          
-          {/* Breadcrumb / Titre Mobile */}
-          <div className="hidden md:flex flex-col">
-            <span className="text-xs font-medium text-muted-foreground">eGED-ABMed / Tableau de bord</span>
-            <h1 className="text-sm font-semibold text-foreground tracking-tight">
-              Une gestion sécurisée des échantillons et des déchets pharmaceutiques
-            </h1>
+      <main className="flex-1 overflow-auto flex flex-col min-h-screen bg-background relative">
+        {/* EN-TÊTE FIXE ET ÉPURÉ (Fond blanc pur comme sur la maquette) */}
+        <header className="flex h-[72px] items-center justify-between gap-4 border-b border-border bg-white dark:bg-card px-4 sm:px-6 shadow-xs sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
+            <Separator orientation="vertical" className="h-6 opacity-40 hidden sm:block" />
           </div>
 
-          {/* Recherche Globale */}
-          <div className="hidden md:block flex-1 max-w-xl mx-auto ml-4 mr-4">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <Input
-                type="search"
-                placeholder="Rechercher un échantillon, DCI, lot, fabricant..."
-                className="w-full pl-9 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary/50 shadow-inner h-10 rounded-xl"
-              />
+          {/* Titre central institutionnel avec icône Bouclier (identique à la maquette) */}
+          <div className="hidden lg:flex flex-col items-center justify-center text-center">
+            <span className="text-sm font-semibold text-[#1B5C2E] tracking-tight">
+              Une gestion sécurisée des échantillons et des déchets pharmaceutiques
+            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="h-[1px] w-12 bg-border"></span>
+              <ShieldCheck className="h-4 w-4 text-[#1B5C2E]" />
+              <span className="h-[1px] w-12 bg-border"></span>
             </div>
           </div>
 
           <HeaderActions />
         </header>
+
+        {/* CONTENU PRINCIPAL DE LA PAGE */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
           <MotionWrapper>
             {children}
           </MotionWrapper>
         </div>
-        <footer className="border-t border-border bg-card/50 py-4 px-4 sm:px-6 text-[10px] sm:text-xs text-muted-foreground flex flex-row justify-between items-center whitespace-nowrap mt-auto gap-4">
-          <div className="truncate">
-            <span className="font-semibold text-foreground">eGED-ABMed</span>
-            <span className="hidden md:inline"> - Plateforme nationale de gestion des échantillons et des déchets pharmaceutiques</span>
-          </div>
-          <div className="shrink-0">
-            &copy; ABMed 2026 | Développé par ITA INNOVATE & SaniNova
-          </div>
+
+        {/* PIED DE PAGE (identique à la maquette) */}
+        <footer className="border-t border-border bg-white dark:bg-card/50 py-3 px-4 sm:px-6 text-[11px] text-muted-foreground text-center flex items-center justify-center mt-auto">
+          <span>
+            eGED-ABMed - Gestion électronique des échantillons et des déchets pharmaceutiques - ABMed © 2025 - Tous droits réservés
+          </span>
         </footer>
       </main>
     </SidebarProvider>
