@@ -1,28 +1,32 @@
+"use client"
+
+import { useState } from "react"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuBadge,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton
 } from "@/components/ui/sidebar"
 import { 
   Home, Package, ArrowLeftRight, ClipboardCheck, Trash, Flame, 
   Folder, ChartColumn, Bell, LogOut, PackageCheck, Inbox, MapPin, 
   LayoutDashboard, Users, Shield, Key, Building2, History, ShieldCheck, 
-  FlaskConical, ChevronRight 
+  FlaskConical, ChevronRight, ChevronDown, Settings
 } from "lucide-react"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 
 const mainNav = [
   { title: "Tableau de bord", url: "/dashboard", icon: Home },
-  { title: "Réceptions", url: "/dashboard/receptions", icon: Inbox },
   { title: "Échantillothèque", url: "/dashboard/samples", icon: Package },
   { title: "Déchets pharmaceutiques", url: "/dashboard/waste", icon: Trash },
   { title: "Mouvements", url: "/dashboard/movements", icon: ArrowLeftRight },
@@ -34,14 +38,16 @@ const mainNav = [
   { title: "Alertes", url: "/dashboard/alerts", icon: Bell, badge: 8, alert: true },
 ]
 
-const adminNav = [
-  { title: "Administration (Vue Globale)", url: "/dashboard/admin", icon: LayoutDashboard },
+const adminSubNav = [
+  { title: "Vue Globale Admin", url: "/dashboard/admin", icon: LayoutDashboard },
   { title: "Utilisateurs & Rôles", url: "/dashboard/admin/users", icon: Users },
-  { title: "Services & Audit", url: "/dashboard/admin/services", icon: Building2 },
+  { title: "Services & Directions", url: "/dashboard/admin/services", icon: Building2 },
   { title: "Initialisation Stock", url: "/dashboard/initialization", icon: PackageCheck },
 ]
 
 export function AppSidebar() {
+  const [isAdminOpen, setIsAdminOpen] = useState(false)
+
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
       {/* En-tête sur fond BLANC pur */}
@@ -60,13 +66,9 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       
-      {/* Contenu compact sans défilement inutile */}
-      <SidebarContent className="px-2 py-2 gap-0 overflow-y-auto">
-        {/* MENU PRINCIPAL */}
+      {/* Contenu avec OVERFLOW-HIDDEN strict : AUCUNE BARRE DE DÉFILEMENT */}
+      <SidebarContent className="px-2 py-2 gap-0 overflow-hidden flex-1">
         <SidebarGroup className="p-1">
-          <SidebarGroupLabel className="text-[10px] font-bold text-sidebar-foreground/50 h-6 px-2 uppercase tracking-wider mb-1">
-            Menu Principal
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {mainNav.map((item) => (
@@ -100,36 +102,39 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
 
-        <div className="my-1 border-t border-sidebar-border/30 mx-3" />
+              {/* ITEM ADMINISTRATION DÉROULANT / COLLAPSIBLE */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={() => setIsAdminOpen(!isAdminOpen)}
+                  className="h-8.5 px-2.5 text-xs transition-all rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Settings className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                    <span className="truncate font-medium">Administration</span>
+                  </div>
+                  {isAdminOpen ? (
+                    <ChevronDown className="h-3 w-3 text-sidebar-foreground/50 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 text-sidebar-foreground/30 shrink-0" />
+                  )}
+                </SidebarMenuButton>
 
-        {/* ADMINISTRATION COMPACTE */}
-        <SidebarGroup className="p-1">
-          <SidebarGroupLabel className="text-[10px] font-bold text-sidebar-foreground/50 h-6 px-2 uppercase tracking-wider mb-1">
-            Administration
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              {adminNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={item.title} 
-                    className="h-8.5 px-2.5 text-xs transition-all text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg"
-                  >
-                    <Link href={item.url} className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-2.5 truncate">
-                        <item.icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                        <span className="truncate">{item.title}</span>
-                      </div>
-                      <ChevronRight className="h-3 w-3 text-sidebar-foreground/30 shrink-0" />
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                {isAdminOpen && (
+                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-4 pl-2 space-y-0.5">
+                    {adminSubNav.map((sub) => (
+                      <SidebarMenuSubItem key={sub.title}>
+                        <SidebarMenuSubButton asChild className="h-7 text-[11px] hover:bg-sidebar-accent rounded-md">
+                          <Link href={sub.url} className="flex items-center gap-2">
+                            <sub.icon className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{sub.title}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
