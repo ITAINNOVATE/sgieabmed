@@ -111,13 +111,13 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
         <div className="lg:col-span-2">
           {/* Contenu en Onglets */}
           <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50 rounded-xl mb-6">
-              <TabsTrigger value="general" className="py-2.5 rounded-lg data-[state=active]:shadow-sm"><Info className="h-4 w-4 mr-2 hidden sm:block" /> Général</TabsTrigger>
-              <TabsTrigger value="location" className="py-2.5 rounded-lg data-[state=active]:shadow-sm"><MapPin className="h-4 w-4 mr-2 hidden sm:block" /> Localisation</TabsTrigger>
-              <TabsTrigger value="history" className="py-2.5 rounded-lg data-[state=active]:shadow-sm"><History className="h-4 w-4 mr-2 hidden sm:block" /> Historique</TabsTrigger>
-              <TabsTrigger value="documents" className="py-2.5 rounded-lg data-[state=active]:shadow-sm"><FileText className="h-4 w-4 mr-2 hidden sm:block" /> Documents</TabsTrigger>
-              <TabsTrigger value="comments" className="py-2.5 rounded-lg data-[state=active]:shadow-sm"><MessageSquare className="h-4 w-4 mr-2 hidden sm:block" /> Notes</TabsTrigger>
-              <TabsTrigger value="audit" className="py-2.5 rounded-lg data-[state=active]:shadow-sm"><ShieldAlert className="h-4 w-4 mr-2 hidden sm:block" /> Audit</TabsTrigger>
+            <TabsList className="flex w-full overflow-x-auto h-auto p-1 bg-muted/50 rounded-xl mb-6 gap-1">
+              <TabsTrigger value="general"   className="flex-1 min-w-fit flex items-center justify-center gap-1.5 py-2 rounded-lg data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"><Info        className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Général</span></TabsTrigger>
+              <TabsTrigger value="location"  className="flex-1 min-w-fit flex items-center justify-center gap-1.5 py-2 rounded-lg data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"><MapPin      className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Localisation</span></TabsTrigger>
+              <TabsTrigger value="history"   className="flex-1 min-w-fit flex items-center justify-center gap-1.5 py-2 rounded-lg data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"><History     className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Historique</span></TabsTrigger>
+              <TabsTrigger value="documents" className="flex-1 min-w-fit flex items-center justify-center gap-1.5 py-2 rounded-lg data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"><FileText    className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Documents</span></TabsTrigger>
+              <TabsTrigger value="comments"  className="flex-1 min-w-fit flex items-center justify-center gap-1.5 py-2 rounded-lg data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"><MessageSquare className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Notes</span></TabsTrigger>
+              <TabsTrigger value="audit"     className="flex-1 min-w-fit flex items-center justify-center gap-1.5 py-2 rounded-lg data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"><ShieldAlert className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Audit</span></TabsTrigger>
             </TabsList>
             
             {/* ONGLET 1: GENERAL */}
