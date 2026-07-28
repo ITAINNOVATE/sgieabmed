@@ -353,8 +353,8 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-bold text-xs text-white leading-none">ABMed</span>
-            <span className="text-[8.5px] text-white/70 leading-tight mt-0.5 truncate">
-              Agence Béninoise du Médicament
+            <span className="text-[8px] text-white/80 leading-tight mt-0.5 font-normal">
+              Agence béninoise du Médicament et des autres produits de Santé
             </span>
           </div>
         </div>
