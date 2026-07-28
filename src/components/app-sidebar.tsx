@@ -25,10 +25,10 @@ import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 
 export function AppSidebar() {
-  // State pour suivre les menus déroulants ouverts
+  // State pour suivre les menus déroulants ouverts (tous compacts par défaut)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     dashboards: false,
-    samples: true,      // Ouvert par défaut pour accès rapide
+    samples: false,
     waste: false,
     reports: false,
     alerts: false,
