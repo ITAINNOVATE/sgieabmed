@@ -1,11 +1,10 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { 
   Box, Clock, Filter, Calendar, AlertTriangle, 
-  ArrowRightLeft, FileText, Inbox, ClipboardList, Scan, ShieldAlert, CheckCircle2, Beaker
+  Inbox, ShieldAlert, Beaker
 } from "lucide-react"
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, Tooltip as RechartsTooltip
@@ -24,11 +23,10 @@ const CATEGORY_COLORS = ['#1B5C2E', '#1565C0', '#6A1B9A', '#E65100', '#00838F', 
 
 export default function DashboardClient({ 
   samples, 
-  movements, 
   receptions,
 }: { 
   samples: any[], 
-  movements: any[], 
+  movements?: any[], 
   receptions?: any[],
   wasteBatches?: any[],
   destructions?: any[]
@@ -75,11 +73,8 @@ export default function DashboardClient({
     { text: "Nouveau lot d'échantillons enregistré (Clamoxyl)", date: "18/05/2025", type: "info" },
   ]
 
-  // ─── 5. MOUVEMENTS RÉCENTS ÉCHANTILLONS ───────────────────────────────
-  const recentMovements = movements.slice(0, 4)
-
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
+    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
       {/* BANDEAU DE TITRE DE LA PAGE */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-1 border-b border-border/40">
@@ -101,24 +96,24 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {/* LIGNE 1 : KPIs ÉCHANTILLONS SEULEMENT */}
+      {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {KPIData.map((kpi, index) => (
           <Card key={index} className="shadow-2xs border border-border/70 rounded-xl overflow-hidden relative bg-card">
-            <CardContent className="p-4 pb-6">
+            <CardContent className="p-3.5 pb-5">
               <div className="flex justify-between items-start">
-                <div className={`p-2 rounded-lg ${kpi.bg}`}>
-                  <kpi.icon className={`h-4.5 w-4.5 ${kpi.color}`} strokeWidth={2.2} />
+                <div className={`p-1.5 rounded-lg ${kpi.bg}`}>
+                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} strokeWidth={2.2} />
                 </div>
-                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
                   {kpi.isUp ? '▲' : '▼'} {kpi.trend}
                 </span>
               </div>
-              <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider mt-3 mb-0.5">{kpi.title}</p>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mt-2.5 mb-0.5">{kpi.title}</p>
               <h2 className="text-2xl font-black text-foreground tracking-tight">{kpi.value}</h2>
             </CardContent>
             {/* Sparkline mini */}
-            <div className="h-6 w-full absolute bottom-0 left-0 opacity-60">
+            <div className="h-5 w-full absolute bottom-0 left-0 opacity-60">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={kpi.sparkline.map((val, i) => ({ val, i }))}>
                   <Line type="monotone" dataKey="val" stroke={kpi.isUp ? '#2E7D32' : '#E53935'} strokeWidth={1.8} dot={false} isAnimationActive={false} />
@@ -129,20 +124,20 @@ export default function DashboardClient({
         ))}
       </div>
 
-      {/* LIGNE 2 : ANALYTIQUE ÉCHANTILLONS (3 COLONNES COMPACTES) */}
+      {/* LIGNE 2 : ANALYTIQUE ÉCHANTILLONS (3 COLONNES COMPACTES - PAGE COMPLÈTE SANS SCROLL) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         
         {/* DONUT 1 : ÉCHANTILLONS PAR STATUT */}
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-3.5 pb-0">
+          <CardHeader className="p-3 pb-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ÉCHANTILLONS PAR STATUT</CardTitle>
           </CardHeader>
-          <CardContent className="p-3.5 pt-1">
-            <div className="flex items-center justify-between h-[150px]">
+          <CardContent className="p-3 pt-1">
+            <div className="flex items-center justify-between h-[140px]">
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={samplesByStatus} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value" stroke="none">
+                    <Pie data={samplesByStatus} cx="50%" cy="50%" innerRadius={32} outerRadius={54} paddingAngle={3} dataKey="value" stroke="none">
                       {samplesByStatus.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={STATUT_COLORS[index % STATUT_COLORS.length]} />
                       ))}
@@ -172,15 +167,15 @@ export default function DashboardClient({
 
         {/* DONUT 2 : ÉCHANTILLONS PAR CATÉGORIE PRODUIT */}
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-3.5 pb-0">
+          <CardHeader className="p-3 pb-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CATÉGORIES DE PRODUITS</CardTitle>
           </CardHeader>
-          <CardContent className="p-3.5 pt-1">
-            <div className="flex items-center justify-between h-[150px]">
+          <CardContent className="p-3 pt-1">
+            <div className="flex items-center justify-between h-[140px]">
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={samplesByCategory} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={3} dataKey="value" stroke="none">
+                    <Pie data={samplesByCategory} cx="50%" cy="50%" innerRadius={32} outerRadius={54} paddingAngle={3} dataKey="value" stroke="none">
                       {samplesByCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                       ))}
@@ -210,13 +205,13 @@ export default function DashboardClient({
 
         {/* COLONNE 3 : ALERTES ÉCHANTILLONS */}
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-3.5 pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="p-3 pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ALERTES ÉCHANTILLONS</CardTitle>
             <Link href="/dashboard/alerts" className="text-[11px] font-semibold text-[#1B5C2E] hover:underline">Voir tout</Link>
           </CardHeader>
-          <CardContent className="p-3.5 pt-0 space-y-2.5">
+          <CardContent className="p-3 pt-0 space-y-2">
             {sampleAlerts.map((al, idx) => (
-              <div key={idx} className="flex items-center justify-between text-[11px] gap-2 pb-1.5 border-b border-border/30 last:border-0 last:pb-0">
+              <div key={idx} className="flex items-center justify-between text-[11px] gap-2 pb-1 border-b border-border/30 last:border-0 last:pb-0">
                 <div className="flex items-center gap-2 truncate">
                   <div className={`p-1 rounded-md shrink-0 ${al.type === 'error' ? 'bg-red-50 text-red-600' : al.type === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
                     <AlertTriangle className="h-3 w-3" />
@@ -226,117 +221,6 @@ export default function DashboardClient({
                 <span className="text-[10px] text-muted-foreground shrink-0">{al.date}</span>
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-      </div>
-
-      {/* LIGNE 3 : ACTIVITÉ & ACCÈS RAPIDES ÉCHANTILLONS (3 COLONNES COMPACTES) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        
-        {/* RÉCEPTIONS RÉCENTES */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-3.5 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">RÉCEPTIONS RÉCENTES</CardTitle>
-            <Link href="/dashboard/receptions" className="text-[11px] font-semibold text-[#1B5C2E] hover:underline">Voir tout</Link>
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0 space-y-2">
-            <div className="space-y-2 text-[11px]">
-              <div className="flex justify-between items-center pb-1.5 border-b border-border/30">
-                <span className="font-medium text-foreground">Réception Clamoxyl 500mg <span className="text-[10px] text-muted-foreground">REC-2026-001</span></span>
-                <span className="text-[10px] text-muted-foreground">19/05/2025</span>
-              </div>
-              <div className="flex justify-between items-center pb-1.5 border-b border-border/30">
-                <span className="font-medium text-foreground">Réception Paracétamol <span className="text-[10px] text-muted-foreground">REC-2026-002</span></span>
-                <span className="text-[10px] text-muted-foreground">19/05/2025</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-foreground">Réception Amoxicilline <span className="text-[10px] text-muted-foreground">REC-2026-003</span></span>
-                <span className="text-[10px] text-muted-foreground">18/05/2025</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* MOUVEMENTS RÉCENTS ÉCHANTILLONS */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-3.5 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">MOUVEMENTS DE STOCK</CardTitle>
-            <Link href="/dashboard/movements" className="text-[11px] font-semibold text-[#1B5C2E] hover:underline">Voir tout</Link>
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0 space-y-2">
-            {recentMovements.length === 0 ? (
-              <div className="space-y-2 text-[11px]">
-                <div className="flex justify-between items-center pb-1.5 border-b border-border/30">
-                  <span className="font-medium text-foreground">Mise en quarantaine <span className="text-[10px] text-muted-foreground">Lot X91</span></span>
-                  <span className="text-[10px] text-muted-foreground">19/05/2025</span>
-                </div>
-                <div className="flex justify-between items-center pb-1.5 border-b border-border/30">
-                  <span className="font-medium text-foreground">Transfert Labo <span className="text-[10px] text-muted-foreground">TRF-2025-0245</span></span>
-                  <span className="text-[10px] text-muted-foreground">19/05/2025</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-foreground">Libération Quarantaine <span className="text-[10px] text-muted-foreground">RET-2025-0098</span></span>
-                  <span className="text-[10px] text-muted-foreground">18/05/2025</span>
-                </div>
-              </div>
-            ) : (
-              recentMovements.map(mvt => (
-                <div key={mvt.id} className="flex justify-between items-center text-[11px] pb-1.5 border-b border-border/30 last:border-0">
-                  <span className="font-medium text-foreground truncate">{mvt.movement_type} - {mvt.quantity} unité(s)</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{new Date(mvt.created_at).toLocaleDateString('fr-FR')}</span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ACCÈS RAPIDES ÉCHANTILLONS SEULEMENT */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-3.5 pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ACCÈS RAPIDES ÉCHANTILLONS</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0">
-            <div className="grid grid-cols-3 gap-2">
-              <Button variant="outline" className="h-14 flex-col gap-1 p-1 rounded-xl bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200/50 text-[#1B5C2E]" asChild>
-                <Link href="/dashboard/receptions/new">
-                  <Inbox className="h-4 w-4" />
-                  <span className="text-[9.5px] font-semibold text-center leading-none">Nouvelle réception</span>
-                </Link>
-              </Button>
-              <Button variant="outline" className="h-14 flex-col gap-1 p-1 rounded-xl bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200/50 text-[#1B5C2E]" asChild>
-                <Link href="/dashboard/samples/new">
-                  <Box className="h-4 w-4" />
-                  <span className="text-[9.5px] font-semibold text-center leading-none">Nouvel échantillon</span>
-                </Link>
-              </Button>
-              <Button variant="outline" className="h-14 flex-col gap-1 p-1 rounded-xl bg-blue-50/50 hover:bg-blue-100/60 border-blue-200/50 text-blue-700" asChild>
-                <Link href="/dashboard/movements/new">
-                  <ArrowRightLeft className="h-4 w-4" />
-                  <span className="text-[9.5px] font-semibold text-center leading-none">Mouvement stock</span>
-                </Link>
-              </Button>
-              <Button variant="outline" className="h-14 flex-col gap-1 p-1 rounded-xl bg-purple-50/50 hover:bg-purple-100/60 border-purple-200/50 text-purple-700" asChild>
-                <Link href="/dashboard/inventory">
-                  <ClipboardList className="h-4 w-4" />
-                  <span className="text-[9.5px] font-semibold text-center leading-none">Inventaire</span>
-                </Link>
-              </Button>
-              <Button variant="outline" className="h-14 flex-col gap-1 p-1 rounded-xl bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-200/50 text-[#1B5C2E]" asChild>
-                <Link href="/dashboard/documents">
-                  <FileText className="h-4 w-4" />
-                  <span className="text-[9.5px] font-semibold text-center leading-none">Documentation</span>
-                </Link>
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsScannerOpen(true)}
-                className="h-14 flex-col gap-1 p-1 rounded-xl bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 cursor-pointer"
-              >
-                <Scan className="h-4 w-4" />
-                <span className="text-[9.5px] font-semibold text-center leading-none">Scanner QR</span>
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
