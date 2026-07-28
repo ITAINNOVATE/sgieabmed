@@ -134,40 +134,40 @@ function getStatusBadge(status: string) {
   switch (status) {
     case 'En cours':
       return (
-        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
+        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1 shrink-0 whitespace-nowrap text-xs">
+          <Loader2 className="h-3 w-3 animate-spin shrink-0" />
           En cours
         </Badge>
       );
     case 'Validé':
       return (
-        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 gap-1">
-          <CheckCircle2 className="h-3 w-3" />
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 gap-1 shrink-0 whitespace-nowrap text-xs">
+          <CheckCircle2 className="h-3 w-3 shrink-0" />
           Validé
         </Badge>
       );
     case 'Annulé':
       return (
-        <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200">
+        <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 shrink-0 whitespace-nowrap text-xs">
           Annulé
         </Badge>
       );
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-xs">{status}</Badge>;
   }
 }
 
 function getDiscrepancyBadge(diff: number) {
   if (diff === 0)
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 shrink-0 whitespace-nowrap text-xs">
         Conforme
       </Badge>
     );
   return (
-    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 gap-1">
-      <AlertTriangle className="h-3 w-3" />
-      Écart détecté
+    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 gap-1 shrink-0 whitespace-nowrap text-xs">
+      <AlertTriangle className="h-3 w-3 shrink-0" />
+      Écart
     </Badge>
   );
 }
@@ -216,186 +216,182 @@ export default async function InventoryPage() {
   );
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-6 p-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-5 p-4 sm:p-6 w-full max-w-full">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between pb-1 border-b border-border/40">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <PackageSearch className="h-6 w-6 text-primary" />
+          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <PackageSearch className="h-5 w-5 text-primary" />
             Gestion des Inventaires
           </h2>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-xs mt-0.5">
             Suivi des inventaires physiques et analyse des écarts de stock
           </p>
         </div>
-        <Button asChild className="gap-2 mt-3 sm:mt-0">
+        <Button asChild size="sm" className="gap-2 mt-2 sm:mt-0 rounded-lg text-xs">
           <Link href="/dashboard/inventory/new">
-            <Plus className="h-4 w-4" />
-            Démarrer un nouvel inventaire
+            <Plus className="h-3.5 w-3.5" />
+            Démarrer un inventaire
           </Link>
         </Button>
       </div>
 
       {/* ── KPI Cards ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total */}
-        <Card className="shadow-sm border-border/50 rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Total inventaires
             </CardTitle>
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{total}</p>
-            <p className="text-xs text-muted-foreground mt-1">Tous statuts confondus</p>
+          <CardContent className="p-3.5 pt-0">
+            <p className="text-2xl font-bold">{total}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Tous statuts confondus</p>
           </CardContent>
         </Card>
 
-        {/* In Progress */}
-        <Card className="shadow-sm border-border/50 rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               En cours
             </CardTitle>
             <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{inProgress}</p>
-            <p className="text-xs text-muted-foreground mt-1">Inventaire(s) actif(s)</p>
+          <CardContent className="p-3.5 pt-0">
+            <p className="text-2xl font-bold text-blue-600">{inProgress}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Inventaire(s) actif(s)</p>
           </CardContent>
         </Card>
 
-        {/* Validated */}
-        <Card className="shadow-sm border-border/50 rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Validés
             </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-emerald-600">{validated}</p>
-            <p className="text-xs text-muted-foreground mt-1">Inventaires clôturés</p>
+          <CardContent className="p-3.5 pt-0">
+            <p className="text-2xl font-bold text-emerald-600">{validated}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Inventaires clôturés</p>
           </CardContent>
         </Card>
 
-        {/* Discrepancies */}
-        <Card className="shadow-sm border-border/50 rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Écarts détectés
             </CardTitle>
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-amber-600">{discrepancyCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Article(s) avec écart(s) physiques
+          <CardContent className="p-3.5 pt-0">
+            <p className="text-2xl font-bold text-amber-600">{discrepancyCount}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Article(s) avec écart(s)
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* ── Inventories Table ────────────────────────────────────────────── */}
-      <Card className="shadow-sm border-border/50 rounded-2xl">
-        <CardHeader className="border-b border-border/50 pb-4">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
+      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
+        <CardHeader className="border-b border-border/50 p-3.5">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
             Liste des inventaires
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="font-semibold text-xs uppercase tracking-wide pl-6">
-                  Nom
-                </TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                  Type
-                </TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                  Statut
-                </TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                  Date de création
-                </TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                  Date de clôture
-                </TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                  Articles
-                </TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wide text-right pr-6">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {inventories.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center py-12 text-muted-foreground"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <PackageSearch className="h-10 w-10 text-muted-foreground/40" />
-                      <p className="text-sm">Aucun inventaire trouvé</p>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide pl-4 py-2.5 whitespace-nowrap">
+                    Nom
+                  </TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                    Type
+                  </TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                    Statut
+                  </TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                    Date de création
+                  </TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                    Date de clôture
+                  </TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                    Articles
+                  </TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide text-right pr-4 py-2.5 whitespace-nowrap">
+                    Actions
+                  </TableHead>
                 </TableRow>
-              ) : (
-                inventories.map((inventory) => {
-                  const itemCount = inventory.items?.length ?? 0;
-                  const discrepancies = (inventory.items ?? []).filter(
-                    (item) => item.system_quantity !== item.physical_quantity
-                  ).length;
-
-                  return (
-                    <TableRow
-                      key={inventory.id}
-                      className="hover:bg-muted/30 transition-colors"
+              </TableHeader>
+              <TableBody>
+                {inventories.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-10 text-muted-foreground"
                     >
-                      <TableCell className="pl-6 font-medium">
-                        {inventory.name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {inventory.inventory_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(inventory.status)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(inventory.created_at)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(inventory.completed_at)}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {itemCount} article{itemCount !== 1 ? 's' : ''}
-                          {discrepancies > 0 && (
-                            <span className="ml-2 text-xs text-red-600 font-medium">
-                              ({discrepancies} écart{discrepancies > 1 ? 's' : ''})
-                            </span>
-                          )}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <Button variant="ghost" size="sm" asChild className="gap-1">
-                          <Link href={`/dashboard/inventory/${inventory.id}`}>
-                            <Eye className="h-3.5 w-3.5" />
-                            Voir
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
+                      <div className="flex flex-col items-center gap-2">
+                        <PackageSearch className="h-8 w-8 text-muted-foreground/40" />
+                        <p className="text-xs">Aucun inventaire trouvé</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  inventories.map((inventory) => {
+                    const itemCount = inventory.items?.length ?? 0;
+                    const discrepancies = (inventory.items ?? []).filter(
+                      (item) => item.system_quantity !== item.physical_quantity
+                    ).length;
+
+                    return (
+                      <TableRow
+                        key={inventory.id}
+                        className="hover:bg-muted/30 transition-colors text-xs"
+                      >
+                        <TableCell className="pl-4 font-semibold text-foreground py-2.5 whitespace-nowrap">
+                          {inventory.name}
+                        </TableCell>
+                        <TableCell className="py-2.5 whitespace-nowrap">
+                          <Badge variant="outline" className="text-[11px] font-normal">
+                            {inventory.inventory_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-2.5 whitespace-nowrap">{getStatusBadge(inventory.status)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
+                          {formatDate(inventory.created_at)}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
+                          {formatDate(inventory.completed_at)}
+                        </TableCell>
+                        <TableCell className="py-2.5 whitespace-nowrap">
+                          <span className="text-xs">
+                            {itemCount} article{itemCount !== 1 ? 's' : ''}
+                            {discrepancies > 0 && (
+                              <span className="ml-1.5 text-xs text-red-600 font-semibold">
+                                ({discrepancies} écart{discrepancies > 1 ? 's' : ''})
+                              </span>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right pr-4 py-2.5 whitespace-nowrap">
+                          <Button variant="ghost" size="sm" asChild className="gap-1 h-7 text-xs px-2">
+                            <Link href={`/dashboard/inventory/${inventory.id}`}>
+                              <Eye className="h-3.5 w-3.5" />
+                              Voir
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
             </Table>
           </div>
         </CardContent>
@@ -403,11 +399,11 @@ export default async function InventoryPage() {
 
       {/* ── Active Inventory Discrepancy Analysis ───────────────────────── */}
       {activeInventory && (
-        <Card className="shadow-sm border-border/50 rounded-2xl">
-          <CardHeader className="border-b border-border/50 pb-4">
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
+          <CardHeader className="border-b border-border/50 p-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   Analyse des écarts — {activeInventory.name}
                 </CardTitle>
@@ -415,7 +411,7 @@ export default async function InventoryPage() {
                   Comparaison quantités système vs. quantités physiques relevées
                 </p>
               </div>
-              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1">
+              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1 text-xs whitespace-nowrap shrink-0">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 En cours
               </Badge>
@@ -423,102 +419,102 @@ export default async function InventoryPage() {
           </CardHeader>
           <CardContent className="p-0">
             {activeItems.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-                <ClipboardList className="h-10 w-10 text-muted-foreground/40" />
-                <p className="text-sm">Aucun article enregistré pour cet inventaire</p>
+              <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                <ClipboardList className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-xs">Aucun article enregistré pour cet inventaire</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30">
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide pl-6">
-                      Produit
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                      N° Échantillon
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                      Lot
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-right">
-                      Qté Système
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-right">
-                      Qté Physique
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide text-right">
-                      Différence
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
-                      Motif écart
-                    </TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wide pr-6">
-                      Statut
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activeItems.map((item) => {
-                    const diff = item.physical_quantity - item.system_quantity;
-                    const isNegative = diff < 0;
-                    const isZero = diff === 0;
+              <div className="overflow-x-auto w-full">
+                <Table className="w-full">
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide pl-4 py-2.5 whitespace-nowrap">
+                        Produit
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                        N° Échantillon
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                        Lot
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide text-right py-2.5 whitespace-nowrap">
+                        Qté Système
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide text-right py-2.5 whitespace-nowrap">
+                        Qté Physique
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide text-right py-2.5 whitespace-nowrap">
+                        Différence
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
+                        Motif écart
+                      </TableHead>
+                      <TableHead className="font-semibold text-xs uppercase tracking-wide pr-4 py-2.5 whitespace-nowrap text-right">
+                        Statut
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeItems.map((item) => {
+                      const diff = item.physical_quantity - item.system_quantity;
+                      const isNegative = diff < 0;
+                      const isZero = diff === 0;
 
-                    return (
-                      <TableRow
-                        key={item.id}
-                        className="hover:bg-muted/30 transition-colors"
-                      >
-                        <TableCell className="pl-6 font-medium">
-                          {item.sample?.commercial_name ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground font-mono">
-                          {item.sample?.sample_number ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground font-mono">
-                          {item.sample?.batch_number ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {item.system_quantity}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {item.physical_quantity}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums font-semibold">
-                          <span
-                            className={
-                              isZero
-                                ? 'text-emerald-600'
-                                : isNegative
-                                ? 'text-red-600'
-                                : 'text-amber-600'
-                            }
-                          >
-                            {diff > 0 ? '+' : ''}
-                            {diff}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
-                          {item.discrepancy_reason ?? (
-                            <span className="italic text-muted-foreground/60">
-                              Non renseigné
+                      return (
+                        <TableRow
+                          key={item.id}
+                          className="hover:bg-muted/30 transition-colors text-xs"
+                        >
+                          <TableCell className="pl-4 font-semibold text-foreground py-2.5 whitespace-nowrap">
+                            {item.sample?.commercial_name ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground font-mono py-2.5 whitespace-nowrap">
+                            {item.sample?.sample_number ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground font-mono py-2.5 whitespace-nowrap">
+                            {item.sample?.batch_number ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums py-2.5 whitespace-nowrap">
+                            {item.system_quantity}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums py-2.5 whitespace-nowrap">
+                            {item.physical_quantity}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold py-2.5 whitespace-nowrap">
+                            <span
+                              className={
+                                isZero
+                                  ? 'text-emerald-600'
+                                  : isNegative
+                                  ? 'text-red-600'
+                                  : 'text-amber-600'
+                              }
+                            >
+                              {diff > 0 ? '+' : ''}
+                              {diff}
                             </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="pr-6">
-                          {getDiscrepancyBadge(diff)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
+                            {item.discrepancy_reason ?? (
+                              <span className="italic text-muted-foreground/60">
+                                Non renseigné
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="pr-4 py-2.5 text-right whitespace-nowrap">
+                            {getDiscrepancyBadge(diff)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
                 </Table>
               </div>
             )}
 
             {/* Summary footer */}
             {activeItems.length > 0 && (
-              <div className="flex items-center justify-between px-6 py-3 border-t border-border/50 bg-muted/20">
+              <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/50 bg-muted/20">
                 <p className="text-xs text-muted-foreground">
                   {activeItems.length} article{activeItems.length !== 1 ? 's' : ''} au
                   total —{' '}
@@ -536,7 +532,7 @@ export default async function InventoryPage() {
                     </>
                   )}
                 </p>
-                <Button variant="outline" size="sm" asChild className="gap-1 text-xs">
+                <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-7 px-2">
                   <Link href={`/dashboard/inventory/${activeInventory.id}`}>
                     <Eye className="h-3.5 w-3.5" />
                     Voir le détail complet
