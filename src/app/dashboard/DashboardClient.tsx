@@ -76,25 +76,7 @@ export default function DashboardClient({
   return (
     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
-      {/* BANDEAU DE TITRE DE LA PAGE */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-1 border-b border-border/40">
-        <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <Beaker className="h-5 w-5 text-[#1B5C2E]" />
-            Tableau de Bord — Échantillons Pharmaceutiques
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium">Vue d'ensemble de l'échantillothèque et du stock actif</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground shadow-2xs">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>19 Mai 2025</span>
-          </div>
-          <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white gap-2 h-8.5 rounded-lg text-xs shadow-2xs">
-            <Filter className="h-3.5 w-3.5" /> Filtrer
-          </Button>
-        </div>
-      </div>
+      {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
 
       {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

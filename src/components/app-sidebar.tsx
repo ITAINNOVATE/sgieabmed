@@ -45,17 +45,17 @@ export function AppSidebar() {
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
       {/* En-tête sur fond BLANC pur */}
-      <SidebarHeader className="h-[68px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-card border-b border-border/80 text-foreground shrink-0">
-        <div className="text-[#1B5C2E] p-1 bg-[#1B5C2E]/10 rounded-xl shrink-0">
+      <SidebarHeader className="h-[68px] px-3 flex flex-row items-center gap-2.5 bg-white dark:bg-card border-b border-border/80 text-foreground shrink-0">
+        <div className="text-[#1B5C2E] p-1.5 bg-[#1B5C2E]/10 rounded-xl shrink-0">
           <FlaskConical className="h-6 w-6" strokeWidth={2.2} />
         </div>
         <div className="flex flex-col min-w-0">
           <div className="flex items-center">
             <span className="font-bold text-base leading-none text-[#1B5C2E]">eGED</span>
-            <span className="font-bold text-base leading-none text-[#1E3A8A]">-ABMed</span>
+            <span className="font-bold text-base leading-none text-[#1E3A8A]"> Ph</span>
           </div>
-          <span className="text-[8.5px] text-muted-foreground leading-tight mt-0.5 font-medium truncate">
-            Gestion des échantillons & déchets
+          <span className="text-[8px] text-muted-foreground leading-tight mt-0.5 font-medium truncate">
+            Gestion des échantillons & déchets<br />pharmaceutiques
           </span>
         </div>
       </SidebarHeader>

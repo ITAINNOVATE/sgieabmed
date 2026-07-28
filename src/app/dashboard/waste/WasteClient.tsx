@@ -105,24 +105,6 @@ export default function WasteClient({
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
       
-      {/* BANDEAU DE TITRE DU TABLEAU DE BORD DÉCHETS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-1 border-b border-border/40">
-        <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-[#E53935]" />
-            Tableau de Bord — Déchets Pharmaceutiques
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium">Gestion du stockage, contrôle PSQIF et élimination sécurisée des déchets</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="gap-2 h-8.5 rounded-lg text-xs bg-card">
-            <Link href="/dashboard/destructions"><Flame className="h-3.5 w-3.5 text-amber-600" /> Destructions</Link>
-          </Button>
-          <Button asChild className="bg-[#E53935] hover:bg-[#c62828] text-white gap-2 h-8.5 rounded-lg text-xs shadow-2xs">
-            <Link href="/dashboard/waste/new"><Plus className="h-3.5 w-3.5" /> Déclarer un déchet</Link>
-          </Button>
-        </div>
-      </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
         <div className="flex items-center justify-between mb-3">
