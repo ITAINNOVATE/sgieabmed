@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* PIED DE PAGE */}
         <footer className="border-t border-border bg-white dark:bg-card/50 py-3 px-4 sm:px-6 text-[11px] text-muted-foreground text-center flex items-center justify-center mt-auto">
           <span>
-            eGED - Gestion électronique des échantillons et des déchets pharmaceutiques - ABMed © 2026 - Tous droits réservés - by SaniNova Consortium
+            eGED - Gestion électronique des échantillons et des déchets pharmaceutiques - by SaniNova Consortium
           </span>
         </footer>
       </main>
