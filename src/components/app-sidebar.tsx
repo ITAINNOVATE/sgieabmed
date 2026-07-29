@@ -344,12 +344,12 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* PIED DE LA SIDEBAR INSTITUTIONNEL */}
-      <SidebarFooter className="p-3 border-t border-sidebar-border/40 space-y-2 shrink-0 bg-sidebar">
+      {/* PIED DE LA SIDEBAR INSTITUTIONNEL SUR FOND BLANC PUR */}
+      <SidebarFooter className="p-3 border-t border-border/60 space-y-2 shrink-0 bg-white dark:bg-sidebar transition-colors">
         <div className="flex items-center gap-2.5 px-1">
           <div className="shrink-0 flex items-center justify-center h-8 w-8">
             <Image 
-              src="/logoABMeD_white.png" 
+              src="/logoABMeD.png" 
               alt="Logo ABMed" 
               width={32} 
               height={32} 
@@ -357,8 +357,8 @@ export function AppSidebar() {
             />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="font-bold text-xs text-white leading-none">ABMed</span>
-            <span className="text-[8px] text-white/80 leading-tight mt-0.5 font-normal">
+            <span className="font-extrabold text-xs text-[#1B5C2E] dark:text-white leading-none">ABMed</span>
+            <span className="text-[8.5px] text-muted-foreground dark:text-white/80 leading-tight mt-0.5 font-medium">
               Agence béninoise du Médicament et des autres produits de Santé
             </span>
           </div>
@@ -367,10 +367,10 @@ export function AppSidebar() {
         <form action={logout}>
           <SidebarMenuButton 
             type="submit" 
-            className="h-8 px-2 text-white/80 hover:text-white hover:bg-destructive/80 transition-colors rounded-lg w-full justify-start text-xs cursor-pointer"
+            className="h-8 px-2 text-foreground/80 hover:text-white hover:bg-red-600 dark:hover:bg-red-600 transition-colors rounded-lg w-full justify-start text-xs cursor-pointer"
           >
-            <LogOut className="h-3.5 w-3.5 mr-2 shrink-0" strokeWidth={2} />
-            <span>Déconnexion</span>
+            <LogOut className="h-3.5 w-3.5 mr-2 shrink-0 text-red-600 group-hover:text-white" strokeWidth={2} />
+            <span className="font-semibold">Déconnexion</span>
           </SidebarMenuButton>
         </form>
       </SidebarFooter>
