@@ -45,16 +45,16 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur (jour) / Orange foncé #7C2D12 (mode nuit) */}
-      <SidebarHeader className="h-[72px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-[#7C2D12] dark:text-white border-b border-border text-foreground shrink-0 transition-colors">
-        <div className="text-[#1B5C2E] dark:text-amber-300 p-1.5 bg-[#1B5C2E]/10 dark:bg-amber-950/40 rounded-xl shrink-0">
+      {/* En-tête sur fond BLANC pur (jour) / Orange #F57C00 (mode nuit) */}
+      <SidebarHeader className="h-[72px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-[#F57C00] dark:text-white border-b border-border text-foreground shrink-0 transition-colors">
+        <div className="text-[#1B5C2E] dark:text-white p-1.5 bg-[#1B5C2E]/10 dark:bg-white/20 rounded-xl shrink-0">
           <FlaskConical className="h-6 w-6" strokeWidth={2.2} />
         </div>
         <div className="flex flex-col min-w-0">
           <div className="flex items-center">
-            <span className="font-bold text-base leading-none text-[#1B5C2E] dark:text-amber-100">eGED</span>
+            <span className="font-bold text-base leading-none text-[#1B5C2E] dark:text-white">eGED</span>
           </div>
-          <span className="text-[8px] text-muted-foreground dark:text-amber-200/80 leading-tight mt-0.5 font-medium truncate">
+          <span className="text-[8px] text-muted-foreground dark:text-white/90 leading-tight mt-0.5 font-medium truncate">
             Gestion des échantillons & déchets<br />pharmaceutiques
           </span>
         </div>

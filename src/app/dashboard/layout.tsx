@@ -11,22 +11,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1 overflow-auto flex flex-col min-h-screen bg-background relative">
-        {/* EN-TÊTE FIXE ET ÉPURÉ (Fond blanc pur en jour, Orange foncé #7C2D12 en mode nuit) */}
-        <header className="flex h-[72px] items-center justify-between gap-4 border-b border-border bg-white dark:bg-[#7C2D12] dark:text-white px-4 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
+        {/* EN-TÊTE FIXE ET ÉPURÉ (Fond blanc pur en jour, Orange #F57C00 en mode nuit) */}
+        <header className="flex h-[72px] items-center justify-between gap-4 border-b border-border bg-white dark:bg-[#F57C00] dark:text-white px-4 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
           <div className="flex items-center gap-3">
-            <SidebarTrigger className="text-muted-foreground dark:text-amber-100 hover:text-foreground transition-colors" />
+            <SidebarTrigger className="text-muted-foreground dark:text-white hover:text-foreground transition-colors" />
             <Separator orientation="vertical" className="h-6 opacity-40 hidden sm:block" />
           </div>
 
           {/* Titre central institutionnel avec icône Bouclier */}
           <div className="hidden lg:flex flex-col items-center justify-center text-center">
-            <span className="text-sm font-semibold text-[#1B5C2E] dark:text-amber-200 tracking-tight">
+            <span className="text-sm font-bold text-[#1B5C2E] dark:text-white tracking-tight">
               Une gestion sécurisée des échantillons et des déchets pharmaceutiques
             </span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="h-[1px] w-12 bg-border"></span>
-              <ShieldCheck className="h-4 w-4 text-[#1B5C2E] dark:text-amber-300" />
-              <span className="h-[1px] w-12 bg-border"></span>
+              <span className="h-[1px] w-12 bg-border dark:bg-white/30"></span>
+              <ShieldCheck className="h-4 w-4 text-[#1B5C2E] dark:text-white" />
+              <span className="h-[1px] w-12 bg-border dark:bg-white/30"></span>
             </div>
           </div>
 
