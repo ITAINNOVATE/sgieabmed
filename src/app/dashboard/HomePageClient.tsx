@@ -87,15 +87,7 @@ export default function HomePageClient() {
       </div>
 
       {/* ─── LES 4 PILIERS DE LA SOLUTION eGED ─── */}
-      <div>
-        <div className="mb-2">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-[#1B5C2E]" />
-            Les 4 Piliers du Système eGED
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
           {/* PILIER 1 : TRAÇABILITÉ */}
           <Card className="shadow-2xs border border-border/70 rounded-xl bg-card hover:shadow-sm transition-shadow">
@@ -170,7 +162,6 @@ export default function HomePageClient() {
           </Card>
 
         </div>
-      </div>
 
       {/* ─── BANDEAU INSTITUTIONNEL AU BAS DE L'ACCUEIL ─── */}
       <div className="p-3 rounded-xl bg-[#1B5C2E]/10 border border-[#1B5C2E]/20 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
