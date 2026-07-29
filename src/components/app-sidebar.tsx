@@ -348,13 +348,13 @@ export function AppSidebar() {
       {/* PIED DE LA SIDEBAR INSTITUTIONNEL */}
       <SidebarFooter className="p-3 border-t border-sidebar-border/40 space-y-2 shrink-0 bg-sidebar">
         <div className="flex items-center gap-2.5 px-1">
-          <div className="bg-white p-0.5 rounded-lg shrink-0 flex items-center justify-center h-8 w-8 shadow-xs border border-white/20">
+          <div className="shrink-0 flex items-center justify-center h-8 w-8">
             <Image 
-              src="/logoABMeD.png" 
+              src="/logoABMeD_white.png" 
               alt="Logo ABMed" 
-              width={28} 
-              height={28} 
-              className="h-7 w-7 object-contain rounded-sm" 
+              width={32} 
+              height={32} 
+              className="h-8 w-8 object-contain" 
             />
           </div>
           <div className="flex flex-col min-w-0">
