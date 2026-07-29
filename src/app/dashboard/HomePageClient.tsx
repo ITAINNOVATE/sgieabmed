@@ -86,76 +86,76 @@ export default function HomePageClient() {
         </div>
       </div>
 
-      {/* ─── LES 4 PILIERS DE LA SOLUTION eGED ─── */}
+      {/* ─── LES 4 PILIERS DE LA SOLUTION eGED (VERT = ÉCHANTILLONS, ROUGE = DÉCHETS) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
-          {/* PILIER 1 : TRAÇABILITÉ */}
-          <Card className="shadow-2xs border border-border/70 rounded-xl bg-card hover:shadow-sm transition-shadow">
+          {/* PILIER 1 : TRAÇABILITÉ (ÉCHANTILLONS - VERT & BLANC) */}
+          <Card className="shadow-xs border-0 rounded-xl bg-[#1B5C2E] text-white hover:shadow-md transition-shadow">
             <CardHeader className="p-3 pb-1">
-              <div className="p-2 w-fit rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E] mb-1">
+              <div className="p-2 w-fit rounded-lg bg-white/20 text-white mb-1">
                 <ShieldCheck className="h-4 w-4" />
               </div>
-              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wide">TRAÇABILITÉ</CardTitle>
+              <CardTitle className="text-xs font-bold text-white uppercase tracking-wide">TRAÇABILITÉ ÉCHANTILLONS</CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[11px] text-white/90 leading-relaxed">
                 Suivi en temps réel de chaque échantillon, depuis sa réception jusqu'à son analyse.
               </p>
-              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-semibold text-[#1B5C2E] mt-2">
+              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-bold text-white hover:text-white/80 mt-2">
                 <Link href="/dashboard/receptions">Consulter réceptions <ArrowRight className="h-3 w-3 ml-1" /></Link>
               </Button>
             </CardContent>
           </Card>
 
-          {/* PILIER 2 : GESTION OPTIMISÉE */}
-          <Card className="shadow-2xs border border-border/70 rounded-xl bg-card hover:shadow-sm transition-shadow">
+          {/* PILIER 2 : GESTION OPTIMISÉE (ÉCHANTILLONS - VERT & BLANC) */}
+          <Card className="shadow-xs border-0 rounded-xl bg-[#1B5C2E] text-white hover:shadow-md transition-shadow">
             <CardHeader className="p-3 pb-1">
-              <div className="p-2 w-fit rounded-lg bg-blue-500/10 text-blue-600 mb-1">
+              <div className="p-2 w-fit rounded-lg bg-white/20 text-white mb-1">
                 <Package className="h-4 w-4" />
               </div>
-              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wide">GESTION OPTIMISÉE</CardTitle>
+              <CardTitle className="text-xs font-bold text-white uppercase tracking-wide">GESTION OPTIMISÉE</CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[11px] text-white/90 leading-relaxed">
                 Organisation efficace en armoires, zones et étagères dédiées avec cartographie complète.
               </p>
-              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-semibold text-blue-600 mt-2">
+              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-bold text-white hover:text-white/80 mt-2">
                 <Link href="/dashboard/samples">Gérer emplacements <ArrowRight className="h-3 w-3 ml-1" /></Link>
               </Button>
             </CardContent>
           </Card>
 
-          {/* PILIER 3 : CONFORMITÉ */}
-          <Card className="shadow-2xs border border-border/70 rounded-xl bg-card hover:shadow-sm transition-shadow">
+          {/* PILIER 3 : CONFORMITÉ DÉCHETS (DÉCHETS - ROUGE & BLANC) */}
+          <Card className="shadow-xs border-0 rounded-xl bg-red-600 text-white hover:shadow-md transition-shadow">
             <CardHeader className="p-3 pb-1">
-              <div className="p-2 w-fit rounded-lg bg-red-500/10 text-red-600 mb-1">
+              <div className="p-2 w-fit rounded-lg bg-white/20 text-white mb-1">
                 <Trash2 className="h-4 w-4" />
               </div>
-              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wide">CONFORMITÉ DÉCHETS</CardTitle>
+              <CardTitle className="text-xs font-bold text-white uppercase tracking-wide">CONFORMITÉ DÉCHETS</CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[11px] text-white/90 leading-relaxed">
                 Respect strict des normes environnementales pour la destruction sécurisée des déchets.
               </p>
-              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-semibold text-red-600 mt-2">
+              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-bold text-white hover:text-white/80 mt-2">
                 <Link href="/dashboard/destructions">Planifier destructions <ArrowRight className="h-3 w-3 ml-1" /></Link>
               </Button>
             </CardContent>
           </Card>
 
-          {/* PILIER 4 : TABLEAUX DE BORD */}
-          <Card className="shadow-2xs border border-border/70 rounded-xl bg-card hover:shadow-sm transition-shadow">
+          {/* PILIER 4 : TABLEAUX DE BORD DÉCHETS & RAPPORTS (DÉCHETS - ROUGE & BLANC) */}
+          <Card className="shadow-xs border-0 rounded-xl bg-red-600 text-white hover:shadow-md transition-shadow">
             <CardHeader className="p-3 pb-1">
-              <div className="p-2 w-fit rounded-lg bg-purple-500/10 text-purple-600 mb-1">
+              <div className="p-2 w-fit rounded-lg bg-white/20 text-white mb-1">
                 <BarChart3 className="h-4 w-4" />
               </div>
-              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wide">TABLEAUX DE BORD</CardTitle>
+              <CardTitle className="text-xs font-bold text-white uppercase tracking-wide">RAPPORTS DÉCHETS</CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[11px] text-white/90 leading-relaxed">
                 Indicateurs de performance, taux d'occupation des stocks et rapports d'audit en un clic.
               </p>
-              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-semibold text-purple-600 mt-2">
+              <Button asChild variant="link" className="p-0 h-auto text-[11px] font-bold text-white hover:text-white/80 mt-2">
                 <Link href="/dashboard/reports">Générer un rapport <ArrowRight className="h-3 w-3 ml-1" /></Link>
               </Button>
             </CardContent>
