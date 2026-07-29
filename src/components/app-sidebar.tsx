@@ -90,15 +90,15 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild 
-                  className={`h-9 px-2.5 text-xs rounded-lg transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
                     isActive('/dashboard') 
-                      ? "bg-[#1B5C2E] text-white font-bold hover:bg-[#154824]" 
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <Link href="/dashboard" className="flex items-center gap-2.5 w-full">
-                    <Home className="h-4 w-4 shrink-0" />
-                    <span className="font-medium">Page d'Accueil</span>
+                    <Home className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide">Page d'Accueil</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -107,47 +107,47 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('dashboards')}
-                  className={`h-9 px-2.5 text-xs rounded-lg w-full justify-between cursor-pointer transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
                     pathname.includes('/analytics') || pathname === '/dashboard/waste'
-                      ? "bg-emerald-500/10 text-[#1B5C2E] dark:text-emerald-400 font-bold"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs"
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <LayoutDashboard className="h-4 w-4 shrink-0" />
-                    <span className="font-medium truncate">Tableaux de Bord</span>
+                    <LayoutDashboard className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Tableaux de Bord</span>
                   </div>
                   {openSections.dashboards ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-white" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
                   )}
                 </SidebarMenuButton>
                 {openSections.dashboards && (
-                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/analytics" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/analytics')
-                            ? "bg-[#1B5C2E] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Package className="h-3 w-3 shrink-0" />
+                        <Package className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Échantillons pharmaceutiques</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/waste" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/waste')
-                            ? "bg-red-600 text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Trash2 className="h-3 w-3 shrink-0" />
+                        <Trash2 className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Déchets pharmaceutiques</span>
                       </Link>
                     </SidebarMenuSubItem>
@@ -159,86 +159,86 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('samples')}
-                  className={`h-9 px-2.5 text-xs rounded-lg w-full justify-between cursor-pointer transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
                     (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/samples') || pathname.includes('/documents')) && !pathname.includes('/waste')
-                      ? "bg-emerald-500/10 text-[#1B5C2E] dark:text-emerald-400 font-bold"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs"
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <Package className="h-4 w-4 shrink-0 text-[#1B5C2E] dark:text-emerald-400" />
-                    <span className="font-medium truncate">Gestion des échantillons</span>
+                    <Package className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Gestion des échantillons</span>
                   </div>
                   {openSections.samples ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-white" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
                   )}
                 </SidebarMenuButton>
                 {openSections.samples && (
-                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/receptions" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/receptions')
-                            ? "bg-[#1B5C2E] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Inbox className="h-3 w-3 shrink-0" />
+                        <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Réceptions</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/movements" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/movements')
-                            ? "bg-[#1B5C2E] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <ArrowLeftRight className="h-3 w-3 shrink-0" />
+                        <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Mouvements & Cartographie</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/inventory" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/inventory')
-                            ? "bg-[#1B5C2E] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <ClipboardCheck className="h-3 w-3 shrink-0" />
+                        <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Inventaires & Contrôles</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/samples" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/samples')
-                            ? "bg-[#1B5C2E] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <MapPin className="h-3 w-3 shrink-0" />
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Stocks & Armoires</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/documents" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/documents')
-                            ? "bg-[#1B5C2E] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Folder className="h-3 w-3 shrink-0" />
+                        <Folder className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Documentation & Certificats</span>
                       </Link>
                     </SidebarMenuSubItem>
@@ -250,73 +250,73 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('waste')}
-                  className={`h-9 px-2.5 text-xs rounded-lg w-full justify-between cursor-pointer transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
                     (pathname.includes('/waste') || pathname.includes('/destructions'))
-                      ? "bg-red-500/10 text-red-600 dark:text-red-400 font-bold"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs"
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <Trash2 className="h-4 w-4 shrink-0 text-red-600" />
-                    <span className="font-medium truncate">Gestion des déchets</span>
+                    <Trash2 className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Gestion des déchets</span>
                   </div>
                   {openSections.waste ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-white" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
                   )}
                 </SidebarMenuButton>
                 {openSections.waste && (
-                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/waste/new" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/waste/new')
-                            ? "bg-red-600 text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Inbox className="h-3 w-3 shrink-0" />
+                        <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Réception Déchets</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/waste" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/waste')
-                            ? "bg-red-600 text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Trash2 className="h-3 w-3 shrink-0" />
+                        <Trash2 className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Registre des Stocks</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/destructions" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/destructions')
-                            ? "bg-red-600 text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Flame className="h-3 w-3 shrink-0" />
+                        <Flame className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Plan de Destruction</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/documents" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/documents')
-                            ? "bg-red-600 text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Folder className="h-3 w-3 shrink-0" />
+                        <Folder className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Bordereaux Suivi Déchets</span>
                       </Link>
                     </SidebarMenuSubItem>
@@ -328,34 +328,34 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('reports')}
-                  className={`h-9 px-2.5 text-xs rounded-lg w-full justify-between cursor-pointer transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
                     pathname.includes('/reports')
-                      ? "bg-[#003B5C]/10 text-[#003B5C] dark:text-blue-400 font-bold"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs"
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <ChartColumn className="h-4 w-4 shrink-0 text-[#003B5C] dark:text-blue-400" />
-                    <span className="font-medium truncate">Rapports & Statistiques</span>
+                    <ChartColumn className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Rapports & Statistiques</span>
                   </div>
                   {openSections.reports ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-white" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
                   )}
                 </SidebarMenuButton>
                 {openSections.reports && (
-                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/reports" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/reports')
-                            ? "bg-[#003B5C] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#003B5C] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <BarChart3 className="h-3 w-3 shrink-0" />
+                        <BarChart3 className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Générateur de Rapports</span>
                       </Link>
                     </SidebarMenuSubItem>
@@ -367,34 +367,34 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('alerts')}
-                  className={`h-9 px-2.5 text-xs rounded-lg w-full justify-between cursor-pointer transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
                     pathname.includes('/alerts')
-                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs"
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <Bell className="h-4 w-4 shrink-0 text-amber-500" />
-                    <span className="font-medium truncate">Alertes & Notifications</span>
+                    <Bell className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Alertes & Notifications</span>
                   </div>
                   {openSections.alerts ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-white" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
                   )}
                 </SidebarMenuButton>
                 {openSections.alerts && (
-                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/alerts" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/alerts')
-                            ? "bg-amber-600 text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-amber-700 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Journal des Alertes</span>
                       </Link>
                     </SidebarMenuSubItem>
@@ -406,86 +406,86 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('admin')}
-                  className={`h-9 px-2.5 text-xs rounded-lg w-full justify-between cursor-pointer transition-colors ${
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
                     (pathname.includes('/admin') || pathname.includes('/initialization'))
-                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-white/20 text-white font-extrabold shadow-xs"
+                      : "text-white hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <Settings className="h-4 w-4 shrink-0 text-blue-600" />
-                    <span className="font-medium truncate">Administration</span>
+                    <Settings className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Administration</span>
                   </div>
                   {openSections.admin ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-white" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
                   )}
                 </SidebarMenuButton>
                 {openSections.admin && (
-                  <SidebarMenuSub className="my-1 border-l border-sidebar-border/40 ml-3.5 pl-2 space-y-0.5">
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/admin" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/admin')
-                            ? "bg-[#0B5ED7] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <LayoutDashboard className="h-3 w-3 shrink-0" />
+                        <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Vue Globale Admin</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/admin/users" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/admin/users')
-                            ? "bg-[#0B5ED7] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Users className="h-3 w-3 shrink-0" />
+                        <Users className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Utilisateurs & Rôles</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/admin/services" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/admin/services')
-                            ? "bg-[#0B5ED7] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Building2 className="h-3 w-3 shrink-0" />
+                        <Building2 className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Services & Directions</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/admin/audit" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/admin/audit')
-                            ? "bg-[#0B5ED7] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <History className="h-3 w-3 shrink-0" />
+                        <History className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Journaux d'audit</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/initialization" 
-                        className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/initialization')
-                            ? "bg-[#0B5ED7] text-white font-bold"
-                            : "text-sidebar-foreground/80 hover:text-foreground hover:bg-sidebar-accent"
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <PackageCheck className="h-3 w-3 shrink-0" />
+                        <PackageCheck className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Initialisation Stock</span>
                       </Link>
                     </SidebarMenuSubItem>
