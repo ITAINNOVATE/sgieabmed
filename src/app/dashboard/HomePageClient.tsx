@@ -59,12 +59,14 @@ export default function HomePageClient() {
                 priority
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-2 left-2.5 right-2.5 text-white text-[11px] font-bold flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  Conforme PSQIF
-                </span>
-                <Badge className="bg-[#1B5C2E] text-white text-[9px]">Système Actif</Badge>
+              <div className="absolute bottom-3 left-3 flex items-center">
+                <Image 
+                  src="/logoeGED_white.png" 
+                  alt="Logo eGED" 
+                  width={160} 
+                  height={45} 
+                  className="h-8 w-auto object-contain drop-shadow-md" 
+                />
               </div>
             </div>
           </div>
