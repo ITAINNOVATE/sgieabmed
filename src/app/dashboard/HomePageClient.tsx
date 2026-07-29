@@ -48,26 +48,17 @@ export default function HomePageClient() {
 
           </div>
 
-          {/* COLONNE DROITE : VISUEL HÉRO LABORATOIRE */}
-          <div className="lg:col-span-4">
-            <div className="relative rounded-xl overflow-hidden border border-border shadow-md aspect-16/9 bg-slate-100 group">
+          {/* COLONNE DROITE : LOGO eGED REMPLAÇANT L'IMAGE */}
+          <div className="lg:col-span-4 flex items-center justify-center">
+            <div className="relative rounded-2xl border border-border/80 shadow-xs p-4 bg-white dark:bg-card w-full flex items-center justify-center aspect-16/9 group hover:shadow-md transition-shadow">
               <Image 
-                src="/abmed_hero.png" 
-                alt="Gestion des échantillons et déchets ABMed"
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                src="/logoeGED.png" 
+                alt="eGED - Gestion des échantillons et déchets pharmaceutiques"
+                width={360}
+                height={140}
+                className="h-28 w-auto object-contain dark:brightness-0 dark:invert group-hover:scale-105 transition-transform duration-300"
                 priority
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-3 left-3 flex items-center">
-                <Image 
-                  src="/logoeGED_white.png" 
-                  alt="Logo eGED" 
-                  width={160} 
-                  height={45} 
-                  className="h-8 w-auto object-contain drop-shadow-md" 
-                />
-              </div>
             </div>
           </div>
 
