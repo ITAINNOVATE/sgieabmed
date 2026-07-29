@@ -45,15 +45,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur (jour) / Orange vif #FF6600 (mode nuit) avec Logo Officiel eGED (Centré) */}
-      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-center bg-white dark:bg-[#FF6600] border-b border-border shrink-0 transition-colors">
+      {/* En-tête sur fond ORANGE #FF6600 (Jour & Nuit) avec Logo Officiel eGED Blanc Sans Fond */}
+      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-center bg-[#FF6600] border-b border-border/40 shrink-0 transition-colors">
         <Link href="/dashboard" className="flex items-center justify-center w-full h-full py-1">
           <Image 
-            src="/logoeGED.png" 
+            src="/logoeGED_white.png" 
             alt="eGED - Gestion des échantillons et déchets pharmaceutiques" 
             width={240} 
             height={90} 
-            className="h-[52px] w-auto max-w-full object-contain object-center dark:brightness-0 dark:invert transition-all mx-auto"
+            className="h-[52px] w-auto max-w-full object-contain object-center transition-all mx-auto drop-shadow-xs"
             priority 
           />
         </Link>
