@@ -20,20 +20,6 @@ export default function HomePageClient() {
           
           {/* COLONNE GAUCHE : TEXTE & PRESENTATION eGED */}
           <div className="lg:col-span-8 space-y-2.5">
-            
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-[#1B5C2E] flex items-center justify-center text-white shadow-xs shrink-0">
-                <FlaskConical className="h-4.5 w-4.5 text-emerald-300" strokeWidth={2.2} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-tight text-[#1B5C2E] leading-none">
-                  eGED
-                </span>
-                <Badge className="bg-[#1B5C2E]/10 text-[#1B5C2E] hover:bg-[#1B5C2E]/10 border-0 text-[10px] font-bold">
-                  Solution Officielle ABMed
-                </Badge>
-              </div>
-            </div>
 
             <div className="space-y-1">
               <h1 className="text-xl lg:text-2xl font-black text-foreground tracking-tight leading-snug">
