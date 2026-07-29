@@ -45,19 +45,18 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur (jour) / Orange vif #FF6600 (mode nuit) */}
-      <SidebarHeader className="h-[72px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-[#FF6600] dark:text-white border-b border-border text-foreground shrink-0 transition-colors">
-        <div className="text-[#1B5C2E] dark:text-white p-1.5 bg-[#1B5C2E]/10 dark:bg-white/20 rounded-xl shrink-0">
-          <FlaskConical className="h-6 w-6" strokeWidth={2.2} />
-        </div>
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center">
-            <span className="font-bold text-base leading-none text-[#1B5C2E] dark:text-white">eGED</span>
-          </div>
-          <span className="text-[8px] text-muted-foreground dark:text-white/90 leading-tight mt-0.5 font-medium truncate">
-            Gestion des échantillons & déchets<br />pharmaceutiques
-          </span>
-        </div>
+      {/* En-tête sur fond BLANC pur (jour) / Orange vif #FF6600 (mode nuit) avec Logo Officiel eGED */}
+      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-start bg-white dark:bg-[#FF6600] border-b border-border shrink-0 transition-colors">
+        <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden py-1">
+          <Image 
+            src="/logoeGED.png" 
+            alt="eGED - Gestion des échantillons et déchets pharmaceutiques" 
+            width={180} 
+            height={56} 
+            className="h-11 w-auto object-contain dark:brightness-0 dark:invert transition-all"
+            priority 
+          />
+        </Link>
       </SidebarHeader>
       
       {/* Contenu principal de la navigation avec défilement fluide si nécessaire */}
