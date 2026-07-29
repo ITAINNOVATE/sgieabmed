@@ -11,14 +11,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1 overflow-auto flex flex-col min-h-screen bg-background relative">
-        {/* EN-TÊTE FIXE BLEU eGED #003B5C (Jour & Nuit) */}
-        <header className="flex h-[72px] items-center justify-between gap-4 border-b border-border/40 bg-[#003B5C] text-white px-4 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="text-white hover:text-white/80 transition-colors" />
+        {/* EN-TÊTE FIXE BLEU eGED #003B5C (Jour & Nuit) - RESPONSIVE MOBILE */}
+        <header className="flex h-[64px] sm:h-[72px] items-center justify-between gap-2 sm:gap-4 border-b border-border/40 bg-[#003B5C] text-white px-3 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <SidebarTrigger className="text-white hover:text-white/80 transition-colors h-9 w-9 p-1.5 cursor-pointer rounded-lg bg-white/10 hover:bg-white/20 shrink-0" />
             <Separator orientation="vertical" className="h-6 opacity-40 bg-white hidden sm:block" />
           </div>
 
-          {/* Titre central institutionnel avec icône Bouclier */}
+          {/* Titre central institutionnel avec icône Bouclier (Masqué sur mobile) */}
           <div className="hidden lg:flex flex-col items-center justify-center text-center">
             <span className="text-sm font-bold text-white tracking-tight">
               Une gestion sécurisée des échantillons et des déchets pharmaceutiques
@@ -34,7 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* CONTENU PRINCIPAL DE LA PAGE */}
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
+        <div className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full overflow-x-hidden">
           <MotionWrapper>
             {children}
           </MotionWrapper>
