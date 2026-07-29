@@ -122,13 +122,13 @@ export default function HomePageClient() {
             </CardContent>
           </Card>
 
-          {/* PILIER 4 : TABLEAUX DE BORD DÉCHETS & RAPPORTS (DÉCHETS - ROUGE & BLANC) */}
-          <Card className="shadow-xs border-0 rounded-xl bg-red-600 text-white hover:shadow-md transition-shadow">
+          {/* PILIER 4 : RAPPORTS ET STATISTIQUES (BLEU eGED #003B5C & BLANC) */}
+          <Card className="shadow-xs border-0 rounded-xl bg-[#003B5C] text-white hover:shadow-md transition-shadow">
             <CardHeader className="p-3 pb-1">
               <div className="p-2 w-fit rounded-lg bg-white/20 text-white mb-1">
                 <BarChart3 className="h-4 w-4" />
               </div>
-              <CardTitle className="text-xs font-bold text-white uppercase tracking-wide">RAPPORTS DÉCHETS</CardTitle>
+              <CardTitle className="text-xs font-bold text-white uppercase tracking-wide">RAPPORTS ET STATISTIQUES</CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
               <p className="text-[11px] text-white/90 leading-relaxed">
