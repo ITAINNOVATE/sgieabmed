@@ -137,7 +137,7 @@ export default function LoginPage({
             <ShieldCheck className="h-4 w-4" />
             <span>QUALITÉ • SÉCURITÉ • TRAÇABILITÉ AU SERVICE DE LA SANTÉ PUBLIQUE</span>
           </div>
-          <span>© 2026 ABMed — Tous droits réservés</span>
+          <span>© 2026 ABMed — Tous droits réservés - by SaniNova Consortium</span>
         </div>
 
       </div>
