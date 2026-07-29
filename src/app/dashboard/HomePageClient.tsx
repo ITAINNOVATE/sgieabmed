@@ -52,9 +52,9 @@ export default function HomePageClient() {
                   Tableau de bord Échantillons
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="gap-2 h-8.5 px-4 rounded-lg border-border text-xs font-semibold bg-card hover:bg-muted">
+              <Button asChild className="bg-red-600 hover:bg-red-700 text-white gap-2 h-8.5 px-4 rounded-lg shadow-2xs text-xs font-bold border-0">
                 <Link href="/dashboard/waste">
-                  <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                  <Trash2 className="h-3.5 w-3.5 text-white" />
                   Tableau de bord Déchets
                 </Link>
               </Button>
