@@ -11,8 +11,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1 overflow-auto flex flex-col min-h-screen bg-background relative">
-        {/* EN-TÊTE FIXE ET ÉPURÉ (Fond blanc pur en jour, Orange #F57C00 en mode nuit) */}
-        <header className="flex h-[72px] items-center justify-between gap-4 border-b border-border bg-white dark:bg-[#F57C00] dark:text-white px-4 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
+        {/* EN-TÊTE FIXE ET ÉPURÉ (Fond blanc pur en jour, Orange vif #FF6600 en mode nuit) */}
+        <header className="flex h-[72px] items-center justify-between gap-4 border-b border-border bg-white dark:bg-[#FF6600] dark:text-white px-4 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
           <div className="flex items-center gap-3">
             <SidebarTrigger className="text-muted-foreground dark:text-white hover:text-foreground transition-colors" />
             <Separator orientation="vertical" className="h-6 opacity-40 hidden sm:block" />

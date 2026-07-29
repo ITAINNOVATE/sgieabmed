@@ -45,8 +45,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur (jour) / Orange #F57C00 (mode nuit) */}
-      <SidebarHeader className="h-[72px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-[#F57C00] dark:text-white border-b border-border text-foreground shrink-0 transition-colors">
+      {/* En-tête sur fond BLANC pur (jour) / Orange vif #FF6600 (mode nuit) */}
+      <SidebarHeader className="h-[72px] px-3.5 flex flex-row items-center gap-2.5 bg-white dark:bg-[#FF6600] dark:text-white border-b border-border text-foreground shrink-0 transition-colors">
         <div className="text-[#1B5C2E] dark:text-white p-1.5 bg-[#1B5C2E]/10 dark:bg-white/20 rounded-xl shrink-0">
           <FlaskConical className="h-6 w-6" strokeWidth={2.2} />
         </div>
