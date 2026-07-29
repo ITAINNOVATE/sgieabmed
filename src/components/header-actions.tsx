@@ -129,10 +129,10 @@ export function HeaderActions() {
         variant="ghost" 
         size="icon" 
         onClick={() => setIsScannerOpen(true)}
-        className="text-muted-foreground hover:text-foreground transition-colors rounded-xl relative h-9 w-9 cursor-pointer"
+        className="text-white hover:text-white/80 transition-colors rounded-xl relative h-9 w-9 cursor-pointer"
         title="Scanner un QR Code"
       >
-        <Scan className="h-5 w-5" />
+        <Scan className="h-5 w-5 text-white" />
       </Button>
 
       {/* 🔔 BOUTON ET MENU DÉROULANT DES NOTIFICATIONS (6) */}
@@ -141,11 +141,11 @@ export function HeaderActions() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="relative text-muted-foreground hover:text-foreground transition-colors rounded-full h-9 w-9 cursor-pointer"
+            className="relative text-white hover:text-white/80 transition-colors rounded-full h-9 w-9 cursor-pointer"
           >
-            <Bell className="h-5 w-5" />
+            <Bell className="h-5 w-5 text-white" />
             {unreadNotifsCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-background shadow-xs">
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">
                 {unreadNotifsCount}
               </span>
             )}
@@ -223,11 +223,11 @@ export function HeaderActions() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="relative text-muted-foreground hover:text-foreground transition-colors rounded-full h-9 w-9 cursor-pointer"
+            className="relative text-white hover:text-white/80 transition-colors rounded-full h-9 w-9 cursor-pointer"
           >
-            <Mail className="h-5 w-5" />
+            <Mail className="h-5 w-5 text-white" />
             {unreadMsgCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-background shadow-xs">
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">
                 {unreadMsgCount}
               </span>
             )}
@@ -304,23 +304,23 @@ export function HeaderActions() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Separator orientation="vertical" className="h-6 opacity-40 mx-1" />
+      <Separator orientation="vertical" className="h-6 bg-white/40 opacity-100 mx-1" />
 
-      {/* 👤 PROFIL UTILISATEUR ET MENU DÉROULANT */}
+      {/* 👤 PROFIL UTILISATEUR ET MENU DÉROULANT (EN BLANC PUR) */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <div className="flex items-center gap-2.5 cursor-pointer group hover:bg-muted/50 p-1.5 rounded-xl transition-colors">
-            <Avatar className="h-9 w-9 border-2 border-emerald-600/30 group-hover:border-emerald-600 transition-colors shadow-xs">
+          <div className="flex items-center gap-2.5 cursor-pointer group hover:bg-white/10 p-1.5 rounded-xl transition-colors">
+            <Avatar className="h-9 w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs">
               <AvatarImage src="/avatar.png" alt="Profile" />
-              <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-xs">MA</AvatarFallback>
+              <AvatarFallback className="bg-white/20 text-white font-bold text-xs">MA</AvatarFallback>
             </Avatar>
             <div className="hidden md:flex flex-col text-left">
-              <span className="text-xs font-bold leading-tight text-foreground group-hover:text-[#1B5C2E] transition-colors">
+              <span className="text-xs font-bold leading-tight text-white group-hover:text-white/90 transition-colors">
                 Marie ADANDE
               </span>
-              <span className="text-[11px] text-muted-foreground font-medium">Administrateur</span>
+              <span className="text-[11px] text-white/80 font-medium">Administrateur</span>
             </div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
+            <ChevronDown className="h-4 w-4 text-white hidden md:block" />
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-xl border-border">
