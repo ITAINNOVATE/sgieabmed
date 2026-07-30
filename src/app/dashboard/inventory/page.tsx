@@ -58,7 +58,7 @@ const MOCK_INVENTORIES: Inventory[] = [
     name: 'Inventaire Global 2026',
     inventory_type: 'Annuel',
     status: 'En cours',
-    created_at: new Date().toISOString(),
+    created_at: '2026-01-15T08:00:00.000Z',
     completed_at: null,
     items: [
       {
@@ -101,8 +101,8 @@ const MOCK_INVENTORIES: Inventory[] = [
     name: 'Inventaire Trimestriel Q1',
     inventory_type: 'Trimestriel',
     status: 'Validé',
-    created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-    completed_at: new Date(Date.now() - 80 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: '2026-03-01T09:00:00.000Z',
+    completed_at: '2026-03-15T14:30:00.000Z',
     items: [
       {
         id: '4',
