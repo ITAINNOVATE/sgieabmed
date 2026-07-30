@@ -521,10 +521,10 @@ export function AppSidebar() {
         <form action={logout}>
           <SidebarMenuButton 
             type="submit" 
-            className="h-8 px-2 text-foreground/80 hover:text-white hover:bg-red-600 dark:hover:bg-red-600 transition-colors rounded-lg w-full justify-start text-xs cursor-pointer"
+            className="h-9 px-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg w-full justify-start text-xs cursor-pointer shadow-xs transition-colors border-0"
           >
-            <LogOut className="h-3.5 w-3.5 mr-2 shrink-0 text-red-600 group-hover:text-white" strokeWidth={2} />
-            <span className="font-semibold">Déconnexion</span>
+            <LogOut className="h-4 w-4 mr-2 shrink-0 text-white" strokeWidth={2.2} />
+            <span className="font-bold text-white">Déconnexion</span>
           </SidebarMenuButton>
         </form>
       </SidebarFooter>
