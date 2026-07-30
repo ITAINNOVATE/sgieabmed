@@ -285,7 +285,33 @@ export function AppSidebar() {
                         }`}
                       >
                         <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Réception Déchets</span>
+                        <span className="truncate">Réception</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/waste" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/waste')
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Mouvements</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/inventory" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/inventory')
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Inventaire</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
@@ -298,7 +324,7 @@ export function AppSidebar() {
                         }`}
                       >
                         <Trash2 className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Registre des Stocks</span>
+                        <span className="truncate">Stocks</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
@@ -311,7 +337,7 @@ export function AppSidebar() {
                         }`}
                       >
                         <Flame className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Plan de Destruction</span>
+                        <span className="truncate">Destruction</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
@@ -324,7 +350,7 @@ export function AppSidebar() {
                         }`}
                       >
                         <Folder className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Bordereaux Suivi Déchets</span>
+                        <span className="truncate">Documentation</span>
                       </Link>
                     </SidebarMenuSubItem>
                   </SidebarMenuSub>
