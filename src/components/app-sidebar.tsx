@@ -38,27 +38,34 @@ export function AppSidebar() {
     admin: false,
   })
 
-  // Ouverture automatique de la section parente selon l'URL active
+  // Ouverture exclusive (Accordéon) de la section parente selon l'URL active
   useEffect(() => {
     if (pathname.includes('/analytics')) {
-      setOpenSections(prev => ({ ...prev, dashboards: true }))
-    } else if (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/samples') || pathname.includes('/documents')) {
-      setOpenSections(prev => ({ ...prev, samples: true }))
+      setOpenSections({ dashboards: true, samples: false, waste: false, reports: false, alerts: false, admin: false })
     } else if (pathname.includes('/destructions') || pathname.includes('/waste')) {
-      setOpenSections(prev => ({ ...prev, waste: true }))
+      setOpenSections({ dashboards: false, samples: false, waste: true, reports: false, alerts: false, admin: false })
+    } else if (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/samples') || pathname.includes('/documents')) {
+      setOpenSections({ dashboards: false, samples: true, waste: false, reports: false, alerts: false, admin: false })
     } else if (pathname.includes('/reports')) {
-      setOpenSections(prev => ({ ...prev, reports: true }))
+      setOpenSections({ dashboards: false, samples: false, waste: false, reports: true, alerts: false, admin: false })
     } else if (pathname.includes('/alerts')) {
-      setOpenSections(prev => ({ ...prev, alerts: true }))
+      setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: true, admin: false })
     } else if (pathname.includes('/admin') || pathname.includes('/initialization')) {
-      setOpenSections(prev => ({ ...prev, admin: true }))
+      setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: false, admin: true })
+    } else {
+      setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: false, admin: false })
     }
   }, [pathname])
 
+  // Clic manuel : Mode Accordéon (referme automatiquement toutes les autres sections)
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
+      dashboards: section === 'dashboards' ? !prev.dashboards : false,
+      samples: section === 'samples' ? !prev.samples : false,
+      waste: section === 'waste' ? !prev.waste : false,
+      reports: section === 'reports' ? !prev.reports : false,
+      alerts: section === 'alerts' ? !prev.alerts : false,
+      admin: section === 'admin' ? !prev.admin : false,
     }))
   }
 
