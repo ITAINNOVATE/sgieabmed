@@ -73,15 +73,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur avec Logo Officiel eGED aux Couleurs Originales */}
-      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-center bg-white dark:bg-[#003B5C] border-b border-border/40 shrink-0 transition-colors">
+      {/* En-tête sur fond BLANC pur (Jour & Nuit) avec Logo Officiel eGED aux Couleurs Originales */}
+      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-center bg-white border-b border-border/40 shrink-0 transition-colors">
         <Link href="/dashboard" className="flex items-center justify-center w-full h-full py-1">
           <Image 
             src="/logoeGED.png" 
             alt="eGED - Gestion des échantillons et déchets pharmaceutiques" 
             width={240} 
             height={90} 
-            className="h-[52px] w-auto max-w-full object-contain object-center dark:brightness-0 dark:invert transition-all mx-auto"
+            className="h-[52px] w-auto max-w-full object-contain object-center transition-all mx-auto"
             priority 
           />
         </Link>
@@ -531,8 +531,8 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* PIED DE LA SIDEBAR INSTITUTIONNEL SUR FOND BLANC PUR */}
-      <SidebarFooter className="p-3 border-t border-border/60 space-y-2 shrink-0 bg-white dark:bg-sidebar transition-colors">
+      {/* PIED DE LA SIDEBAR INSTITUTIONNEL SUR FOND BLANC PUR (JOUR & NUIT) */}
+      <SidebarFooter className="p-3 border-t border-border/60 space-y-2 shrink-0 bg-white transition-colors">
         <div className="flex items-center gap-2.5 px-1">
           <div className="shrink-0 flex items-center justify-center h-8 w-8">
             <Image 
@@ -544,8 +544,8 @@ export function AppSidebar() {
             />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="font-extrabold text-xs text-[#1B5C2E] dark:text-white leading-none">ABMed</span>
-            <span className="text-[8.5px] text-muted-foreground dark:text-white/80 leading-tight mt-0.5 font-medium">
+            <span className="font-extrabold text-xs text-[#1B5C2E] leading-none">ABMed</span>
+            <span className="text-[8.5px] text-muted-foreground leading-tight mt-0.5 font-medium">
               Agence béninoise du Médicament et des autres produits de Santé
             </span>
           </div>
