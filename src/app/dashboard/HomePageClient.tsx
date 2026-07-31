@@ -47,15 +47,15 @@ export default function HomePageClient() {
 
           </div>
 
-          {/* COLONNE DROITE : LOGO eGED NET EN JOUR & NUIT */}
+          {/* COLONNE DROITE : LOGO eGED AUX COULEURS D'ORIGINE (SUR FOND BLANC PROPRE) */}
           <div className="lg:col-span-4 flex items-center justify-center">
-            <div className="relative rounded-2xl border border-border/80 shadow-2xs p-4 bg-white dark:bg-[#002b43] w-full flex items-center justify-center aspect-16/9 group hover:shadow-md transition-shadow">
+            <div className="relative rounded-2xl border border-border/80 shadow-2xs p-4 bg-white w-full flex items-center justify-center aspect-16/9 group hover:shadow-md transition-shadow">
               <Image 
                 src="/logoeGED.png" 
                 alt="eGED - Gestion des échantillons et déchets pharmaceutiques"
                 width={360}
                 height={140}
-                className="h-28 w-auto object-contain dark:brightness-0 dark:invert group-hover:scale-105 transition-transform duration-300"
+                className="h-28 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
                 priority
               />
             </div>
