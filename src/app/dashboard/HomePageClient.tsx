@@ -2,10 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { 
-  ShieldCheck, Package, Trash2, BarChart3, FlaskConical, 
-  ArrowRight, Sparkles
+  ShieldCheck, Package, Trash2, BarChart3, 
+  ArrowRight
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -14,8 +13,8 @@ export default function HomePageClient() {
   return (
     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
-      {/* ─── BANDEAU SUPÉRIEUR D'ACCUEIL INSTITUTIONNEL (ROUGE MOCKUP - STATIQUE) ─── */}
-      <div className="bg-gradient-to-r from-white via-slate-50 to-[#1B5C2E]/5 border border-border/80 rounded-2xl p-4 lg:p-5 shadow-2xs relative overflow-hidden">
+      {/* ─── BANDEAU SUPÉRIEUR D'ACCUEIL INSTITUTIONNEL (COMPATIBLE JOUR & NUIT) ─── */}
+      <div className="bg-card border border-border/70 rounded-2xl p-4 lg:p-5 shadow-2xs relative overflow-hidden bg-gradient-to-r from-card via-card to-[#1B5C2E]/10 dark:to-emerald-950/20">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
           
           {/* COLONNE GAUCHE : TEXTE & PRESENTATION eGED */}
@@ -48,9 +47,9 @@ export default function HomePageClient() {
 
           </div>
 
-          {/* COLONNE DROITE : LOGO eGED REMPLAÇANT L'IMAGE */}
+          {/* COLONNE DROITE : LOGO eGED NET EN JOUR & NUIT */}
           <div className="lg:col-span-4 flex items-center justify-center">
-            <div className="relative rounded-2xl border border-border/80 shadow-xs p-4 bg-white dark:bg-card w-full flex items-center justify-center aspect-16/9 group hover:shadow-md transition-shadow">
+            <div className="relative rounded-2xl border border-border/80 shadow-2xs p-4 bg-white dark:bg-[#002b43] w-full flex items-center justify-center aspect-16/9 group hover:shadow-md transition-shadow">
               <Image 
                 src="/logoeGED.png" 
                 alt="eGED - Gestion des échantillons et déchets pharmaceutiques"
@@ -142,15 +141,15 @@ export default function HomePageClient() {
 
         </div>
 
-      {/* ─── BANDEAU INSTITUTIONNEL AU BAS DE L'ACCUEIL ─── */}
-      <div className="p-3 rounded-xl bg-[#1B5C2E]/10 border border-[#1B5C2E]/20 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+      {/* ─── BANDEAU INSTITUTIONNEL AU BAS DE L'ACCUEIL (NET JOUR ET NUIT) ─── */}
+      <div className="p-3 rounded-xl bg-[#1B5C2E]/10 dark:bg-emerald-950/40 border border-[#1B5C2E]/30 dark:border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2.5">
-          <ShieldCheck className="h-4 w-4 text-[#1B5C2E] shrink-0" />
-          <span className="font-bold text-[#1B5C2E] text-center sm:text-left text-[11px]">
+          <ShieldCheck className="h-4 w-4 text-[#1B5C2E] dark:text-emerald-400 shrink-0" />
+          <span className="font-bold text-[#1B5C2E] dark:text-emerald-400 text-center sm:text-left text-[11px]">
             QUALITÉ • SÉCURITÉ • TRAÇABILITÉ AU SERVICE DE LA SANTÉ PUBLIQUE
           </span>
         </div>
-        <span className="text-[10.5px] text-muted-foreground font-medium shrink-0">
+        <span className="text-[10.5px] text-muted-foreground dark:text-slate-300 font-medium shrink-0">
           ABMed — République du Bénin
         </span>
       </div>
