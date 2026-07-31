@@ -303,9 +303,9 @@ export function AppSidebar() {
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
-                        href="/dashboard/inventory" 
+                        href="/dashboard/waste/inventory" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/inventory')
+                          isActive('/dashboard/waste/inventory')
                             ? "bg-white text-red-600 font-bold shadow-xs"
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
