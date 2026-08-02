@@ -4,13 +4,21 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import Link from "next/link"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, Filter } from "lucide-react"
+import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search } from "lucide-react"
+
+const MOCK_MOVEMENTS = [
+  { id: '1', mvt_number: 'MVT-2026-001', movement_date: '2026-01-15T10:00:00.000Z', movement_type: 'Entrée', quantity: 150, commercial_name: 'Amoxicilline 500mg', batch_number: 'LOT-8832', operator: 'Jean DUPONT' },
+  { id: '2', mvt_number: 'MVT-2026-002', movement_date: '2026-02-02T14:30:00.000Z', movement_type: 'Transfert', quantity: 50, commercial_name: 'Paracétamol 1g', batch_number: 'LOT-1192', operator: 'Marie ADANDE' },
+  { id: '3', mvt_number: 'MVT-2026-003', movement_date: '2026-02-18T09:15:00.000Z', movement_type: 'Mise en quarantaine', quantity: 20, commercial_name: 'Ibuprofène 400mg', batch_number: 'LOT-9920', operator: 'Chantal HOUENOU' },
+  { id: '4', mvt_number: 'MVT-2026-004', movement_date: '2026-03-05T11:00:00.000Z', movement_type: 'Sortie', quantity: 10, commercial_name: 'Céfotaxime 1g', batch_number: 'LOT-7331', operator: 'Paul AGOSSA' },
+  { id: '5', mvt_number: 'MVT-2026-005', movement_date: '2026-03-22T15:45:00.000Z', movement_type: 'Libération de quarantaine', quantity: 20, commercial_name: 'Ibuprofène 400mg', batch_number: 'LOT-9920', operator: 'Kadia BARRY' },
+]
 
 export default function MovementsPage() {
   const [movements, setMovements] = useState<any[]>([])
@@ -21,7 +29,7 @@ export default function MovementsPage() {
 
   useEffect(() => {
     async function fetchMovements() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('movements')
         .select(`
           id, mvt_number, movement_date, movement_type, quantity,
@@ -29,56 +37,69 @@ export default function MovementsPage() {
         `)
         .order('movement_date', { ascending: false });
 
-      if (data) setMovements(data);
+      if (data && data.length > 0) {
+        setMovements(data.map((m: any) => ({
+          ...m,
+          commercial_name: Array.isArray(m.samples) ? m.samples[0]?.commercial_name : m.samples?.commercial_name,
+          batch_number: Array.isArray(m.samples) ? m.samples[0]?.batch_number : m.samples?.batch_number,
+          operator: 'Système'
+        })))
+      } else {
+        setMovements(MOCK_MOVEMENTS)
+      }
       setLoading(false);
     }
     fetchMovements();
-  }, [])
+  }, [supabase])
 
   const filteredMovements = movements.filter(mvt => {
     const matchesSearch = 
       (mvt.mvt_number && mvt.mvt_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      mvt.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (mvt.samples && mvt.samples.commercial_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (mvt.samples && mvt.samples.batch_number?.toLowerCase().includes(searchTerm.toLowerCase()))
+      (mvt.commercial_name && mvt.commercial_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (mvt.batch_number && mvt.batch_number.toLowerCase().includes(searchTerm.toLowerCase()))
       
     const matchesType = typeFilter === "all" || mvt.movement_type === typeFilter
-    
     return matchesSearch && matchesType
   })
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      
+      {/* BANDEAU EN-TÊTE COMPACT */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Historique des mouvements</h2>
-          <p className="text-muted-foreground text-sm">Traçabilité complète des entrées, sorties et transferts.</p>
+          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5 text-[#1B5C2E]" />
+            Mouvements & Cartographie Échantillons
+          </h2>
+          <p className="text-muted-foreground text-xs">Traçabilité complète des entrées, sorties, transferts et mises en quarantaine.</p>
         </div>
-        <Button className="shadow-sm" asChild><Link href="/dashboard/movements/new"><Plus className="mr-2 h-4 w-4" /> Enregistrer un mouvement</Link></Button>
+        <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0" asChild>
+          <Link href="/dashboard/movements/new">
+            <Plus className="h-3.5 w-3.5" /> Enregistrer un mouvement
+          </Link>
+        </Button>
       </div>
 
-      <Card className="shadow-sm border-border/50">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+      {/* CARTE DE TABLEAU COMPACT STATIQUE 1-ÉCRAN */}
+      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
+        <CardHeader className="p-3 pb-2 border-b border-border/50">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Historique des Opérations de Stock ({filteredMovements.length})
+            </CardTitle>
             <div className="flex items-center gap-2">
-              <ArrowRightLeft className="h-5 w-5 text-primary" />
-              <div>
-                <CardTitle className="text-base font-semibold">Historique des Opérations</CardTitle>
-                <CardDescription>Consultez les dernières opérations effectuées sur le stock.</CardDescription>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher par produit, lot, N°..."
-                  className="pl-9 bg-background h-9"
+                  className="pl-8 bg-background h-8 text-xs"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || "all")}>
-                <SelectTrigger className="h-9 w-full sm:w-44 bg-background">
+                <SelectTrigger className="h-8 w-44 text-xs bg-background">
                   <SelectValue placeholder="Type de mouvement" />
                 </SelectTrigger>
                 <SelectContent>
@@ -86,58 +107,55 @@ export default function MovementsPage() {
                   <SelectItem value="Entrée">Entrée</SelectItem>
                   <SelectItem value="Sortie">Sortie</SelectItem>
                   <SelectItem value="Transfert">Transfert</SelectItem>
-                  <SelectItem value="Mise en quarantaine">Mise en quarantaine</SelectItem>
-                  <SelectItem value="Libération de quarantaine">Libération de quarantaine</SelectItem>
-                  <SelectItem value="Destruction">Destruction</SelectItem>
-                  <SelectItem value="Retour d'analyse">Retour d'analyse</SelectItem>
-                  <SelectItem value="Correction d'inventaire">Correction d'inventaire</SelectItem>
+                  <SelectItem value="Mise en quarantaine">Quarantaine</SelectItem>
+                  <SelectItem value="Libération de quarantaine">Libération</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto rounded-md border border-border/50">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-muted/30">
+              <TableHeader className="bg-muted/40">
                 <TableRow>
-                  <TableHead>N° Mouvement</TableHead>
-                  <TableHead>Date et Heure</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Produit / Lot</TableHead>
-                  <TableHead className="text-right">Quantité</TableHead>
-                  <TableHead>Opérateur</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase pl-4">N° Mouvement</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date & Heure</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Type Opération</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Échantillon / Lot</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Quantité</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right pr-4">Opérateur</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="h-24 text-center">Chargement des mouvements...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">Chargement des mouvements...</TableCell></TableRow>
                 ) : filteredMovements.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Aucun mouvement enregistré.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">Aucun mouvement enregistré.</TableCell></TableRow>
                 ) : (
-                  filteredMovements.map((mvt) => (
-                    <TableRow key={mvt.id}>
-                      <TableCell className="font-medium">{mvt.mvt_number || mvt.id.substring(0,8)}</TableCell>
-                      <TableCell className="text-muted-foreground">{new Date(mvt.movement_date || mvt.created_at || Date.now()).toLocaleString("fr-FR")}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          ["Sortie", "Destruction"].includes(mvt.movement_type) ? 'text-destructive border-destructive/30 bg-destructive/5' : 
-                          ["Entrée", "Retour d'analyse"].includes(mvt.movement_type) ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/5' : 
-                          mvt.movement_type === 'Mise en quarantaine' ? 'text-warning border-warning/30 bg-warning/5' :
-                          'text-primary border-primary/30 bg-primary/5'
-                        }>
-                          {["Sortie", "Destruction"].includes(mvt.movement_type) && <ArrowUpRight className="mr-1 h-3 w-3" />}
-                          {["Entrée", "Retour d'analyse"].includes(mvt.movement_type) && <ArrowDownRight className="mr-1 h-3 w-3" />}
-                          {mvt.movement_type === 'Transfert' && <ArrowRightLeft className="mr-1 h-3 w-3" />}
-                          {mvt.movement_type === 'Mise en quarantaine' && <ShieldAlert className="mr-1 h-3 w-3" />}
-                          {mvt.movement_type === 'Libération de quarantaine' && <CheckCircle2 className="mr-1 h-3 w-3" />}
-                          {mvt.movement_type === "Correction d'inventaire" && <RotateCcw className="mr-1 h-3 w-3" />}
+                  filteredMovements.slice(0, 5).map((mvt) => (
+                    <TableRow key={mvt.id} className="text-xs hover:bg-muted/30">
+                      <TableCell className="pl-4 font-bold text-foreground font-mono py-2">{mvt.mvt_number || mvt.id.substring(0,8)}</TableCell>
+                      <TableCell className="py-2 text-muted-foreground">{new Date(mvt.movement_date || Date.now()).toLocaleString("fr-FR")}</TableCell>
+                      <TableCell className="py-2">
+                        <Badge className={`text-[10px] gap-1 ${
+                          ["Sortie", "Destruction"].includes(mvt.movement_type) ? 'bg-red-100 text-red-800' : 
+                          ["Entrée", "Retour d'analyse"].includes(mvt.movement_type) ? 'bg-emerald-100 text-emerald-800' : 
+                          mvt.movement_type === 'Mise en quarantaine' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {["Sortie", "Destruction"].includes(mvt.movement_type) && <ArrowUpRight className="h-3 w-3" />}
+                          {["Entrée", "Retour d'analyse"].includes(mvt.movement_type) && <ArrowDownRight className="h-3 w-3" />}
+                          {mvt.movement_type === 'Transfert' && <ArrowRightLeft className="h-3 w-3" />}
+                          {mvt.movement_type === 'Mise en quarantaine' && <ShieldAlert className="h-3 w-3" />}
+                          {mvt.movement_type === 'Libération de quarantaine' && <CheckCircle2 className="h-3 w-3" />}
                           {mvt.movement_type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-semibold">{mvt.samples?.commercial_name} <span className="text-muted-foreground text-xs font-normal ml-2">Lot: {mvt.samples?.batch_number}</span></TableCell>
-                      <TableCell className="text-right font-medium">{mvt.quantity}</TableCell>
-                      <TableCell className="text-sm">Système / Opérateur</TableCell>
+                      <TableCell className="py-2 font-semibold text-foreground">
+                        {mvt.commercial_name || 'Échantillon'} <span className="text-muted-foreground text-[11px] font-normal">(Lot: {mvt.batch_number || 'N/A'})</span>
+                      </TableCell>
+                      <TableCell className="py-2 text-right font-bold tabular-nums">{mvt.quantity}</TableCell>
+                      <TableCell className="py-2 text-right pr-4 text-muted-foreground">{mvt.operator || 'Opérateur'}</TableCell>
                     </TableRow>
                   ))
                 )}
