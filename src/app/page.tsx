@@ -55,26 +55,6 @@ export default function LoginPage({
 
         {/* CONTENU CENTRAL : LOGO OFFICIEL eGED & PRÉSENTATION */}
         <div className="my-auto py-2 space-y-4">
-          
-          {/* LOGO eGED OFFICIEL */}
-          <div className="space-y-1.5">
-            <div className="h-12 w-auto flex items-center">
-              <Image 
-                src="/logoeGED.png" 
-                alt="Logo eGED" 
-                width={220} 
-                height={70} 
-                className="h-11 w-auto object-contain dark:brightness-0 dark:invert" 
-                priority
-              />
-            </div>
-            <h2 className="text-base lg:text-lg font-bold text-foreground leading-snug">
-              Gestion électronique des échantillons et des déchets pharmaceutiques
-            </h2>
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-xl font-normal">
-              Une solution digitale sécurisée pour la traçabilité, la conservation et la gestion optimale des échantillons et des déchets pharmaceutiques.
-            </p>
-          </div>
 
           {/* GRILLE HÉRO & 4 PILIERS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-1">
