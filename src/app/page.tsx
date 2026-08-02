@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { 
   ShieldCheck, Lock, User, Eye, EyeOff, QrCode, HelpCircle, 
-  ChevronDown, Phone, Mail, Headphones, Shield, Package, Trash2, BarChart3, FlaskConical, Beaker
+  ChevronDown, Phone, Mail, Headphones, Shield, Package, Trash2, BarChart3
 } from "lucide-react"
 import { login } from "./actions/auth"
 import Image from "next/image"
@@ -27,101 +27,114 @@ export default function LoginPage({
   const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen w-full bg-background overflow-x-hidden font-sans">
+    <div className="flex flex-col lg:flex-row h-screen max-h-screen w-full bg-background overflow-hidden font-sans">
       
-      {/* ─── CÔTÉ GAUCHE (ROUGE MOCKUP) : PRÉSENTATION INSTITUTIONNELLE ABMED ─── */}
-      <div className="lg:w-[58%] bg-white dark:bg-card p-6 lg:p-10 flex flex-col justify-between border-r border-border/60 relative">
+      {/* ─── CÔTÉ GAUCHE : PRÉSENTATION INSTITUTIONNELLE ABMED & eGED (STATIQUE 1-ÉCRAN) ─── */}
+      <div className="lg:w-[58%] bg-white dark:bg-card p-4 lg:p-6 flex flex-col justify-between border-r border-border/60 relative overflow-y-auto lg:overflow-hidden">
         
-        {/* LOGO ABMED EN HAUT À GAUCHE */}
+        {/* LOGO OFFICIEL ABMED EN HAUT À GAUCHE */}
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-[#003B5C] flex items-center justify-center text-white shadow-md shrink-0">
-            <FlaskConical className="h-7 w-7 text-[#00A86B]" strokeWidth={2.2} />
+          <div className="h-10 w-10 shrink-0 flex items-center justify-center">
+            <Image 
+              src="/logoABMeD.png" 
+              alt="Logo ABMed" 
+              width={40} 
+              height={40} 
+              className="h-10 w-10 object-contain" 
+            />
           </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-2xl tracking-tight text-[#003B5C] leading-none">
+          <div className="flex flex-col min-w-0">
+            <span className="font-extrabold text-xl tracking-tight text-[#1B5C2E] dark:text-white leading-none">
               ABMed
             </span>
-            <span className="text-[9.5px] font-extrabold uppercase text-[#003B5C]/80 tracking-wider leading-tight mt-0.5">
+            <span className="text-[8.5px] font-bold uppercase text-muted-foreground tracking-wider leading-tight mt-0.5">
               AGENCE BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ
             </span>
           </div>
         </div>
 
-        {/* CONTENU CENTRAL : TITRE eGED & CARACTÉRISTIQUES */}
-        <div className="my-8 lg:my-10 space-y-6">
+        {/* CONTENU CENTRAL : LOGO OFFICIEL eGED & PRÉSENTATION */}
+        <div className="my-auto py-2 space-y-4">
           
-          {/* GRANDE EN-TÊTE eGED */}
-          <div className="space-y-2">
-            <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-foreground">
-              <span className="text-[#1B5C2E]">eGED</span>
-            </h1>
-            <h2 className="text-lg lg:text-xl font-bold text-foreground/90 leading-snug">
+          {/* LOGO eGED OFFICIEL */}
+          <div className="space-y-1.5">
+            <div className="h-12 w-auto flex items-center">
+              <Image 
+                src="/logoeGED.png" 
+                alt="Logo eGED" 
+                width={220} 
+                height={70} 
+                className="h-11 w-auto object-contain dark:brightness-0 dark:invert" 
+                priority
+              />
+            </div>
+            <h2 className="text-base lg:text-lg font-bold text-foreground leading-snug">
               Gestion électronique des échantillons et des déchets pharmaceutiques
             </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xl font-normal pt-1">
+            <p className="text-xs text-muted-foreground leading-relaxed max-w-xl font-normal">
               Une solution digitale sécurisée pour la traçabilité, la conservation et la gestion optimale des échantillons et des déchets pharmaceutiques.
             </p>
           </div>
 
-          {/* GRILLE : IMAGE HÉRO & 4 PILIERS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center pt-2">
+          {/* GRILLE HÉRO & 4 PILIERS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-1">
             
             {/* IMAGE DÉMO LABORATOIRE / ENTREPÔT */}
-            <div className="relative rounded-2xl overflow-hidden border border-border shadow-lg group bg-slate-100 aspect-4/3">
+            <div className="relative rounded-xl overflow-hidden border border-border shadow-sm bg-slate-100 aspect-16/10">
               <Image 
                 src="/abmed_hero.png" 
                 alt="Gestion des échantillons et déchets ABMed"
                 fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                className="object-cover"
                 priority
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-              <div className="absolute bottom-3 left-3 right-3 text-white text-xs font-semibold flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-[#00A86B]" />
-                <span>Traçabilité & Stockage Securisé</span>
+              <div className="absolute bottom-2 left-2.5 right-2.5 text-white text-[11px] font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#00A86B]" />
+                <span>Traçabilité & Stockage Sécurisé</span>
               </div>
             </div>
 
-            {/* LISTE DES 4 CARACTÉRISTIQUES */}
-            <div className="space-y-3">
+            {/* LISTE DES 4 CARACTÉRISTIQUES (COMPACTE) */}
+            <div className="space-y-2">
               
-              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-slate-100 dark:border-border/40">
-                <div className="p-2 rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0 mt-0.5">
-                  <Shield className="h-4 w-4" />
+              <div className="flex items-start gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/40">
+                <div className="p-1.5 rounded-md bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0 mt-0.5">
+                  <Shield className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">TRAÇABILITÉ</h4>
-                  <p className="text-[11.5px] text-muted-foreground leading-snug">Suivi en temps réel de chaque échantillon</p>
+                  <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wide">TRAÇABILITÉ</h4>
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">Suivi en temps réel de chaque échantillon</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-slate-100 dark:border-border/40">
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 shrink-0 mt-0.5">
-                  <Package className="h-4 w-4" />
+              <div className="flex items-start gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/40">
+                <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-600 shrink-0 mt-0.5">
+                  <Package className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">GESTION OPTIMISÉE</h4>
-                  <p className="text-[11.5px] text-muted-foreground leading-snug">Organisation et conservation efficaces</p>
+                  <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wide">GESTION OPTIMISÉE</h4>
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">Organisation et conservation efficaces</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-slate-100 dark:border-border/40">
-                <div className="p-2 rounded-lg bg-red-500/10 text-red-600 shrink-0 mt-0.5">
-                  <Trash2 className="h-4 w-4" />
+              <div className="flex items-start gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/40">
+                <div className="p-1.5 rounded-md bg-red-500/10 text-red-600 shrink-0 mt-0.5">
+                  <Trash2 className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">CONFORMITÉ</h4>
-                  <p className="text-[11.5px] text-muted-foreground leading-snug">Respect des normes et réglementations PSQIF</p>
+                  <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wide">CONFORMITÉ</h4>
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">Respect des normes et réglementations PSQIF</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-slate-100 dark:border-border/40">
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600 shrink-0 mt-0.5">
-                  <BarChart3 className="h-4 w-4" />
+              <div className="flex items-start gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/40">
+                <div className="p-1.5 rounded-md bg-purple-500/10 text-purple-600 shrink-0 mt-0.5">
+                  <BarChart3 className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">TABLEAUX DE BORD</h4>
-                  <p className="text-[11.5px] text-muted-foreground leading-snug">Indicateurs et rapports en temps réel</p>
+                  <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wide">TABLEAUX DE BORD</h4>
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">Indicateurs et rapports en temps réel</p>
                 </div>
               </div>
 
@@ -132,9 +145,9 @@ export default function LoginPage({
         </div>
 
         {/* PIED DE PAGE CÔTÉ INSTITUTIONNEL */}
-        <div className="pt-4 border-t border-border/40 flex flex-col sm:flex-row justify-between items-center text-[11px] text-muted-foreground gap-2">
-          <div className="flex items-center gap-2 font-bold text-[#1B5C2E]">
-            <ShieldCheck className="h-4 w-4" />
+        <div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row justify-between items-center text-[10.5px] text-muted-foreground gap-1">
+          <div className="flex items-center gap-1.5 font-bold text-[#1B5C2E]">
+            <ShieldCheck className="h-3.5 w-3.5" />
             <span>QUALITÉ • SÉCURITÉ • TRAÇABILITÉ AU SERVICE DE LA SANTÉ PUBLIQUE</span>
           </div>
           <span>by SaniNova Consortium</span>
@@ -143,32 +156,32 @@ export default function LoginPage({
       </div>
 
 
-      {/* ─── CÔTÉ DROIT (JAUNE MOCKUP) : FORMULAIRE DE CONNEXION ─── */}
-      <div className="lg:w-[42%] bg-slate-50 dark:bg-background p-6 lg:p-12 flex flex-col justify-between items-center relative">
+      {/* ─── CÔTÉ DROIT : FORMULAIRE DE CONNEXION (STATIQUE 1-ÉCRAN) ─── */}
+      <div className="lg:w-[42%] bg-slate-50 dark:bg-background p-4 lg:p-6 flex flex-col justify-between items-center relative overflow-hidden">
         
         {/* BANDEAU EN HAUT À DROIT (AIDE & LANGUE) */}
-        <div className="w-full flex justify-end items-center gap-4 text-xs font-medium text-muted-foreground">
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
-            <HelpCircle className="h-4 w-4" />
+        <div className="w-full flex justify-end items-center gap-3 text-xs font-medium text-muted-foreground">
+          <button className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer text-xs">
+            <HelpCircle className="h-3.5 w-3.5" />
             <span>Aide</span>
           </button>
-          <div className="flex items-center gap-1 bg-card border border-border px-2.5 py-1 rounded-lg text-foreground font-semibold cursor-pointer">
+          <div className="flex items-center gap-1 bg-card border border-border px-2 py-0.5 rounded-md text-foreground font-semibold cursor-pointer text-xs">
             <span>FR</span>
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-3 w-3" />
           </div>
         </div>
 
         {/* CARTE DE CONNEXION PRINCIPALE */}
-        <div className="w-full max-w-md my-auto py-8">
+        <div className="w-full max-w-sm my-auto py-2">
           
-          <div className="bg-card border border-border/80 shadow-xl rounded-3xl p-6 sm:p-8 space-y-6">
+          <div className="bg-card border border-border/80 shadow-lg rounded-2xl p-5 space-y-4">
             
             {/* AVATAR D'EN-TÊTE */}
-            <div className="flex flex-col items-center text-center space-y-2">
-              <div className="h-16 w-16 rounded-full bg-[#1B5C2E]/10 border-2 border-[#1B5C2E]/20 flex items-center justify-center text-[#1B5C2E] shadow-sm mb-1">
-                <User className="h-8 w-8" />
+            <div className="flex flex-col items-center text-center space-y-1">
+              <div className="h-12 w-12 rounded-full bg-[#1B5C2E]/10 border border-[#1B5C2E]/20 flex items-center justify-center text-[#1B5C2E] shadow-2xs mb-0.5">
+                <User className="h-6 w-6" />
               </div>
-              <h3 className="text-2xl font-black text-foreground tracking-tight">Bienvenue</h3>
+              <h3 className="text-xl font-black text-foreground tracking-tight">Bienvenue</h3>
               <p className="text-xs text-muted-foreground font-medium">
                 Connectez-vous à votre espace <span className="font-bold text-foreground">eGED</span>
               </p>
@@ -176,20 +189,20 @@ export default function LoginPage({
 
             {/* MESSAGE D'ERREUR EVENTUEL */}
             {searchParams?.error && (
-              <div className="bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-xs font-medium flex items-center gap-2">
-                <Shield className="h-4 w-4 shrink-0 text-red-600" />
+              <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg p-2 text-xs font-medium flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5 shrink-0 text-red-600" />
                 <span>{Array.isArray(searchParams.error) ? searchParams.error[0] : searchParams.error}</span>
               </div>
             )}
 
-            {/* FORMULAIRE */}
-            <form action={login} className="space-y-4">
+            {/* FORMULAIRE DE CONNEXION */}
+            <form action={login} className="space-y-3">
               
               {/* NOM D'UTILISATEUR */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="email" className="text-xs font-semibold text-foreground">Nom d'utilisateur / Email</Label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                  <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <Input 
                     id="email" 
                     name="email" 
@@ -197,38 +210,38 @@ export default function LoginPage({
                     defaultValue="admin@sgie.com" 
                     placeholder="Nom d'utilisateur" 
                     required 
-                    className="pl-10 h-10 text-xs bg-background rounded-xl border-border focus-visible:ring-[#1B5C2E]" 
+                    className="pl-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                   />
                 </div>
               </div>
 
               {/* MOT DE PASSE */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="password" className="text-xs font-semibold text-foreground">Mot de passe</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <Input 
                     id="password" 
                     name="password" 
                     type={showPassword ? "text" : "password"} 
                     required 
                     placeholder="••••••••"
-                    className="pl-10 pr-10 h-10 text-xs bg-background rounded-xl border-border focus-visible:ring-[#1B5C2E]" 
+                    className="pl-9 pr-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               </div>
 
               {/* OPTION : SE SOUVENIR DE MOI & MOT DE PASSE OUBLIÉ */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" className="rounded-md" />
+              <div className="flex items-center justify-between text-[11px] pt-0.5">
+                <div className="flex items-center space-x-1.5">
+                  <Checkbox id="remember" className="rounded-sm h-3.5 w-3.5" />
                   <label htmlFor="remember" className="font-medium text-muted-foreground leading-none cursor-pointer">
                     Se souvenir de moi
                   </label>
@@ -238,10 +251,10 @@ export default function LoginPage({
                 </a>
               </div>
 
-              {/* BOUTON SE CONNECTER (VERT FORET INSTITUTIONNEL) */}
+              {/* BOUTON SE CONNECTER */}
               <Button 
                 type="submit" 
-                className="w-full bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold h-11 rounded-xl shadow-md hover:shadow-lg transition-all text-sm mt-2 cursor-pointer"
+                className="w-full bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold h-9 rounded-lg shadow-2xs transition-all text-xs cursor-pointer"
               >
                 Se connecter
               </Button>
@@ -249,9 +262,9 @@ export default function LoginPage({
             </form>
 
             {/* SEPARATEUR OU */}
-            <div className="relative flex items-center justify-center my-4">
+            <div className="relative flex items-center justify-center my-2">
               <span className="w-full border-t border-border"></span>
-              <span className="absolute bg-card px-3 text-[11px] font-bold text-muted-foreground uppercase">OU</span>
+              <span className="absolute bg-card px-2 text-[10px] font-bold text-muted-foreground uppercase">OU</span>
             </div>
 
             {/* BOUTON SCANNER QR CODE */}
@@ -259,26 +272,26 @@ export default function LoginPage({
               type="button"
               variant="outline"
               onClick={() => setIsScannerOpen(true)}
-              className="w-full h-10 rounded-xl border-border text-xs font-semibold gap-2 bg-background hover:bg-muted cursor-pointer"
+              className="w-full h-8.5 rounded-lg border-border text-xs font-semibold gap-1.5 bg-background hover:bg-muted cursor-pointer"
             >
-              <QrCode className="h-4 w-4 text-[#1B5C2E]" />
+              <QrCode className="h-3.5 w-3.5 text-[#1B5C2E]" />
               Scanner un QR code
             </Button>
 
           </div>
 
           {/* BOX BESOIN D'ASSISTANCE AU PIED DU FORMULAIRE */}
-          <div className="mt-6 p-4 rounded-2xl bg-card border border-border/70 shadow-xs flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-full bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0">
-                <Headphones className="h-4 w-4" />
+          <div className="mt-3 p-3 rounded-xl bg-card border border-border/70 shadow-2xs flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-full bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0">
+                <Headphones className="h-3.5 w-3.5" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-foreground">Besoin d'assistance ?</span>
-                <span className="text-[11px] text-muted-foreground">Contactez l'administrateur ou le support eGED.</span>
+                <span className="font-bold text-foreground text-[11px]">Besoin d'assistance ?</span>
+                <span className="text-[10px] text-muted-foreground">Support eGED / ABMed</span>
               </div>
             </div>
-            <div className="flex flex-col text-[11px] text-right font-medium text-muted-foreground shrink-0 space-y-0.5">
+            <div className="flex flex-col text-[10px] text-right font-medium text-muted-foreground shrink-0 space-y-0.5">
               <span className="flex items-center gap-1 justify-end"><Phone className="h-3 w-3 text-[#1B5C2E]" /> +229 21 30 00 00</span>
               <span className="flex items-center gap-1 justify-end"><Mail className="h-3 w-3 text-[#1B5C2E]" /> support@abmed.bj</span>
             </div>
@@ -287,7 +300,7 @@ export default function LoginPage({
         </div>
 
         {/* PIED DE PAGE DROIT */}
-        <div className="w-full text-center text-[11px] text-muted-foreground flex items-center justify-center gap-2">
+        <div className="w-full text-center text-[10.5px] text-muted-foreground flex items-center justify-center gap-1.5">
           <Lock className="h-3 w-3 text-[#1B5C2E]" />
           <span>Accès sécurisé réservé aux utilisateurs autorisés ABMed</span>
         </div>
