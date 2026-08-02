@@ -105,7 +105,7 @@ export function AppSidebar() {
                 >
                   <Link href="/dashboard" className="flex items-center gap-2.5 w-full">
                     <Home className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
-                    <span className="font-bold text-white tracking-wide">Page d'Accueil</span>
+                    <span className="font-bold text-white tracking-wide">Accueil</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
