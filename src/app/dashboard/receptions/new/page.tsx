@@ -120,19 +120,38 @@ const UppercaseTextarea = React.forwardRef<HTMLTextAreaElement, React.ComponentP
 ))
 UppercaseTextarea.displayName = 'UppercaseTextarea'
 
+const DEFAULT_VALIDATORS = [
+  { id: 'v1', name: 'Dr. Kadia BARRY (Responsable Qualité)' },
+  { id: 'v2', name: 'Dr. Moussa TRAORÉ (Pharmacien Inspecteur)' },
+  { id: 'v3', name: 'Dr. Chantal HOUENOU (Directeur ABMed)' },
+  { id: 'v4', name: 'Dr. Paul AGOSSA (Responsable Stock)' },
+  { id: 'v5', name: 'Jean DUPONT (Inspecteur Général)' },
+]
+
 export default function NewReceptionPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isDrafting, setIsDrafting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string, size?: string }>>([])
   const [isUploadingFile, setIsUploadingFile] = useState(false)
-  const [validators, setValidators] = useState<{id: string, name: string}[]>([])
+  const [validators, setValidators] = useState<{id: string, name: string}[]>(DEFAULT_VALIDATORS)
 
   React.useEffect(() => {
     async function loadValidators() {
-      const supabase = createClient()
-      const { data } = await supabase.from('users').select('id, first_name, last_name').eq('is_active', true)
-      if (data) {
-        setValidators(data.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}` })))
+      try {
+        const supabase = createClient()
+        const { data } = await supabase.from('users').select('id, first_name, last_name').eq('is_active', true)
+        if (data && data.length > 0) {
+          const dbUsers = data.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}` }))
+          setValidators(prev => {
+            const combined = [...dbUsers]
+            prev.forEach(p => {
+              if (!combined.some(c => c.name === p.name)) combined.push(p)
+            })
+            return combined
+          })
+        }
+      } catch (err) {
+        console.warn("Utilisation des responsables par défaut:", err)
       }
     }
     loadValidators()
