@@ -79,18 +79,18 @@ export default function LoginPage({
           {/* GRILLE HÉRO & 4 PILIERS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-1">
             
-            {/* IMAGE DÉMO LABORATOIRE / ENTREPÔT */}
-            <div className="relative rounded-xl overflow-hidden border border-border shadow-sm bg-slate-100 aspect-16/10">
+            {/* LOGO eGED REMPLAÇANT LA PHOTO */}
+            <div className="relative rounded-2xl border border-border/80 shadow-2xs p-4 bg-white dark:bg-card w-full flex flex-col items-center justify-center aspect-16/10 group hover:shadow-md transition-shadow">
               <Image 
-                src="/abmed_hero.png" 
-                alt="Gestion des échantillons et déchets ABMed"
-                fill
-                className="object-cover"
+                src="/logoeGED.png" 
+                alt="eGED - Gestion des échantillons et déchets pharmaceutiques"
+                width={320}
+                height={110}
+                className="h-24 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
                 priority
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-              <div className="absolute bottom-2 left-2.5 right-2.5 text-white text-[11px] font-semibold flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#00A86B]" />
+              <div className="mt-2 text-[10.5px] font-bold text-[#1B5C2E] dark:text-emerald-400 flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5" />
                 <span>Traçabilité & Stockage Sécurisé</span>
               </div>
             </div>
