@@ -115,7 +115,7 @@ export function AppSidebar() {
                 <SidebarMenuButton 
                   onClick={() => toggleSection('dashboards')}
                   className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
-                    pathname.includes('/analytics') || pathname === '/dashboard/waste'
+                    pathname.includes('/analytics')
                       ? "bg-white/20 text-white font-extrabold shadow-xs"
                       : "text-white hover:bg-white/15 hover:text-white"
                   }`}
@@ -147,9 +147,9 @@ export function AppSidebar() {
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
-                        href="/dashboard/waste" 
+                        href="/dashboard/waste/analytics" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/waste')
+                          isActive('/dashboard/waste/analytics')
                             ? "bg-white text-red-600 font-bold shadow-xs"
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
