@@ -24,8 +24,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface InventorySample {
   commercial_name: string;
   batch_number: string;
@@ -50,8 +48,6 @@ interface Inventory {
   items: InventoryItem[];
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
 const MOCK_INVENTORIES: Inventory[] = [
   {
     id: '1',
@@ -61,39 +57,8 @@ const MOCK_INVENTORIES: Inventory[] = [
     created_at: '2026-01-15T08:00:00.000Z',
     completed_at: null,
     items: [
-      {
-        id: '1',
-        system_quantity: 500,
-        physical_quantity: 498,
-        discrepancy_reason: null,
-        sample: {
-          commercial_name: 'Amoxicilline 500mg',
-          batch_number: 'LOT-992A',
-          sample_number: 'ECH-001',
-        },
-      },
-      {
-        id: '2',
-        system_quantity: 200,
-        physical_quantity: 200,
-        discrepancy_reason: null,
-        sample: {
-          commercial_name: 'Ibuprofène 400mg',
-          batch_number: 'LOT-112B',
-          sample_number: 'ECH-002',
-        },
-      },
-      {
-        id: '3',
-        system_quantity: 50,
-        physical_quantity: 45,
-        discrepancy_reason: 'Bris de flacons',
-        sample: {
-          commercial_name: 'Vaccin Anti-Rabique',
-          batch_number: 'LOT-334C',
-          sample_number: 'ECH-003',
-        },
-      },
+      { id: '1', system_quantity: 500, physical_quantity: 498, discrepancy_reason: null, sample: { commercial_name: 'Amoxicilline 500mg', batch_number: 'LOT-992A', sample_number: 'ECH-001' } },
+      { id: '2', system_quantity: 200, physical_quantity: 200, discrepancy_reason: null, sample: { commercial_name: 'Ibuprofène 400mg', batch_number: 'LOT-112B', sample_number: 'ECH-002' } },
     ],
   },
   {
@@ -104,22 +69,10 @@ const MOCK_INVENTORIES: Inventory[] = [
     created_at: '2026-03-01T09:00:00.000Z',
     completed_at: '2026-03-15T14:30:00.000Z',
     items: [
-      {
-        id: '4',
-        system_quantity: 300,
-        physical_quantity: 300,
-        discrepancy_reason: null,
-        sample: {
-          commercial_name: 'Paracétamol 1g',
-          batch_number: 'LOT-441D',
-          sample_number: 'ECH-004',
-        },
-      },
+      { id: '4', system_quantity: 300, physical_quantity: 300, discrepancy_reason: null, sample: { commercial_name: 'Paracétamol 1g', batch_number: 'LOT-441D', sample_number: 'ECH-004' } },
     ],
   },
 ];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -134,269 +87,180 @@ function getStatusBadge(status: string) {
   switch (status) {
     case 'En cours':
       return (
-        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 gap-1 shrink-0 whitespace-nowrap text-xs">
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200 gap-1 shrink-0 whitespace-nowrap text-[10px]">
           <Loader2 className="h-3 w-3 animate-spin shrink-0" />
           En cours
         </Badge>
       );
     case 'Validé':
       return (
-        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200 gap-1 shrink-0 whitespace-nowrap text-xs">
+        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1 shrink-0 whitespace-nowrap text-[10px]">
           <CheckCircle2 className="h-3 w-3 shrink-0" />
           Validé
         </Badge>
       );
-    case 'Annulé':
-      return (
-        <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 shrink-0 whitespace-nowrap text-xs">
-          Annulé
-        </Badge>
-      );
     default:
-      return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-xs">{status}</Badge>;
+      return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
   }
 }
 
-function getDiscrepancyBadge(diff: number) {
-  if (diff === 0)
-    return (
-      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 shrink-0 whitespace-nowrap text-xs">
-        Conforme
-      </Badge>
-    );
-  return (
-    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 gap-1 shrink-0 whitespace-nowrap text-xs">
-      <AlertTriangle className="h-3 w-3 shrink-0" />
-      Écart
-    </Badge>
-  );
-}
-
-// ─── Page Component ───────────────────────────────────────────────────────────
-
 export default async function InventoryPage() {
   const supabase = await createClient();
+  let inventories: Inventory[] = [];
 
-  const { data: rawInventories, error } = await supabase
-    .from('inventories')
-    .select(
-      `
-      *,
-      items:inventory_items (
-        id,
-        system_quantity,
-        physical_quantity,
-        discrepancy_reason,
-        sample:samples ( commercial_name, batch_number, sample_number )
-      )
-    `
-    )
-    .order('created_at', { ascending: false });
+  try {
+    const { data } = await supabase
+      .from('inventories')
+      .select(`
+        id, name, inventory_type, status, created_at, completed_at,
+        inventory_items ( id, system_quantity, physical_quantity, discrepancy_reason, samples ( commercial_name, batch_number, sample_number ) )
+      `)
+      .order('created_at', { ascending: false });
 
-  const inventories: Inventory[] =
-    !error && rawInventories && rawInventories.length > 0
-      ? (rawInventories as Inventory[])
-      : MOCK_INVENTORIES;
+    if (data && data.length > 0) {
+      inventories = data.map((inv: any) => ({
+        id: inv.id,
+        name: inv.name,
+        inventory_type: inv.inventory_type,
+        status: inv.status,
+        created_at: inv.created_at,
+        completed_at: inv.completed_at,
+        items: (inv.inventory_items ?? []).map((item: any) => ({
+          id: item.id,
+          system_quantity: item.system_quantity,
+          physical_quantity: item.physical_quantity,
+          discrepancy_reason: item.discrepancy_reason,
+          sample: item.samples ? (Array.isArray(item.samples) ? item.samples[0] : item.samples) : null,
+        })),
+      }));
+    } else {
+      inventories = MOCK_INVENTORIES;
+    }
+  } catch {
+    inventories = MOCK_INVENTORIES;
+  }
 
-  // ── KPI calculations ──────────────────────────────────────────────────────
   const total = inventories.length;
   const inProgress = inventories.filter((i) => i.status === 'En cours').length;
   const validated = inventories.filter((i) => i.status === 'Validé').length;
-
   const allItems = inventories.flatMap((i) => i.items ?? []);
-  const discrepancyCount = allItems.filter(
-    (item) => item.system_quantity !== item.physical_quantity
-  ).length;
-
-  // ── Active inventory ──────────────────────────────────────────────────────
-  const activeInventory = inventories.find((i) => i.status === 'En cours') ?? null;
-  const activeItems = activeInventory?.items ?? [];
-  const activeDiscrepancies = activeItems.filter(
-    (item) => item.system_quantity !== item.physical_quantity
-  );
+  const discrepancyCount = allItems.filter((item) => item.system_quantity !== item.physical_quantity).length;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-5 p-4 sm:p-6 w-full max-w-full">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between pb-1 border-b border-border/40">
+    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      
+      {/* BANDEAU EN-TÊTE COMPACT */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <PackageSearch className="h-5 w-5 text-primary" />
-            Gestion des Inventaires
+          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <PackageSearch className="h-5 w-5 text-[#1B5C2E]" />
+            Inventaire & Rapprochement des Échantillons
           </h2>
-          <p className="text-muted-foreground text-xs mt-0.5">
-            Suivi des inventaires physiques et analyse des écarts de stock
-          </p>
+          <p className="text-muted-foreground text-xs">Contrôle physique périodique des stocks et traçabilité des écarts.</p>
         </div>
-        <Button asChild size="sm" className="gap-2 mt-2 sm:mt-0 rounded-lg text-xs">
+        <Button asChild size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
           <Link href="/dashboard/inventory/new">
-            <Plus className="h-3.5 w-3.5" />
-            Démarrer un inventaire
+            <Plus className="h-3.5 w-3.5" /> Démarrer un inventaire
           </Link>
         </Button>
       </div>
 
-      {/* ── KPI Cards ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* KPIS COMPACTS SANS SCROLL */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">
-              Total inventaires
-            </CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0">
-            <p className="text-2xl font-bold">{total}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Tous statuts confondus</p>
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E]"><ClipboardList className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Total Inventaires</p>
+              <h3 className="text-xl font-black text-foreground">{total}</h3>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">
-              En cours
-            </CardTitle>
-            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0">
-            <p className="text-2xl font-bold text-blue-600">{inProgress}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Inventaire(s) actif(s)</p>
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600"><Loader2 className="h-4 w-4 animate-spin" /></div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">En cours</p>
+              <h3 className="text-xl font-black text-foreground">{inProgress}</h3>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">
-              Validés
-            </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0">
-            <p className="text-2xl font-bold text-emerald-600">{validated}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Inventaires clôturés</p>
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Validés</p>
+              <h3 className="text-xl font-black text-foreground">{validated}</h3>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">
-              Écarts détectés
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent className="p-3.5 pt-0">
-            <p className="text-2xl font-bold text-amber-600">{discrepancyCount}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Article(s) avec écart(s)
-            </p>
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600"><AlertTriangle className="h-4 w-4" /></div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Écarts Détectés</p>
+              <h3 className="text-xl font-black text-foreground">{discrepancyCount}</h3>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* ── Inventories Table ────────────────────────────────────────────── */}
+      {/* TABLEAU DES INVENTAIRES (STATIQUE 1-ÉCRAN) */}
       <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
-        <CardHeader className="border-b border-border/50 p-3.5">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-            Liste des inventaires
+        <CardHeader className="p-3 pb-2 border-b border-border/50">
+          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <ArrowUpDown className="h-3.5 w-3.5" /> Registre des Sessions d'Inventaire
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto w-full">
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide pl-4 py-2.5 whitespace-nowrap">
-                    Nom
-                  </TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
-                    Type
-                  </TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
-                    Statut
-                  </TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
-                    Date de création
-                  </TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
-                    Date de clôture
-                  </TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide py-2.5 whitespace-nowrap">
-                    Articles
-                  </TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide text-right pr-4 py-2.5 whitespace-nowrap">
-                    Actions
-                  </TableHead>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase pl-4">Nom de la session</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Type</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Statut</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date Création</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date Clôture</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Articles</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right pr-4">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inventories.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center py-10 text-muted-foreground"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <PackageSearch className="h-8 w-8 text-muted-foreground/40" />
-                        <p className="text-xs">Aucun inventaire trouvé</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  inventories.map((inventory) => {
-                    const itemCount = inventory.items?.length ?? 0;
-                    const discrepancies = (inventory.items ?? []).filter(
-                      (item) => item.system_quantity !== item.physical_quantity
-                    ).length;
+                {inventories.slice(0, 4).map((inventory) => {
+                  const itemCount = inventory.items?.length ?? 0;
+                  const discrepancies = (inventory.items ?? []).filter((item) => item.system_quantity !== item.physical_quantity).length;
 
-                    return (
-                      <TableRow
-                        key={inventory.id}
-                        className="hover:bg-muted/30 transition-colors text-xs"
-                      >
-                        <TableCell className="pl-4 font-semibold text-foreground py-2.5 whitespace-nowrap">
-                          {inventory.name}
-                        </TableCell>
-                        <TableCell className="py-2.5 whitespace-nowrap">
-                          <Badge variant="outline" className="text-[11px] font-normal">
-                            {inventory.inventory_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2.5 whitespace-nowrap">{getStatusBadge(inventory.status)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                          {formatDate(inventory.created_at)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                          {formatDate(inventory.completed_at)}
-                        </TableCell>
-                        <TableCell className="py-2.5 whitespace-nowrap">
-                          <span className="text-xs">
-                            {itemCount} article{itemCount !== 1 ? 's' : ''}
-                            {discrepancies > 0 && (
-                              <span className="ml-1.5 text-xs text-red-600 font-semibold">
-                                ({discrepancies} écart{discrepancies > 1 ? 's' : ''})
-                              </span>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right pr-4 py-2.5 whitespace-nowrap">
-                          <Button variant="ghost" size="sm" asChild className="gap-1 h-7 text-xs px-2">
-                            <Link href={`/dashboard/inventory/${inventory.id}`}>
-                              <Eye className="h-3.5 w-3.5" />
-                              Voir
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
+                  return (
+                    <TableRow key={inventory.id} className="text-xs hover:bg-muted/30">
+                      <TableCell className="pl-4 py-2 font-bold text-foreground">{inventory.name}</TableCell>
+                      <TableCell className="py-2">
+                        <Badge variant="outline" className="text-[10px] bg-background">{inventory.inventory_type}</Badge>
+                      </TableCell>
+                      <TableCell className="py-2">{getStatusBadge(inventory.status)}</TableCell>
+                      <TableCell className="py-2 text-muted-foreground">{formatDate(inventory.created_at)}</TableCell>
+                      <TableCell className="py-2 text-muted-foreground">{formatDate(inventory.completed_at)}</TableCell>
+                      <TableCell className="py-2 font-medium">
+                        {itemCount} article(s) {discrepancies > 0 && <span className="text-red-600 font-bold ml-1">({discrepancies} écart)</span>}
+                      </TableCell>
+                      <TableCell className="py-2 text-right pr-4">
+                        <Button variant="ghost" size="sm" asChild className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10">
+                          <Link href={`/dashboard/inventory/${inventory.id}`}>
+                            <Eye className="h-3.5 w-3.5 mr-1" /> Consulter
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }

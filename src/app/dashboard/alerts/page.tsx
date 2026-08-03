@@ -2,16 +2,12 @@ import { createClient } from "@/utils/supabase/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertTriangle,
   CalendarX,
   CalendarClock,
   ShieldAlert,
-  MapPinOff,
   Trash2,
-  ClipboardList,
-  BellRing,
   CheckCircle2,
   Eye,
 } from "lucide-react"
@@ -61,26 +57,26 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 
   return (
     <Card className={`shadow-2xs border border-border/70 border-l-4 ${cfg.border} rounded-xl bg-card`}>
-      <CardContent className="p-2.5 flex items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`p-1.5 rounded-lg shrink-0 ${cfg.iconBg}`}>
-            <Icon className="h-4 w-4" />
+      <CardContent className="p-2 flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`p-1 rounded-lg shrink-0 ${cfg.iconBg}`}>
+            <Icon className="h-3.5 w-3.5" />
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-bold text-foreground truncate">{alert.title}</span>
-              <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${cfg.badge}`}>
+              <Badge variant="outline" className={`text-[9px] px-1 py-0 ${cfg.badge}`}>
                 {alert.badgeLabel}
               </Badge>
             </div>
-            <span className="text-[10.5px] text-muted-foreground truncate max-w-xl">{alert.description}</span>
+            <span className="text-[10px] text-muted-foreground truncate max-w-xl">{alert.description}</span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] text-muted-foreground hidden sm:inline">{alert.time}</span>
-          <Button size="sm" variant="ghost" className="h-7 text-xs font-bold text-[#1B5C2E] hover:bg-[#1B5C2E]/10 px-2" asChild>
+          <span className="text-[9.5px] text-muted-foreground hidden sm:inline">{alert.time}</span>
+          <Button size="sm" variant="ghost" className="h-6 text-[11px] font-bold text-[#1B5C2E] hover:bg-[#1B5C2E]/10 px-1.5" asChild>
             <Link href={alert.href}>
-              <Eye className="h-3.5 w-3.5 mr-1" /> Voir
+              <Eye className="h-3 w-3 mr-0.5" /> Voir
             </Link>
           </Button>
         </div>
@@ -91,13 +87,6 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 
 export default async function AlertsPage() {
   const supabase = await createClient()
-  const now = new Date()
-
-  let samples: any[] = []
-  try {
-    const { data } = await supabase.from("samples").select("*").limit(20)
-    if (data) samples = data
-  } catch {}
 
   const alerts: AlertItem[] = [
     {
@@ -147,10 +136,10 @@ export default async function AlertsPage() {
   const infos = alerts.filter(a => a.severity === 'info')
 
   return (
-    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
       {/* BANDEAU EN-TÊTE COMPACT */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5">
         <div>
           <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -161,43 +150,43 @@ export default async function AlertsPage() {
       </div>
 
       {/* KPIS COMPACTS SANS SCROLL */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-2.5">
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-500/10 text-red-600"><AlertTriangle className="h-4 w-4" /></div>
+          <CardContent className="p-2.5 flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-red-500/10 text-red-600"><AlertTriangle className="h-4 w-4" /></div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Alertes Critiques</p>
-              <h3 className="text-xl font-black text-foreground">{critiques.length}</h3>
+              <p className="text-[9px] font-bold uppercase text-muted-foreground">Alertes Critiques</p>
+              <h3 className="text-lg font-black text-foreground">{critiques.length}</h3>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600"><CalendarClock className="h-4 w-4" /></div>
+          <CardContent className="p-2.5 flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600"><CalendarClock className="h-4 w-4" /></div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Avertissements</p>
-              <h3 className="text-xl font-black text-foreground">{avertissements.length}</h3>
+              <p className="text-[9px] font-bold uppercase text-muted-foreground">Avertissements</p>
+              <h3 className="text-lg font-black text-foreground">{avertissements.length}</h3>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600"><ShieldAlert className="h-4 w-4" /></div>
+          <CardContent className="p-2.5 flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600"><ShieldAlert className="h-4 w-4" /></div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Informations</p>
-              <h3 className="text-xl font-black text-foreground">{infos.length}</h3>
+              <p className="text-[9px] font-bold uppercase text-muted-foreground">Informations</p>
+              <h3 className="text-lg font-black text-foreground">{infos.length}</h3>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></div>
+          <CardContent className="p-2.5 flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Total Traitées</p>
-              <h3 className="text-xl font-black text-foreground">18</h3>
+              <p className="text-[9px] font-bold uppercase text-muted-foreground">Total Traitées</p>
+              <h3 className="text-lg font-black text-foreground">18</h3>
             </div>
           </CardContent>
         </Card>
@@ -205,7 +194,7 @@ export default async function AlertsPage() {
 
       {/* LISTE DES ALERTES (STATIQUE 1-ÉCRAN) */}
       <div className="space-y-2">
-        {alerts.slice(0, 4).map((alert) => (
+        {alerts.map((alert) => (
           <AlertCard key={alert.id} alert={alert} />
         ))}
       </div>
