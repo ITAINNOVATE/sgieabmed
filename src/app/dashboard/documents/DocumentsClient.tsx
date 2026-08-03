@@ -121,7 +121,7 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
   }
 
   return (
-    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-full">
       
       {/* BANDEAU EN-TÊTE COMPACT */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -137,34 +137,33 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
         </Button>
       </div>
 
-      {/* TABLEAU DES DOCUMENTS (STATIQUE 1-ÉCRAN) */}
-      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
+      {/* TABLEAU DES DOCUMENTS (STATIQUE 1-ÉCRAN SANS TRONCATURE) */}
+      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden w-full">
         <CardHeader className="p-3 pb-2 border-b border-border/50">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Documents Référencés ({filteredDocuments.length})
             </CardTitle>
             <div className="flex items-center gap-2">
-              <div className="relative w-full sm:w-56">
+              <div className="relative w-full sm:w-48">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input 
-                  placeholder="Rechercher titre, échantillon..." 
+                  placeholder="Rechercher..." 
                   className="pl-8 h-8 text-xs bg-background"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || "all")}>
-                <SelectTrigger className="h-8 w-44 text-xs bg-background">
-                  <SelectValue placeholder="Type de document" />
+                <SelectTrigger className="h-8 w-36 text-xs bg-background">
+                  <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous les types</SelectItem>
-                  <SelectItem value="Certificat d'analyse">Certificat d'analyse</SelectItem>
-                  <SelectItem value="Rapport d'essai">Rapport d'essai</SelectItem>
-                  <SelectItem value="Formulaire de réception">Formulaire de réception</SelectItem>
-                  <SelectItem value="Rapport de destruction">Rapport de destruction</SelectItem>
-                  <SelectItem value="Photo de destruction">Photo de destruction</SelectItem>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="Certificat d'analyse">Certificat</SelectItem>
+                  <SelectItem value="Rapport d'essai">Rapport</SelectItem>
+                  <SelectItem value="Formulaire de réception">Réception</SelectItem>
+                  <SelectItem value="Photo de destruction">Photo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -172,17 +171,17 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full text-xs">
               <TableHeader className="bg-muted/40">
                 <TableRow>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase pl-4">Document</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Échantillon Lié</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Type</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Version</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Importé Par</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right pr-4">Action</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase pl-3 whitespace-nowrap">Document</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase whitespace-nowrap">Échantillon Lié</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase whitespace-nowrap">Type</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase whitespace-nowrap">Version</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase whitespace-nowrap">Importé Par</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase whitespace-nowrap">Date</TableHead>
+                  <TableHead className="py-2 text-[10.5px] font-bold uppercase text-right pr-3 whitespace-nowrap">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -191,29 +190,29 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
                 ) : (
                   filteredDocuments.slice(0, 5).map((doc) => (
                     <TableRow key={doc.id} className="text-xs hover:bg-muted/30">
-                      <TableCell className="pl-4 py-2">
+                      <TableCell className="pl-3 py-1.5 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <div className="p-1 rounded-md bg-muted border border-border/50">
+                          <div className="p-1 rounded-md bg-muted border border-border/50 shrink-0">
                             {getFileIcon(doc.type)}
                           </div>
-                          <span className="font-bold text-foreground">{doc.title}</span>
+                          <span className="font-bold text-foreground truncate max-w-[180px]">{doc.title}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{doc.sample}</TableCell>
-                      <TableCell className="py-2">
-                        <Badge variant="outline" className="text-[10px] bg-background">{doc.type}</Badge>
+                      <TableCell className="py-1.5 text-muted-foreground whitespace-nowrap truncate max-w-[160px]">{doc.sample}</TableCell>
+                      <TableCell className="py-1.5 whitespace-nowrap">
+                        <Badge variant="outline" className="text-[9.5px] px-1.5 py-0 bg-background font-normal">{doc.type}</Badge>
                       </TableCell>
-                      <TableCell className="py-2 font-mono text-muted-foreground">{doc.version}</TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{doc.author}</TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{doc.date}</TableCell>
-                      <TableCell className="py-2 text-right pr-4">
+                      <TableCell className="py-1.5 font-mono text-muted-foreground whitespace-nowrap">{doc.version}</TableCell>
+                      <TableCell className="py-1.5 text-muted-foreground whitespace-nowrap">{doc.author}</TableCell>
+                      <TableCell className="py-1.5 text-muted-foreground whitespace-nowrap">{doc.date}</TableCell>
+                      <TableCell className="py-1.5 text-right pr-3 whitespace-nowrap">
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10"
+                          className="h-6 text-[11px] px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10 shrink-0"
                           onClick={() => handleDownload(doc.file_url, doc.title)}
                         >
-                          <Download className="h-3.5 w-3.5 mr-1" /> Télécharger
+                          <Download className="h-3 w-3 mr-1 shrink-0" /> Télécharger
                         </Button>
                       </TableCell>
                     </TableRow>
