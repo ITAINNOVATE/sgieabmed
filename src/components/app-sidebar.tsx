@@ -258,7 +258,7 @@ export function AppSidebar() {
                 <SidebarMenuButton 
                   onClick={() => toggleSection('waste')}
                   className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
-                    (pathname.includes('/waste') || pathname.includes('/destructions'))
+                    ((pathname.includes('/waste') || pathname.includes('/destructions')) && pathname !== '/dashboard/waste/analytics')
                       ? "bg-white/20 text-white font-extrabold shadow-xs"
                       : "text-white hover:bg-white/15 hover:text-white"
                   }`}
