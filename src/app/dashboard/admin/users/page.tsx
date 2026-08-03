@@ -227,79 +227,58 @@ export default function UsersAdminPage() {
   })
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out max-w-7xl mx-auto pb-20">
+    <div className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-full">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* BANDEAU EN-TÊTE COMPACT */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestion des Utilisateurs</h2>
-          <p className="text-muted-foreground mt-1">
-            Création, habilitations, rôles et états des comptes utilisateurs de l'ABMed.
-          </p>
+          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-[#1B5C2E]" />
+            Gestion des Utilisateurs & Habilitations
+          </h2>
+          <p className="text-muted-foreground text-xs">Création, rôles et états des comptes de l'ABMed.</p>
         </div>
-        <Button onClick={openCreateModal} className="shadow-md bg-[#0B5ED7] hover:bg-[#094bb3] text-white">
-          <UserPlus className="mr-2 h-4 w-4" />
-          Nouvel Utilisateur
+        <Button onClick={openCreateModal} size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+          <UserPlus className="h-3.5 w-3.5" /> Nouvel Utilisateur
         </Button>
       </div>
 
-      {/* Filters Card */}
-      <Card className="border-border/50 shadow-sm rounded-2xl bg-card">
-        <CardContent className="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Rechercher par nom, matricule..."
-              className="pl-9 h-10 text-xs"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {/* CARTE TABLEAU COMPACT STATIQUE */}
+      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden w-full">
+        <CardHeader className="p-3 pb-2 border-b border-border/50">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Comptes Enregistrés ({filteredUsers.length})
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-48">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input 
+                  placeholder="Rechercher..."
+                  className="pl-8 h-8 text-xs bg-background"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={selectedRole} onValueChange={(val) => setSelectedRole(val || "all")}>
+                <SelectTrigger className="h-8 w-36 text-xs bg-background">
+                  <SelectValue placeholder="Rôle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les rôles</SelectItem>
+                  {roles.map(r => (
+                    <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+        </CardHeader>
 
-          <Select value={selectedDept} onValueChange={(val) => setSelectedDept(val || "all")}>
-            <SelectTrigger className="h-10 text-xs">
-              <SelectValue placeholder="Filtrer par service" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les services</SelectItem>
-              {departments.map(d => (
-                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedRole} onValueChange={(val) => setSelectedRole(val || "all")}>
-            <SelectTrigger className="h-10 text-xs">
-              <SelectValue placeholder="Filtrer par rôle" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les rôles</SelectItem>
-              {roles.map(r => (
-                <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedStatus} onValueChange={(val) => setSelectedStatus(val || "all")}>
-            <SelectTrigger className="h-10 text-xs">
-              <SelectValue placeholder="Filtrer par statut" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="Actif">Actif</SelectItem>
-              <SelectItem value="Suspendu">Suspendu</SelectItem>
-              <SelectItem value="Désactivé">Désactivé</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {/* Users List Table */}
-      <Card className="border-border/50 shadow-sm rounded-2xl overflow-hidden bg-card">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full text-xs">
+              <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="pl-4 w-12">Avatar</TableHead>
                   <TableHead>Nom complet</TableHead>

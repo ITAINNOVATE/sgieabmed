@@ -103,28 +103,28 @@ export default function RolesAdminPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out max-w-7xl mx-auto pb-20">
+    <div className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-full">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* BANDEAU EN-TÊTE COMPACT */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestion des Rôles</h2>
-          <p className="text-muted-foreground mt-1">
-            Définissez les rôles métier de l'ABMed pour associer des habilitations de sécurité adaptées.
-          </p>
+          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <Shield className="h-5 w-5 text-[#1B5C2E]" />
+            Gestion des Rôles & Modèle d'Accès
+          </h2>
+          <p className="text-muted-foreground text-xs">Définition des rôles métier ABMed et habilitations d'accès associées.</p>
         </div>
-        <Button onClick={openCreateModal} className="shadow-md bg-[#0B5ED7] hover:bg-[#094bb3] text-white">
-          <Plus className="mr-2 h-4 w-4" />
-          Nouveau Rôle
+        <Button onClick={openCreateModal} size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+          <Plus className="h-3.5 w-3.5" /> Nouveau Rôle
         </Button>
       </div>
 
-      {/* Roles List Table */}
-      <Card className="border-border/50 shadow-sm rounded-2xl overflow-hidden bg-card">
+      {/* ROLES LIST TABLE (STATIQUE 1-ÉCRAN) */}
+      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden w-full">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/30">
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full text-xs">
+              <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="pl-4 w-64">Intitulé du rôle</TableHead>
                   <TableHead className="w-48">Code Habilitation</TableHead>
