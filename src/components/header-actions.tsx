@@ -31,8 +31,12 @@ const QRCodeScannerDialog = dynamic(
 
 export function HeaderActions() {
   const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(6)
   const [unreadMsgCount, setUnreadMsgCount] = useState(3)
+  const [phone, setPhone] = useState("+229 97 00 01 02")
+  const [email, setEmail] = useState("marie.adande@abmed.bj")
+  const [isEditing, setIsEditing] = useState(false)
 
   const notifications = [
     {
@@ -327,11 +331,9 @@ export function HeaderActions() {
           <DropdownMenuLabel className="font-bold text-xs px-3 py-2">Mon Compte ABMed</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild className="cursor-pointer text-xs">
-              <Link href="/dashboard/profile">
-                <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
-                <span>Mon Profil</span>
-              </Link>
+            <DropdownMenuItem onClick={() => setShowProfileModal(true)} className="cursor-pointer text-xs font-semibold">
+              <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
+              <span>Voir Mon Profil</span>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer text-xs">
               <Link href="/dashboard/settings">
@@ -357,6 +359,74 @@ export function HeaderActions() {
         isOpen={isScannerOpen} 
         onClose={() => setIsScannerOpen(false)} 
       />
+
+      {/* 👤 MODALE PROFIL UTILISATEUR COMPACTE */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-border/50 flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-[#1B5C2E]" />
+                <h3 className="font-bold text-sm text-foreground">Profil Administrateur — Marie ADANDE</h3>
+              </div>
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setShowProfileModal(false)}>
+                ✕
+              </Button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border/50">
+                <Avatar className="h-16 w-16 border-2 border-[#1B5C2E]">
+                  <AvatarImage src="/avatar.png" alt="Marie ADANDE" />
+                  <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-lg">MA</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h4 className="text-base font-black text-foreground">Marie ADANDE</h4>
+                  <p className="text-xs text-muted-foreground font-medium">Administrateur Système & Sécurité</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">Compte Actif</Badge>
+                    <Badge variant="outline" className="text-[10px]">Matricule: ABM-001</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground">Email :</label>
+                  <div className="p-2 rounded-lg border bg-background font-medium">marie.adande@abmed.bj</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground">Téléphone :</label>
+                  <div className="p-2 rounded-lg border bg-background font-medium">+229 97 00 01 02</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground">Service / Direction :</label>
+                  <div className="p-2 rounded-lg border bg-background font-medium">Direction SI</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground">Rôle & Privilèges :</label>
+                  <div className="p-2 rounded-lg border bg-background font-bold text-[#1B5C2E]">ADMIN_SYS (Accès Total)</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-xs flex justify-between items-center">
+                <span>Dernière connexion : <strong>Aujourd'hui à 14:30</strong> (IP: 197.234.221.15)</span>
+                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200 text-[10px]">MFA Activée</Badge>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                <Button variant="outline" size="sm" onClick={() => setShowProfileModal(false)}>Fermer</Button>
+                <Button size="sm" onClick={() => {
+                  setShowProfileModal(false)
+                  toast.success("Demande de modification enregistrée.")
+                }} className="bg-[#1B5C2E] hover:bg-[#154824] text-white">
+                  Mettre à jour
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
