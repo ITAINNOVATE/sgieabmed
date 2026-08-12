@@ -500,13 +500,13 @@ export default function NewReceptionPage() {
               <CardContent className="grid sm:grid-cols-2 gap-4 pt-6">
                 <FormField control={form.control} name="supplier" render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <FormLabel>Fournisseur / Laboratoire</FormLabel>
-                    <FormControl><UppercaseInput placeholder="Nom du fournisseur..." {...field} value={field.value ?? ""} /></FormControl>
+                    <FormLabel>Demandeur/Donnateur/Objet</FormLabel>
+                    <FormControl><UppercaseInput placeholder="Nom du demandeur..." {...field} value={field.value ?? ""} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="manufacturer" render={({ field }) => (
-                  <FormItem><FormLabel>Demandeur/Donnateur/Objet</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Fabricant</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="country" render={({ field }) => (
                   <FormItem><FormLabel>Pays d'origine</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
