@@ -520,48 +520,84 @@ export default function NewReceptionPage() {
               </CardContent>
             </Card>
 
-
-            {/* 4. CONFORMITÉ */}
-            <Card className="shadow-sm border-border/50">
-              <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-                <CardTitle className="flex items-center text-lg"><CheckSquare className="mr-2 h-5 w-5 text-primary" /> 4. Contrôle de conformité</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-6">
-                <div className="grid grid-cols-2 gap-3 bg-muted/20 p-4 rounded-lg border border-border/50">
-                  {[
-                    { name: "check_packaging", label: "Emballage intact" },
-                    { name: "check_boxes", label: "Colis conformes" },
-                    { name: "check_seals", label: "Scellés conformes" },
-                    { name: "check_qty", label: "Quantité conforme" },
-                    { name: "check_docs", label: "Documents conformes" },
-                    { name: "check_damage", label: "Aucun dommage constaté" },
-                  ].map((chk) => (
-                    <FormField key={chk.name} control={form.control} name={chk.name as any} render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                        <FormLabel className="font-normal cursor-pointer">{chk.label}</FormLabel>
-                      </FormItem>
-                    )} />
-                  ))}
-                  <FormField control={form.control} name="check_conform" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 col-span-2 pt-2 border-t border-border/50 mt-2">
-                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500" /></FormControl>
-                      <FormLabel className="font-bold text-emerald-600 cursor-pointer">RÉCEPTION GLOBALE CONFORME</FormLabel>
-                    </FormItem>
-                  )} />
-                </div>
-                <div className="space-y-3">
-                  <FormField control={form.control} name="anomalies" render={({ field }) => (
-                    <FormItem><FormLabel>Anomalies constatées</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="measures" render={({ field }) => (
-                    <FormItem><FormLabel>Mesures prises</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                  )} />
-                </div>
-              </CardContent>
-            </Card>
-
           </div>
+
+          {/* 3. CONTRÔLE DE CONFORMITÉ — pleine largeur */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
+              <CardTitle className="flex items-center text-lg"><CheckSquare className="mr-2 h-5 w-5 text-primary" /> 3. Contrôle de conformité</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+
+                {/* Emballage extérieur */}
+                <FormField control={form.control} name="check_packaging" render={({ field }) => (
+                  <FormItem className="bg-muted/20 border border-border/50 rounded-xl p-4 flex flex-col gap-3">
+                    <FormLabel className="font-semibold text-sm text-foreground">Emballage extérieur</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <span className="text-sm text-muted-foreground">Intact</span>
+                    </div>
+                  </FormItem>
+                )} />
+
+                {/* Conditionnement primaire */}
+                <FormField control={form.control} name="check_boxes" render={({ field }) => (
+                  <FormItem className="bg-muted/20 border border-border/50 rounded-xl p-4 flex flex-col gap-3">
+                    <FormLabel className="font-semibold text-sm text-foreground">Conditionnement primaire</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <span className="text-sm text-muted-foreground">Intact</span>
+                    </div>
+                  </FormItem>
+                )} />
+
+                {/* Aspect général du produit */}
+                <FormField control={form.control} name="check_seals" render={({ field }) => (
+                  <FormItem className="bg-muted/20 border border-border/50 rounded-xl p-4 flex flex-col gap-3">
+                    <FormLabel className="font-semibold text-sm text-foreground">Aspect général du produit</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <span className="text-sm text-muted-foreground">Conforme</span>
+                    </div>
+                  </FormItem>
+                )} />
+
+                {/* Intégrité / état physique */}
+                <FormField control={form.control} name="check_qty" render={({ field }) => (
+                  <FormItem className="bg-muted/20 border border-border/50 rounded-xl p-4 flex flex-col gap-3">
+                    <FormLabel className="font-semibold text-sm text-foreground">Intégrité / état physique</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <span className="text-sm text-muted-foreground">Bonne</span>
+                    </div>
+                  </FormItem>
+                )} />
+
+                {/* Conformité globale */}
+                <FormField control={form.control} name="check_conform" render={({ field }) => (
+                  <FormItem className="bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-400/60 rounded-xl p-4 flex flex-col gap-3">
+                    <FormLabel className="font-bold text-sm text-emerald-700 dark:text-emerald-400">Conformité globale</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500" /></FormControl>
+                      <span className="text-sm font-semibold text-emerald-600">🟢 Conforme</span>
+                    </div>
+                  </FormItem>
+                )} />
+
+              </div>
+
+              {/* Anomalies + Mesures */}
+              <div className="grid sm:grid-cols-2 gap-4 mt-5">
+                <FormField control={form.control} name="anomalies" render={({ field }) => (
+                  <FormItem><FormLabel>Anomalies constatées</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                )} />
+                <FormField control={form.control} name="measures" render={({ field }) => (
+                  <FormItem><FormLabel>Mesures prises</FormLabel><FormControl><UppercaseTextarea className="h-16" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                )} />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* 5. ÉCHANTILLONS REÇUS */}
           <Card className="shadow-sm border-border/50">
