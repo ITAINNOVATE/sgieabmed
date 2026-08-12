@@ -120,6 +120,47 @@ const UppercaseTextarea = React.forwardRef<HTMLTextAreaElement, React.ComponentP
 ))
 UppercaseTextarea.displayName = 'UppercaseTextarea'
 
+// Composant DCI + Dosage dynamique par produit
+function DciDosageList({ value, onChange }: { value: {dci: string, dosage: string}[], onChange: (v: {dci: string, dosage: string}[]) => void }) {
+  const addRow = () => onChange([...value, { dci: '', dosage: '' }])
+  const removeRow = (i: number) => onChange(value.filter((_, idx) => idx !== i))
+  const updateRow = (i: number, field: 'dci' | 'dosage', val: string) => {
+    const updated = value.map((row, idx) => idx === i ? { ...row, [field]: val.toUpperCase() } : row)
+    onChange(updated)
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground/80">DCI / Dosage</span>
+        <Button type="button" size="sm" variant="outline" onClick={addRow} className="h-6 px-2 text-xs gap-1">
+          <Plus className="h-3 w-3" /> DCI
+        </Button>
+      </div>
+      {value.map((row, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <UppercaseInput
+            placeholder="DCI"
+            value={row.dci}
+            onChange={(e) => updateRow(i, 'dci', e.target.value)}
+            className="flex-1 text-xs h-9"
+          />
+          <UppercaseInput
+            placeholder="Dosage"
+            value={row.dosage}
+            onChange={(e) => updateRow(i, 'dosage', e.target.value)}
+            className="w-28 text-xs h-9"
+          />
+          {value.length > 1 && (
+            <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const DEFAULT_VALIDATORS = [
   { id: 'v1', name: 'Dr. Kadia BARRY (Responsable Qualité)' },
   { id: 'v2', name: 'Dr. Moussa TRAORÉ (Pharmacien Inspecteur)' },
@@ -129,6 +170,8 @@ const DEFAULT_VALIDATORS = [
 ]
 
 export default function NewReceptionPage() {
+  // État local pour les listes DCI/Dosage par produit (index échantillon -> tableau)
+  const [dciLists, setDciLists] = React.useState<{dci: string, dosage: string}[][]>([[{ dci: '', dosage: '' }]])
   const [isSaving, setIsSaving] = useState(false)
   const [isDrafting, setIsDrafting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string, size?: string }>>([])
@@ -625,9 +668,19 @@ export default function NewReceptionPage() {
                       <FormField control={form.control} name={`samples.${index}.commercial_name`} render={({ field }) => (
                         <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Nom commercial</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                       )} />
-                      <FormField control={form.control} name={`samples.${index}.dci`} render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">DCI</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                      )} />
+                      {/* DCI + Dosage dynamiques */}
+                      <DciDosageList
+                        value={dciLists[index] || [{ dci: '', dosage: '' }]}
+                        onChange={(v) => {
+                          const updated = [...dciLists]
+                          while (updated.length <= index) updated.push([{ dci: '', dosage: '' }])
+                          updated[index] = v
+                          setDciLists(updated)
+                          // Sérialiser dans les champs dci et dosage
+                          form.setValue(`samples.${index}.dci`, v.map(r => r.dci).join(' / '))
+                          form.setValue(`samples.${index}.dosage`, v.map(r => r.dosage).join(' / '))
+                        }}
+                      />
                       <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie de produit</FormLabel>
@@ -648,11 +701,6 @@ export default function NewReceptionPage() {
                         <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
                           <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
-                        <FormField control={form.control} name={`samples.${index}.dosage`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Dosage</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                        )} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
                           <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
@@ -689,7 +737,10 @@ export default function NewReceptionPage() {
                 type="button"
                 variant="outline"
                 className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30"
-                onClick={() => append({ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 })}
+                onClick={() => {
+                  append({ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 })
+                  setDciLists(prev => [...prev, [{ dci: '', dosage: '' }]])
+                }}
               >
                 <Plus className="mr-2 h-4 w-4" /> Ajouter un produit à cette réception
               </Button>
