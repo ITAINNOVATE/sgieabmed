@@ -119,8 +119,8 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   doc.setFontSize(9)
   doc.text(`Réf Réception : ${reception.rec_number || 'N/A'}`, 14, 50)
   doc.text(`Date & Heure : ${reception.date_reception || 'N/A'} ${reception.time_reception || ''}`, 14, 56)
-  doc.text(`Inspecteur : ${reception.inspector || 'N/A'}`, 14, 62)
-  doc.text(`Réf Doc (BL/Facture) : ${reception.ref_document || 'N/A'}`, 14, 68)
+  doc.text(`Agent de réception : ${reception.inspector || 'N/A'}`, 14, 62)
+  doc.text(`Réf. lettre de transmission : ${reception.ref_document || 'N/A'}`, 14, 68)
   doc.text(`Type de demande : ${reception.type_reception || 'N/A'}`, 14, 74)
   
   doc.text(`Fournisseur : ${reception.supplier || 'N/A'}`, 110, 50)

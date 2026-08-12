@@ -463,7 +463,8 @@ export default function NewReceptionPage() {
                         <SelectItem value="Renouvellement">Renouvellement</SelectItem>
                         <SelectItem value="Variation">Variation</SelectItem>
                         <SelectItem value="Inspection">Inspection</SelectItem>
-                        <SelectItem value="Controle qualite">Contrôle qualité</SelectItem>
+                        <SelectItem value="Don">Don</SelectItem>
+                        <SelectItem value="Etude">Étude</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -476,10 +477,10 @@ export default function NewReceptionPage() {
                   <FormItem><FormLabel>Heure</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="ref_document" render={({ field }) => (
-                  <FormItem><FormLabel>Réf. Document (BL, Facture...)</FormLabel><FormControl><UppercaseInput placeholder="BL-2026-..." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Réf. lettre de transmission</FormLabel><FormControl><UppercaseInput placeholder="N° lettre de transmission..." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="inspector" render={({ field }) => (
-                  <FormItem><FormLabel>Inspecteur / Agent</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Agent de réception</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                 )} />
               </CardContent>
             </Card>
