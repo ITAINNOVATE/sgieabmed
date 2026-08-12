@@ -842,20 +842,6 @@ export default function NewReceptionPage() {
               </CardContent>
             </Card>
 
-            {/* 8. COMMENTAIRES */}
-            <Card className="shadow-sm border-border/50">
-              <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-                <CardTitle className="flex items-center text-lg"><MessageSquare className="mr-2 h-5 w-5 text-primary" /> 8. Commentaires généraux</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <FormField control={form.control} name="global_comments" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observations complémentaires</FormLabel>
-                    <FormControl><UppercaseTextarea placeholder="Notes libres relatives à cette réception..." className="min-h-[150px]" {...field} value={field.value ?? ""} /></FormControl>
-                  </FormItem>
-                )} />
-              </CardContent>
-            </Card>
 
           </div>
         </form>
