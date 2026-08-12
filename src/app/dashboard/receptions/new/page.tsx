@@ -824,7 +824,11 @@ export default function NewReceptionPage() {
                     <FormItem>
                       <FormLabel>Responsable validation</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ""}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
+                        <FormControl>
+                          <SelectTrigger className="overflow-hidden">
+                            <SelectValue placeholder="Sélectionner..." className="truncate" />
+                          </SelectTrigger>
+                        </FormControl>
                         <SelectContent>
                           {validators.map(v => (
                             <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
