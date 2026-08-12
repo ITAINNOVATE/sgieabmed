@@ -478,7 +478,7 @@ export default function NewReceptionPage() {
                   <FormItem><FormLabel>Heure</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="ref_document" render={({ field }) => (
-                  <FormItem><FormLabel>Réf. lettre de transmission</FormLabel><FormControl><UppercaseInput placeholder="N° lettre de transmission..." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Réf. lettre de transmission</FormLabel><FormControl><UppercaseInput placeholder="" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="inspector" render={({ field }) => (
                   <FormItem>
@@ -501,7 +501,7 @@ export default function NewReceptionPage() {
                 <FormField control={form.control} name="supplier" render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Demandeur/Donnateur/Objet</FormLabel>
-                    <FormControl><UppercaseInput placeholder="Nom du demandeur..." {...field} value={field.value ?? ""} /></FormControl>
+                    <FormControl><UppercaseInput placeholder="" {...field} value={field.value ?? ""} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -527,7 +527,7 @@ export default function NewReceptionPage() {
               </CardHeader>
               <CardContent className="grid sm:grid-cols-2 gap-4 pt-6">
                 <FormField control={form.control} name="carrier" render={({ field }) => (
-                  <FormItem><FormLabel>Transporteur</FormLabel><FormControl><UppercaseInput placeholder="Ex: DHL, Interne..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Transporteur</FormLabel><FormControl><UppercaseInput placeholder="" {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="transport_mode" render={({ field }) => (
                   <FormItem>
@@ -622,10 +622,10 @@ export default function NewReceptionPage() {
                     
                     <div className="grid gap-3">
                       <FormField control={form.control} name={`samples.${index}.commercial_name`} render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Nom commercial</FormLabel><FormControl><UppercaseInput placeholder="Nom commercial..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Nom commercial</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name={`samples.${index}.dci`} render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">DCI</FormLabel><FormControl><UppercaseInput placeholder="DCI..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                        <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">DCI</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                       )} />
                       <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                         <FormItem>
@@ -645,15 +645,15 @@ export default function NewReceptionPage() {
                       )} />
                       <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><UppercaseInput placeholder="Ex: Comprimé..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                         <FormField control={form.control} name={`samples.${index}.dosage`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Dosage</FormLabel><FormControl><UppercaseInput placeholder="Ex: 500mg..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Dosage</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput placeholder="Lot N°..." {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                         <FormField control={form.control} name={`samples.${index}.exp_date`} render={({ field }) => (
                           <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Péremption</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
