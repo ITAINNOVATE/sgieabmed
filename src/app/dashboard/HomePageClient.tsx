@@ -38,7 +38,7 @@ export default function HomePageClient() {
                 </Link>
               </Button>
               <Button asChild className="bg-red-600 hover:bg-red-700 text-white gap-2 h-8.5 px-4 rounded-lg shadow-2xs text-xs font-bold border-0">
-                <Link href="/dashboard/waste">
+                <Link href="/dashboard/waste/analytics">
                   <Trash2 className="h-3.5 w-3.5 text-white" />
                   Tableau de bord Déchets
                 </Link>
