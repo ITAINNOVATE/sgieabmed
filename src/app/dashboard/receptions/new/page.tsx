@@ -520,41 +520,6 @@ export default function NewReceptionPage() {
               </CardContent>
             </Card>
 
-            {/* 3. TRANSPORT */}
-            <Card className="shadow-sm border-border/50">
-              <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-                <CardTitle className="flex items-center text-lg"><Truck className="mr-2 h-5 w-5 text-primary" /> 3. Informations sur le transport</CardTitle>
-              </CardHeader>
-              <CardContent className="grid sm:grid-cols-2 gap-4 pt-6">
-                <FormField control={form.control} name="carrier" render={({ field }) => (
-                  <FormItem><FormLabel>Transporteur</FormLabel><FormControl><UppercaseInput placeholder="" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="transport_mode" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Moyen de transport</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Aerien">Aérien</SelectItem>
-                        <SelectItem value="Terrestre">Terrestre (Camion frigorifique)</SelectItem>
-                        <SelectItem value="Maritime">Maritime</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="package_number" render={({ field }) => (
-                  <FormItem><FormLabel>N° de colis (Tracking)</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
-                <div className="flex gap-4">
-                  <FormField control={form.control} name="received_packages" render={({ field }) => (
-                    <FormItem className="flex-1"><FormLabel>Colis Reçus</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                  )} />
-                  <FormField control={form.control} name="total_packages" render={({ field }) => (
-                    <FormItem className="flex-1"><FormLabel>Colis Total</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                  )} />
-                </div>
-              </CardContent>
-            </Card>
 
             {/* 4. CONFORMITÉ */}
             <Card className="shadow-sm border-border/50">
