@@ -699,7 +699,7 @@ export default function NewReceptionPage() {
                       )} />
                       <div className="grid grid-cols-2 gap-2">
                         <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme galénique</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                         )} />
                         <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
                           <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
