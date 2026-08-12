@@ -55,7 +55,12 @@ export default function ReceptionsPage() {
         if (item.rec_number) mergedMap.set(item.rec_number, item)
       })
 
-      const mergedList = Array.from(mergedMap.values())
+      const mergedList = Array.from(mergedMap.values()).sort((a, b) => {
+        const timeA = new Date(a.created_at || a.date_reception || 0).getTime()
+        const timeB = new Date(b.created_at || b.date_reception || 0).getTime()
+        return timeB - timeA
+      })
+
       setReceptions(mergedList)
       setLoading(false)
     }
