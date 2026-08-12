@@ -105,10 +105,10 @@ function getStatusBadge(status: string) {
 }
 
 export default async function InventoryPage() {
-  const supabase = await createClient();
   let inventories: Inventory[] = [];
 
   try {
+    const supabase = await createClient();
     const { data } = await supabase
       .from('inventories')
       .select(`
