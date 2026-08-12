@@ -145,7 +145,7 @@ export default async function AlertsPage() {
             <AlertTriangle className="h-5 w-5 text-red-600" />
             Centre d'Alertes & Notifications
           </h2>
-          <p className="text-muted-foreground text-xs">Surveillance en temps réel des anomalies, échéances et non-conformités PSQIF.</p>
+          <p className="text-muted-foreground text-xs">Surveillance en temps réel des anomalies, échéances et non-conformités réglementaires.</p>
         </div>
       </div>
 

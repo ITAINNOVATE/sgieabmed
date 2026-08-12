@@ -84,7 +84,7 @@ export default function LoginPage({
                 </div>
                 <div>
                   <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wide">TRAÇABILITÉ</h4>
-                  <p className="text-[10.5px] text-muted-foreground leading-tight">Suivi en temps réel de chaque échantillon</p>
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">Suivi en temps réel des échantillons et déchets</p>
                 </div>
               </div>
 
@@ -104,7 +104,7 @@ export default function LoginPage({
                 </div>
                 <div>
                   <h4 className="text-[11px] font-bold text-foreground uppercase tracking-wide">CONFORMITÉ</h4>
-                  <p className="text-[10.5px] text-muted-foreground leading-tight">Respect des normes et réglementations PSQIF</p>
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">Respect des normes et réglementations</p>
                 </div>
               </div>
 
