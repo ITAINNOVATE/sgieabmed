@@ -23,17 +23,13 @@ export default function ReceptionsPage() {
     async function fetchData() {
       let remoteData: any[] = []
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('receptions')
-          .select(`
-            id,
-            rec_number,
-            date_reception,
-            supplier,
-            status,
-            samples ( count )
-          `)
+          .select('id, rec_number, date_reception, supplier, status, created_at')
           .order('created_at', { ascending: false })
+        if (error) {
+          console.warn("Erreur Supabase select réceptions:", error.message)
+        }
         if (data && data.length > 0) {
           remoteData = data
         }
@@ -255,7 +251,9 @@ export default function ReceptionsPage() {
                           {rec.date_reception ? new Date(rec.date_reception).toLocaleDateString("fr-FR") : '-'}
                         </TableCell>
                         <TableCell className="py-2">{rec.supplier || 'N/A'}</TableCell>
-                        <TableCell className="py-2 text-center font-bold">{rec.samples?.[0]?.count ?? 0}</TableCell>
+                        <TableCell className="py-2 text-center font-bold">
+                          {Array.isArray(rec.samples) ? (rec.samples[0]?.count ?? rec.samples.length) : (rec.samples?.count ?? (typeof rec.samples === 'number' ? rec.samples : 1))}
+                        </TableCell>
                         <TableCell className="py-2">
                           <Badge variant="outline" className={`text-[10px] font-semibold border ${isFinalized ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-amber-50 text-amber-700 border-amber-300"}`}>
                             {displayStatus}
