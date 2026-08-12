@@ -506,7 +506,7 @@ export default function NewReceptionPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="manufacturer" render={({ field }) => (
-                  <FormItem><FormLabel>Fabricant (si différent)</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Demandeur/Donnateur/Objet</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
                 )} />
                 <FormField control={form.control} name="country" render={({ field }) => (
                   <FormItem><FormLabel>Pays d'origine</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>

@@ -124,7 +124,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   doc.text(`Type de demande : ${reception.type_reception || 'N/A'}`, 14, 74)
   
   doc.text(`Fournisseur : ${reception.supplier || 'N/A'}`, 110, 50)
-  doc.text(`Fabricant : ${reception.manufacturer || 'N/A'}`, 110, 56)
+  doc.text(`Demandeur/Donnateur/Objet : ${reception.manufacturer || 'N/A'}`, 110, 56)
   doc.text(`Pays d'origine : ${reception.country || 'N/A'}`, 110, 62)
   doc.text(`Mode Transport : ${reception.transport_mode || 'N/A'}`, 110, 68)
   
