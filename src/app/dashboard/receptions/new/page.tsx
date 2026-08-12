@@ -819,46 +819,26 @@ export default function NewReceptionPage() {
                 <CardTitle className="flex items-center text-lg"><ShieldCheck className="mr-2 h-5 w-5 text-primary" /> 7. Validation Officielle</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 pt-6">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <FormField control={form.control} name="validator_name" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Responsable validation</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
-                        <FormControl>
-                          <SelectTrigger className="overflow-hidden">
-                            <SelectValue placeholder="Sélectionner..." className="truncate" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {validators.map(v => (
-                            <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="validation_date" render={({ field }) => (
-                    <FormItem><FormLabel>Date de validation</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                  )} />
-                </div>
-                <FormField control={form.control} name="decision" render={({ field }) => (
+                <FormField control={form.control} name="validator_name" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Décision finale</FormLabel>
+                    <FormLabel>Responsable validation</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une décision" /></SelectTrigger></FormControl>
+                      <FormControl>
+                        <SelectTrigger className="overflow-hidden">
+                          <SelectValue placeholder="Sélectionner..." className="truncate" />
+                        </SelectTrigger>
+                      </FormControl>
                       <SelectContent>
-                        <SelectItem value="Acceptée">Acceptée</SelectItem>
-                        <SelectItem value="Acceptée avec réserve">Acceptée avec réserve</SelectItem>
-                        <SelectItem value="Rejetée">Rejetée</SelectItem>
+                        {validators.map(v => (
+                          <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </FormItem>
                 )} />
-                {(form.watch("decision") === "Rejetée" || form.watch("decision") === "Acceptée avec réserve") && (
-                  <FormField control={form.control} name="decision_reason" render={({ field }) => (
-                    <FormItem><FormLabel className="text-destructive">Motif (Obligatoire)</FormLabel><FormControl><UppercaseTextarea className="border-destructive/50" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                )}
+                <FormField control={form.control} name="validation_date" render={({ field }) => (
+                  <FormItem><FormLabel>Date de validation</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                )} />
               </CardContent>
             </Card>
 
