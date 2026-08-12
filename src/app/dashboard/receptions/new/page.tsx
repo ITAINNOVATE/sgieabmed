@@ -139,13 +139,13 @@ function DciDosageList({ value, onChange }: { value: {dci: string, dosage: strin
       {value.map((row, i) => (
         <div key={i} className="flex gap-2 items-center">
           <UppercaseInput
-            placeholder="DCI"
+            placeholder=""
             value={row.dci}
             onChange={(e) => updateRow(i, 'dci', e.target.value)}
             className="flex-1 text-xs h-9"
           />
           <UppercaseInput
-            placeholder="Dosage"
+            placeholder=""
             value={row.dosage}
             onChange={(e) => updateRow(i, 'dosage', e.target.value)}
             className="w-28 text-xs h-9"
@@ -736,53 +736,56 @@ export default function NewReceptionPage() {
                           form.setValue(`samples.${index}.dosage`, v.map(r => r.dosage).join(' / '))
                         }}
                       />
-                      <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie de produit</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Catégorie de produit" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="Médicaments conventionnels">Médicaments conventionnels</SelectItem>
-                              <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
-                              <SelectItem value="Médicaments à base de plantes">Médicaments à base de plantes</SelectItem>
-                              <SelectItem value="Compléments nutritionnels">Compléments nutritionnels</SelectItem>
-                              <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
-                              <SelectItem value="Produits cosmétiques">Produits cosmétiques</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )} />
-                      <div className="grid grid-cols-2 gap-2">
-                        <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme galénique</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                        )} />
-                        <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                        )} />
-                        <FormField control={form.control} name={`samples.${index}.exp_date`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Péremption</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                        )} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <FormField control={form.control} name={`samples.${index}.qty`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Quantité</FormLabel><FormControl><Input type="number" min="1" {...field} value={field.value ?? 1} /></FormControl></FormItem>
-                        )} />
-                        <FormField control={form.control} name={`samples.${index}.unit`} render={({ field }) => (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <FormField control={form.control} name={`samples.${index}.category`} render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs font-semibold text-foreground/80">Unité</FormLabel>
+                            <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie de produit</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Catégorie de produit" /></SelectTrigger></FormControl>
                               <SelectContent>
-                                <SelectItem value="Boite">Boîte</SelectItem>
-                                <SelectItem value="Flacon">Flacon</SelectItem>
-                                <SelectItem value="Ampoule">Ampoule</SelectItem>
-                                <SelectItem value="Seringue">Seringue</SelectItem>
-                                <SelectItem value="Sachet">Sachet</SelectItem>
-                                <SelectItem value="Tube">Tube</SelectItem>
+                                <SelectItem value="Médicaments conventionnels">Médicaments conventionnels</SelectItem>
+                                <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
+                                <SelectItem value="Médicaments à base de plantes">Médicaments à base de plantes</SelectItem>
+                                <SelectItem value="Compléments nutritionnels">Compléments nutritionnels</SelectItem>
+                                <SelectItem value="Dispositifs médicaux">Dispositifs médicaux</SelectItem>
+                                <SelectItem value="Produits cosmétiques">Produits cosmétiques</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormItem>
                         )} />
+                        <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme galénique</FormLabel><FormControl><UppercaseInput className="h-9 text-xs" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                        )} />
+                      </div>
+
+                      <div className="grid sm:grid-cols-3 gap-3">
+                        <FormField control={form.control} name={`samples.${index}.batch`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">N° Lot</FormLabel><FormControl><UppercaseInput className="h-9 text-xs" {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                        )} />
+                        <FormField control={form.control} name={`samples.${index}.exp_date`} render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Péremption</FormLabel><FormControl><Input type="date" className="h-9 text-xs" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
+                        )} />
+                        <div className="grid grid-cols-2 gap-2">
+                          <FormField control={form.control} name={`samples.${index}.qty`} render={({ field }) => (
+                            <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Quantité</FormLabel><FormControl><Input type="number" min="1" className="h-9 text-xs" {...field} value={field.value ?? 1} /></FormControl></FormItem>
+                          )} />
+                          <FormField control={form.control} name={`samples.${index}.unit`} render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-semibold text-foreground/80">Unité</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Boite">Boîte</SelectItem>
+                                  <SelectItem value="Flacon">Flacon</SelectItem>
+                                  <SelectItem value="Ampoule">Ampoule</SelectItem>
+                                  <SelectItem value="Seringue">Seringue</SelectItem>
+                                  <SelectItem value="Sachet">Sachet</SelectItem>
+                                  <SelectItem value="Tube">Tube</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )} />
+                        </div>
                       </div>
                     </div>
                   </div>
