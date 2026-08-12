@@ -229,17 +229,125 @@ export default function NewReceptionPage() {
     name: "samples",
   })
 
-  // ─── Réinitialisation propre à chaque ouverture de formulaire ──────────────
-  React.useEffect(() => {
-    try {
-      localStorage.removeItem(AUTO_SAVE_KEY)
-    } catch (e) {}
-  }, [])
+  // ─── Chargement d'une réception existante ──────────────────────────────
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const editId = searchParams?.get("id")
 
-  // ─── Insertion sécurisée dans Supabase ─────────────────────────────────────
+  React.useEffect(() => {
+    if (!editId) return
+
+    async function loadExistingReception() {
+      try {
+        let sourceData: any = null
+        let savedDciLists: any = null
+
+        // 1. Tenter depuis localStorage d'abord (détails complets avec DCI multiples)
+        try {
+          const rawDetails = localStorage.getItem('reception_draft_details_' + editId)
+          if (rawDetails) {
+            const parsed = JSON.parse(rawDetails)
+            sourceData = parsed.formData
+            savedDciLists = parsed.dciLists
+          }
+        } catch (e) {}
+
+        // 2. Sinon tenter depuis Supabase
+        if (!sourceData) {
+          const { data } = await supabase
+            .from('receptions')
+            .select('*')
+            .or(`rec_number.eq.${editId},id.eq.${editId}`)
+            .maybeSingle()
+          
+          if (data) {
+            sourceData = data
+            // Charger les échantillons Supabase associés
+            const { data: sData } = await supabase
+              .from('samples')
+              .select('*')
+              .eq('reception_ref', data.rec_number)
+            
+            if (sData && sData.length > 0) {
+              sourceData.samples = sData.map(s => ({
+                commercial_name: s.commercial_name || "",
+                dci: s.dci || "",
+                form: s.form || "",
+                dosage: s.dosage || "",
+                batch: s.batch_number || "",
+                exp_date: s.expiry_date || "",
+                qty: s.quantity || 1,
+                unit: s.unit || "",
+                category: s.category || "",
+              }))
+            }
+          }
+        }
+
+        // 3. Pré-remplir le formulaire avec les données restaurées
+        if (sourceData) {
+          form.reset({
+            rec_number: sourceData.rec_number || editId,
+            date_reception: sourceData.date_reception || new Date().toISOString().split('T')[0],
+            time_reception: sourceData.time_reception || "12:00",
+            ref_document: sourceData.ref_document || "",
+            type_reception: sourceData.type_reception || "",
+            inspector: sourceData.inspector || "Marie ADANDE",
+            supplier: sourceData.supplier || "",
+            manufacturer: sourceData.manufacturer || "",
+            country: sourceData.country || "",
+            contact_person: sourceData.contact_person || "",
+            phone: sourceData.phone || "",
+            check_packaging: !!sourceData.check_packaging,
+            check_boxes: !!sourceData.check_boxes,
+            check_seals: !!sourceData.check_seals,
+            check_qty: !!sourceData.check_qty,
+            check_conform: !!sourceData.check_conform,
+            anomalies: sourceData.anomalies || "",
+            measures: sourceData.measures || "",
+            validator_name: sourceData.validator_name || "",
+            validation_date: sourceData.validation_date || "",
+            samples: sourceData.samples && sourceData.samples.length > 0
+              ? sourceData.samples
+              : [{ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 }],
+          })
+
+          if (savedDciLists) {
+            setDciLists(savedDciLists)
+          } else if (sourceData.samples && sourceData.samples.length > 0) {
+            const rebuilt = sourceData.samples.map((s: any) => {
+              const dciParts = (s.dci || '').split(' / ')
+              const dosageParts = (s.dosage || '').split(' / ')
+              return dciParts.map((d: string, idx: number) => ({
+                dci: d || '',
+                dosage: dosageParts[idx] || ''
+              }))
+            })
+            setDciLists(rebuilt)
+          }
+
+          toast.success(`Réception ${editId} chargée`)
+        }
+      } catch (err) {
+        console.warn("Erreur chargement réception à modifier:", err)
+      }
+    }
+
+    loadExistingReception()
+  }, [editId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Insertion & Persistance des détails ──────────────────────────────────
   const saveReceptionToSupabase = async (status: string) => {
     const values = form.getValues()
     
+    // Sauvegarder les détails complets du formulaire pour restauration exacte
+    try {
+      localStorage.setItem('reception_draft_details_' + values.rec_number, JSON.stringify({
+        formData: values,
+        dciLists: dciLists,
+        status: status,
+      }))
+    } catch (e) {}
+
     const fullPayload: any = {
       rec_number: values.rec_number,
       date_reception: values.date_reception || new Date().toISOString().split('T')[0],
