@@ -452,19 +452,19 @@ export default function NewReceptionPage() {
     }
   }
 
-  // ─── Valider la réception ─────────────────────────────────────────────────
+  // ─── Soumettre la réception pour validation ───────────────────────────────
   const onSubmit = async () => {
     setIsSaving(true)
-    const toastId = toast.loading("Validation en cours...")
+    const toastId = toast.loading("Soumission en cours...")
     try {
-      await saveReceptionToSupabase("Validée")
+      await saveReceptionToSupabase("En attente de validation")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception validée avec succès !", { id: toastId, duration: 3000 })
+      toast.success("Réception soumise avec succès !", { id: toastId, duration: 3000 })
       router.push("/dashboard/receptions")
       setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
     } catch (err: any) {
       console.error(err)
-      toast.error(`Erreur : ${err.message || "Impossible de valider la réception."}`, { id: toastId })
+      toast.error(`Erreur : ${err.message || "Impossible de soumettre la réception."}`, { id: toastId })
     } finally {
       setIsSaving(false)
     }
@@ -559,7 +559,7 @@ export default function NewReceptionPage() {
             {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
           </Button>
           <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="shadow-md">
-            {isSaving ? "Validation..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
+            {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Soumettre la réception</>}
           </Button>
         </div>
       </div>
@@ -936,7 +936,7 @@ export default function NewReceptionPage() {
               {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
             </Button>
             <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="gap-2 shadow-md">
-              {isSaving ? "Validation..." : <><CheckCircle2 className="h-4 w-4" /> Valider la réception</>}
+              {isSaving ? "Soumission..." : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
             </Button>
           </div>
 
