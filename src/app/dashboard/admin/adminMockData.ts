@@ -94,7 +94,7 @@ export interface SecuritySettings {
 const MOCK_DEPARTMENTS: Department[] = [
   { id: "dept-1", name: "Direction de l'Échantillothèque", code: "DIR_ECH", description: "Gestion et contrôle des échantillons pharmaceutiques", created_at: "2026-01-01" },
   { id: "dept-2", name: "Gestion des Déchets Pharmaceutiques", code: "DIR_DECH", description: "Collecte, tri et neutralisation des déchets", created_at: "2026-01-01" },
-  { id: "dept-3", name: "Direction de l'Assurance Qualité (PSQIF)", code: "DIR_QUAL", description: "Normes de conformité et audit qualité", created_at: "2026-01-01" },
+  { id: "dept-3", name: "Direction de l'Assurance Qualité", code: "DIR_QUAL", description: "Normes de conformité et audit qualité", created_at: "2026-01-01" },
   { id: "dept-4", name: "Laboratoire National de Contrôle (LNC)", code: "LAB_LNC", description: "Analyses physico-chimiques et microbiologiques", created_at: "2026-01-01" },
   { id: "dept-5", name: "Systèmes d'Information & Digitalisation", code: "DIR_SI", description: "Support informatique et sécurité eGED", created_at: "2026-01-01" }
 ]
@@ -103,7 +103,7 @@ const MOCK_ROLES: UserRole[] = [
   { id: "role-1", name: "Administrateur Système", code: "ADMIN_SYS", description: "Accès complet et gestion de la sécurité", is_configurable: false },
   { id: "role-2", name: "Responsable Échantillothèque", code: "RESP_ECH", description: "Supervision des réceptions et stocks d'échantillons", is_configurable: true },
   { id: "role-3", name: "Responsable Déchets Pharmaceutiques", code: "RESP_WASTE", description: "Validation et suivi des plans d'incinération", is_configurable: true },
-  { id: "role-4", name: "Auditeur PSQIF", code: "RESP_QUAL", description: "Contrôle de conformité et accès aux rapports", is_configurable: true },
+  { id: "role-4", name: "Auditeur Qualité", code: "RESP_QUAL", description: "Contrôle de conformité et accès aux rapports", is_configurable: true },
   { id: "role-5", name: "Agent de Saisie & Laboratoire", code: "GEST_ECH", description: "Enregistrement des mouvements et inventaires", is_configurable: true }
 ]
 

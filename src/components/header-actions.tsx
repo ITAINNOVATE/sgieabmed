@@ -66,7 +66,7 @@ export function HeaderActions() {
       id: 4,
       type: "waste",
       title: "Plan de destruction",
-      description: "Session d'incinération validee par le coordinateur PSQIF.",
+      description: "Session d'incinération validée par le responsable.",
       time: "il y a 3h",
       icon: <Trash2 className="h-4 w-4 text-red-500" />,
       bg: "bg-red-50 dark:bg-red-950/30"
