@@ -141,19 +141,6 @@ export default function HomePageClient() {
 
         </div>
 
-      {/* ─── BANDEAU INSTITUTIONNEL AU BAS DE L'ACCUEIL (NET JOUR ET NUIT) ─── */}
-      <div className="p-3 rounded-xl bg-[#1B5C2E]/10 dark:bg-emerald-950/40 border border-[#1B5C2E]/30 dark:border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2.5">
-          <ShieldCheck className="h-4 w-4 text-[#1B5C2E] dark:text-emerald-400 shrink-0" />
-          <span className="font-bold text-[#1B5C2E] dark:text-emerald-400 text-center sm:text-left text-[11px]">
-            QUALITÉ • SÉCURITÉ • TRAÇABILITÉ AU SERVICE DE LA SANTÉ PUBLIQUE
-          </span>
-        </div>
-        <span className="text-[10.5px] text-muted-foreground dark:text-slate-300 font-medium shrink-0">
-          ABMed — République du Bénin
-        </span>
-      </div>
-
     </div>
   )
 }
