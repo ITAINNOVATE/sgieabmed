@@ -151,10 +151,12 @@ export default function ReceptionsPage() {
       (rec.supplier && rec.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const isFinalized = rec.status === "Validée" || rec.status === "Finalisé" || rec.status === "Finalisée"
-    const isInProgress = rec.status === "En cours" || rec.status === "Brouillon" || rec.status === "En attente" || !rec.status
-    
+    const isPendingValidation = rec.status === "En attente de validation" || rec.status === "Soumise" || rec.status === "En attente"
+    const isInProgress = !isFinalized && !isPendingValidation
+
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "finalise" && isFinalized) ||
+      (statusFilter === "en_attente" && isPendingValidation) ||
       (statusFilter === "en_cours" && isInProgress)
       
     return matchesSearch && matchesStatus
@@ -188,9 +190,9 @@ export default function ReceptionsPage() {
           <CardContent className="p-3 flex items-center gap-3">
             <div className="bg-amber-500/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">En cours / En attente</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">En attente de validation</p>
               <h3 className="text-xl font-black text-foreground">
-                {receptions.filter(r => r.status === "En cours" || r.status === "Brouillon" || r.status === "En attente" || !r.status).length}
+                {receptions.filter(r => r.status === "En attente de validation" || r.status === "Soumise" || r.status === "En attente").length}
               </h3>
             </div>
           </CardContent>
@@ -220,16 +222,25 @@ export default function ReceptionsPage() {
                   type="button"
                   variant={statusFilter === "en_cours" ? "default" : "ghost"}
                   size="sm"
-                  className="h-7 text-xs px-2.5 rounded-md font-semibold"
+                  className="h-7 text-xs px-2.5 rounded-md font-semibold text-red-600 dark:text-red-400"
                   onClick={() => setStatusFilter("en_cours")}
                 >
                   En cours
                 </Button>
                 <Button
                   type="button"
+                  variant={statusFilter === "en_attente" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs px-2.5 rounded-md font-semibold text-emerald-600 dark:text-emerald-400"
+                  onClick={() => setStatusFilter("en_attente")}
+                >
+                  En attente de validation
+                </Button>
+                <Button
+                  type="button"
                   variant={statusFilter === "finalise" ? "default" : "ghost"}
                   size="sm"
-                  className="h-7 text-xs px-2.5 rounded-md font-semibold"
+                  className="h-7 text-xs px-2.5 rounded-md font-semibold text-emerald-600 dark:text-emerald-400"
                   onClick={() => setStatusFilter("finalise")}
                 >
                   Finalisé
@@ -269,7 +280,19 @@ export default function ReceptionsPage() {
                 ) : (
                   filteredReceptions.map((rec) => {
                     const isFinalized = rec.status === "Validée" || rec.status === "Finalisé" || rec.status === "Finalisée"
-                    const displayStatus = isFinalized ? "Finalisé" : "En cours"
+                    const isPendingValidation = rec.status === "En attente de validation" || rec.status === "Soumise" || rec.status === "En attente"
+
+                    let statusLabel = "En cours"
+                    let statusBadgeClass = "bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
+
+                    if (isFinalized) {
+                      statusLabel = "Finalisé"
+                      statusBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                    } else if (isPendingValidation) {
+                      statusLabel = "En attente de validation"
+                      statusBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                    }
+
                     return (
                       <TableRow key={rec.id} className="text-xs hover:bg-muted/30">
                         <TableCell className="font-bold text-foreground py-2">{rec.rec_number}</TableCell>
@@ -281,8 +304,8 @@ export default function ReceptionsPage() {
                           {Array.isArray(rec.samples) ? (rec.samples[0]?.count ?? rec.samples.length) : (rec.samples?.count ?? (typeof rec.samples === 'number' ? rec.samples : 1))}
                         </TableCell>
                         <TableCell className="py-2">
-                          <Badge variant="outline" className={`text-[10px] font-semibold border ${isFinalized ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-amber-50 text-amber-700 border-amber-300"}`}>
-                            {displayStatus}
+                          <Badge variant="outline" className={`text-[10px] font-semibold border ${statusBadgeClass}`}>
+                            {statusLabel}
                           </Badge>
                         </TableCell>
                         <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1">
