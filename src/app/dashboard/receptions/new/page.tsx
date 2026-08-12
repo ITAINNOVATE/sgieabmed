@@ -272,7 +272,7 @@ export default function NewReceptionPage() {
     return () => subscription.unsubscribe()
   }, [form, dciLists]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Sauvegarder en brouillon (statut = "Brouillon") ──────────────────────
+  // ─── Sauvegarder en cours / brouillon ─────────────────────────────────────
   const onDraft = async () => {
     setIsDrafting(true)
     const toastId = toast.loading("Sauvegarde en cours...")
@@ -285,7 +285,7 @@ export default function NewReceptionPage() {
         ref_document: values.ref_document || null,
         type_reception: values.type_reception || null,
         inspector: values.inspector || null,
-        status: "Brouillon",
+        status: "En cours",
         supplier: values.supplier || null,
         manufacturer: values.manufacturer || null,
         country: values.country || null,
@@ -306,10 +306,35 @@ export default function NewReceptionPage() {
         global_comments: values.global_comments || null,
       })
       if (error) throw error
-      toast.success("Brouillon sauvegardé avec succès !", { id: toastId })
+
+      // Insérer les échantillons valides si présent
+      const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
+      if (validSamples.length > 0) {
+        const samplesToInsert = validSamples.map(sample => ({
+          sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          reception_ref: values.rec_number,
+          commercial_name: sample.commercial_name,
+          dci: sample.dci || null,
+          form: sample.form || null,
+          dosage: sample.dosage || null,
+          presentation: sample.presentation || null,
+          batch_number: sample.batch || null,
+          mfg_date: sample.mfg_date || null,
+          expiry_date: sample.exp_date || null,
+          quantity: sample.qty || 1,
+          unit: sample.unit || null,
+          category: sample.category || null,
+          status: 'À localiser'
+        }))
+        await supabase.from('samples').insert(samplesToInsert)
+      }
+
+      localStorage.removeItem(AUTO_SAVE_KEY)
+      toast.success("Réception sauvegardée (En cours) avec succès !", { id: toastId, duration: 4000 })
+      router.push("/dashboard/receptions")
     } catch (err: any) {
       console.error(err)
-      toast.error(`Erreur : ${err.message || "Impossible de sauvegarder le brouillon."}`, { id: toastId })
+      toast.error(`Erreur : ${err.message || "Impossible de sauvegarder la réception."}`, { id: toastId })
     } finally {
       setIsDrafting(false)
     }
@@ -328,7 +353,7 @@ export default function NewReceptionPage() {
         ref_document: values.ref_document || null,
         type_reception: values.type_reception || null,
         inspector: values.inspector || null,
-        status: "En attente",
+        status: "Validée",
         supplier: values.supplier || null,
         manufacturer: values.manufacturer || null,
         country: values.country || null,
