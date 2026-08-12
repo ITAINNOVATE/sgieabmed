@@ -4,28 +4,34 @@ import DocumentsClient from "./DocumentsClient"
 export const dynamic = 'force-dynamic'
 
 export default async function DocumentsPage() {
-  const [docsResult, samplesResult] = await Promise.all([
-    supabase
-      .from('documents')
-      .select(`
-        id,
-        title,
-        document_type,
-        file_url,
-        version,
-        uploaded_at,
-        samples ( sample_number, commercial_name ),
-        users!uploaded_by ( first_name, last_name )
-      `)
-      .order('uploaded_at', { ascending: false }),
-    supabase
-      .from('samples')
-      .select('id, sample_number, commercial_name')
-      .order('sample_number', { ascending: false })
-  ])
+  let dbDocuments: any[] | null = null
+  let samplesList: any[] = []
 
-  const dbDocuments = docsResult.data
-  const samplesList = samplesResult.data || []
+  try {
+    const [docsResult, samplesResult] = await Promise.all([
+      supabase
+        .from('documents')
+        .select(`
+          id,
+          title,
+          document_type,
+          file_url,
+          version,
+          uploaded_at,
+          samples ( sample_number, commercial_name ),
+          users!uploaded_by ( first_name, last_name )
+        `)
+        .order('uploaded_at', { ascending: false }),
+      supabase
+        .from('samples')
+        .select('id, sample_number, commercial_name')
+        .order('sample_number', { ascending: false })
+    ])
+    dbDocuments = docsResult.data
+    samplesList = samplesResult.data || []
+  } catch (err) {
+    console.warn("Supabase fetch fallback in DocumentsPage:", err)
+  }
 
   const documents = dbDocuments?.map(doc => ({
     id: doc.id,
