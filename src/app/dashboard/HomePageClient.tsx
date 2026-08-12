@@ -131,7 +131,7 @@ export default function HomePageClient() {
             </CardHeader>
             <CardContent className="p-2.5 pt-0">
               <p className="text-[10px] text-white/90 leading-tight">
-                Indicateurs de performance, taux d'occupation des stocks et rapports d'audit en un clic.
+                Indicateurs de performance, taux d'occupation des stocks et rapports en un clic.
               </p>
               <Button asChild variant="link" className="p-0 h-auto text-[10px] font-bold text-white hover:text-white/80 mt-1.5">
                 <Link href="/dashboard/reports">Générer un rapport <ArrowRight className="h-3 w-3 ml-1" /></Link>
