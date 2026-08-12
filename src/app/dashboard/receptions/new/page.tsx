@@ -177,6 +177,8 @@ export default function NewReceptionPage() {
   const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string, size?: string }>>([])
   const [isUploadingFile, setIsUploadingFile] = useState(false)
   const [validators, setValidators] = useState<{id: string, name: string}[]>(DEFAULT_VALIDATORS)
+  const [autoSaveTime, setAutoSaveTime] = useState<string | null>(null)
+  const AUTO_SAVE_KEY = 'reception_form_autosave'
 
   React.useEffect(() => {
     async function loadValidators() {
@@ -226,6 +228,49 @@ export default function NewReceptionPage() {
     control: form.control,
     name: "samples",
   })
+
+  // ─── Restauration du brouillon depuis localStorage au montage ─────────────
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem(AUTO_SAVE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.formData) {
+          // Restaurer uniquement les champs modifiables (pas rec_number auto-généré)
+          const { rec_number, date_reception, time_reception, inspector, ...rest } = parsed.formData
+          Object.entries(rest).forEach(([key, value]) => {
+            form.setValue(key as any, value)
+          })
+        }
+        if (parsed.dciLists) setDciLists(parsed.dciLists)
+        setAutoSaveTime(parsed.savedAt || null)
+        toast.info("Brouillon restauré automatiquement", { duration: 3000 })
+      }
+    } catch (e) {
+      // Ignorer si le localStorage est vide ou corrompu
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Sauvegarde automatique dans localStorage (debounce 2s) ───────────────
+  React.useEffect(() => {
+    const subscription = form.watch((formData) => {
+      const timer = setTimeout(() => {
+        try {
+          const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({
+            formData,
+            dciLists,
+            savedAt: now,
+          }))
+          setAutoSaveTime(now)
+        } catch (e) {
+          // localStorage non disponible (mode privé etc.)
+        }
+      }, 2000)
+      return () => clearTimeout(timer)
+    })
+    return () => subscription.unsubscribe()
+  }, [form, dciLists]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Sauvegarder en brouillon (statut = "Brouillon") ──────────────────────
   const onDraft = async () => {
@@ -380,6 +425,8 @@ export default function NewReceptionPage() {
           : "Aucun échantillon ajouté.",
         duration: 5000,
       })
+      // Effacer le brouillon auto-sauvegardé
+      localStorage.removeItem(AUTO_SAVE_KEY)
       router.push("/dashboard/receptions")
     } catch (error: any) {
       console.error("Erreur d'insertion:", error)
@@ -463,7 +510,15 @@ export default function NewReceptionPage() {
           </Button>
           <div>
             <h2 className="text-xl font-bold tracking-tight">Nouvelle Réception</h2>
-            <p className="text-muted-foreground text-xs">Formulaire de contrôle et d'enregistrement</p>
+            <p className="text-muted-foreground text-xs flex items-center gap-1.5">
+              Formulaire de contrôle et d'enregistrement
+              {autoSaveTime && (
+                <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Sauvegardé à {autoSaveTime}
+                </span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
