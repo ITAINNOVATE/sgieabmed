@@ -844,6 +844,18 @@ export default function NewReceptionPage() {
 
 
           </div>
+
+          {/* BOUTONS EN BAS */}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="secondary" onClick={onDraft} disabled={isDrafting} className="gap-2">
+              <Save className="h-4 w-4" />
+              {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
+            </Button>
+            <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="gap-2 shadow-md">
+              {isSaving ? "Validation..." : <><CheckCircle2 className="h-4 w-4" /> Valider la réception</>}
+            </Button>
+          </div>
+
         </form>
       </Form>
     </div>
