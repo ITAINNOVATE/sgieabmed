@@ -43,35 +43,35 @@ export default function WasteAnalyticsPage() {
   ]
 
   return (
-    <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
       {/* EN-TÊTE DU TABLEAU DE BORD DÉCHETS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
         <div>
-          <h2 className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
-            <Trash2 className="h-4.5 w-4.5 text-red-600" />
+          <h2 className="text-base font-black tracking-tight text-foreground flex items-center gap-2">
+            <Trash2 className="h-4 w-4 text-red-600" />
             Tableau de Bord & Statistiques Déchets
           </h2>
         </div>
       </div>
 
       {/* LIGNE 1 : KPIs DÉCHETS (4 CARTES COMPACTES) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {KPIData.map((kpi, index) => (
           <Card key={index} className="shadow-2xs border border-border/70 rounded-xl overflow-hidden relative bg-card">
-            <CardContent className="p-2.5 pb-3">
+            <CardContent className="p-2 pb-2.5">
               <div className="flex justify-between items-start">
                 <div className={`p-1 rounded-lg ${kpi.bg}`}>
                   <kpi.icon className={`h-3.5 w-3.5 ${kpi.color}`} strokeWidth={2.2} />
                 </div>
-                <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
                   {kpi.isUp ? '▲' : '▼'} {kpi.trend}
                 </span>
               </div>
-              <p className="text-[8.5px] font-bold text-muted-foreground uppercase tracking-wider mt-1.5 mb-0.5">{kpi.title}</p>
-              <h2 className="text-xl font-black text-foreground tracking-tight">{kpi.value}</h2>
+              <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider mt-1 mb-0.5">{kpi.title}</p>
+              <h2 className="text-lg font-black text-foreground tracking-tight">{kpi.value}</h2>
             </CardContent>
-            <div className="h-4 w-full absolute bottom-0 left-0 opacity-60">
+            <div className="h-3.5 w-full absolute bottom-0 left-0 opacity-60">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={kpi.sparkline.map((val, i) => ({ val, i }))}>
                   <Line type="monotone" dataKey="val" stroke={kpi.isUp ? '#2E7D32' : '#E53935'} strokeWidth={1.5} dot={false} isAnimationActive={false} />
@@ -83,19 +83,19 @@ export default function WasteAnalyticsPage() {
       </div>
 
       {/* LIGNE 2 : ANALYTIQUE DÉCHETS (3 COLONNES COMPACTES - STATIQUE 1-ÉCRAN) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         
         {/* DONUT 1 : DÉCHETS PAR CATÉGORIE */}
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-2.5 pb-0">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">DÉCHETS PAR CATÉGORIE (KG)</CardTitle>
+          <CardHeader className="p-2 pb-0">
+            <CardTitle className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">DÉCHETS PAR CATÉGORIE (KG)</CardTitle>
           </CardHeader>
-          <CardContent className="p-2.5 pt-0.5">
-            <div className="flex items-center justify-between h-[115px]">
+          <CardContent className="p-2 pt-0.5">
+            <div className="flex items-center justify-between h-[100px]">
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={26} outerRadius={44} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none">
                       {wasteByCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={WASTE_CATEGORIES_COLORS[index % WASTE_CATEGORIES_COLORS.length]} />
                       ))}
@@ -104,9 +104,9 @@ export default function WasteAnalyticsPage() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="w-1/2 space-y-0.5 pl-1.5">
+              <div className="w-1/2 space-y-0.5 pl-1">
                 {wasteByCategory.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[10px]">
+                  <div key={idx} className="flex items-center justify-between text-[9.5px]">
                     <div className="flex items-center gap-1 truncate">
                       <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_CATEGORIES_COLORS[idx] }}></span>
                       <span className="text-muted-foreground truncate">{item.name}</span>
@@ -116,7 +116,7 @@ export default function WasteAnalyticsPage() {
                 ))}
               </div>
             </div>
-            <div className="flex justify-between items-center pt-1.5 border-t border-border/40 text-[11px]">
+            <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
               <span className="text-muted-foreground font-medium">Masse Totale Déchets</span>
               <span className="font-bold text-foreground">1 124 kg</span>
             </div>
@@ -125,15 +125,15 @@ export default function WasteAnalyticsPage() {
 
         {/* DONUT 2 : ÉTAT DES DECHETS */}
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-2.5 pb-0">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">RÉPARTITION PAR STATUT</CardTitle>
+          <CardHeader className="p-2 pb-0">
+            <CardTitle className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">RÉPARTITION PAR STATUT</CardTitle>
           </CardHeader>
-          <CardContent className="p-2.5 pt-0.5">
-            <div className="flex items-center justify-between h-[115px]">
+          <CardContent className="p-2 pt-0.5">
+            <div className="flex items-center justify-between h-[100px]">
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={26} outerRadius={44} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none">
                       {wasteByStatus.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={WASTE_STATUS_COLORS[index % WASTE_STATUS_COLORS.length]} />
                       ))}
@@ -144,7 +144,7 @@ export default function WasteAnalyticsPage() {
               </div>
               <div className="w-1/2 space-y-0.5 pl-1">
                 {wasteByStatus.slice(0, 4).map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[9.5px]">
+                  <div key={idx} className="flex items-center justify-between text-[9px]">
                     <div className="flex items-center gap-1 truncate">
                       <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_STATUS_COLORS[idx] }}></span>
                       <span className="text-muted-foreground truncate">{item.name}</span>
@@ -154,7 +154,7 @@ export default function WasteAnalyticsPage() {
                 ))}
               </div>
             </div>
-            <div className="flex justify-between items-center pt-1.5 border-t border-border/40 text-[11px]">
+            <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
               <span className="text-muted-foreground font-medium">Lots de Déchets Enregistrés</span>
               <span className="font-bold text-foreground">65 Lots</span>
             </div>
@@ -163,20 +163,20 @@ export default function WasteAnalyticsPage() {
 
         {/* COLONNE 3 : ALERTES DÉCHETS */}
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-2.5 pb-1 flex flex-row items-center justify-between">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">ALERTES & ANOMALIES DÉCHETS</CardTitle>
-            <Link href="/dashboard/alerts" className="text-[10.5px] font-semibold text-red-600 hover:underline">Voir tout</Link>
+          <CardHeader className="p-2 pb-1 flex flex-row items-center justify-between">
+            <CardTitle className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">ALERTES & ANOMALIES DÉCHETS</CardTitle>
+            <Link href="/dashboard/alerts" className="text-[10px] font-semibold text-red-600 hover:underline">Voir tout</Link>
           </CardHeader>
-          <CardContent className="p-2.5 pt-0 space-y-1">
+          <CardContent className="p-2 pt-0 space-y-1">
             {wasteAlerts.map((alert, idx) => (
-              <div key={idx} className="flex items-center justify-between text-[10.5px] p-1.5 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer">
-                <div className="flex items-center gap-1.5 truncate pr-1">
+              <div key={idx} className="flex items-center justify-between text-[10px] p-1 px-1.5 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer">
+                <div className="flex items-center gap-1 truncate pr-1">
                   {alert.type === 'error' && <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />}
                   {alert.type === 'warning' && <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />}
                   {alert.type === 'info' && <ShieldAlert className="h-3 w-3 text-blue-600 shrink-0" />}
                   <span className="text-foreground font-medium truncate">{alert.text}</span>
                 </div>
-                <span className="text-[9px] text-muted-foreground shrink-0">{alert.date}</span>
+                <span className="text-[8.5px] text-muted-foreground shrink-0">{alert.date}</span>
               </div>
             ))}
           </CardContent>
