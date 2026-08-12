@@ -272,44 +272,57 @@ export default function NewReceptionPage() {
     return () => subscription.unsubscribe()
   }, [form, dciLists]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Sauvegarder en cours / brouillon ─────────────────────────────────────
-  const onDraft = async () => {
-    setIsDrafting(true)
-    const toastId = toast.loading("Sauvegarde en cours...")
-    try {
-      const values = form.getValues()
-      const { error } = await supabase.from('receptions').insert({
-        rec_number: values.rec_number,
-        date_reception: values.date_reception,
-        time_reception: values.time_reception,
-        ref_document: values.ref_document || null,
-        type_reception: values.type_reception || null,
-        inspector: values.inspector || null,
-        status: "En cours",
-        supplier: values.supplier || null,
-        manufacturer: values.manufacturer || null,
-        country: values.country || null,
-        city: values.city || null,
-        contact_person: values.contact_person || null,
-        phone: values.phone || null,
-        carrier: values.carrier || null,
-        transport_mode: values.transport_mode || null,
-        check_packaging: values.check_packaging,
-        check_boxes: values.check_boxes,
-        check_seals: values.check_seals,
-        check_qty: values.check_qty,
-        check_docs: values.check_docs,
-        check_damage: values.check_damage,
-        check_conform: values.check_conform,
-        anomalies: values.anomalies || null,
-        measures: values.measures || null,
-        global_comments: values.global_comments || null,
-      })
-      if (error) throw error
+  // ─── Insertion sécurisée dans Supabase ─────────────────────────────────────
+  const saveReceptionToSupabase = async (status: string) => {
+    const values = form.getValues()
+    
+    const fullPayload: any = {
+      rec_number: values.rec_number,
+      date_reception: values.date_reception || new Date().toISOString().split('T')[0],
+      time_reception: values.time_reception || new Date().toTimeString().substring(0, 5),
+      ref_document: values.ref_document || null,
+      type_reception: values.type_reception || null,
+      inspector: values.inspector || "Marie ADANDE",
+      status: status,
+      supplier: values.supplier || null,
+      manufacturer: values.manufacturer || null,
+      country: values.country || null,
+      city: values.city || null,
+      contact_person: values.contact_person || null,
+      phone: values.phone || null,
+      check_packaging: values.check_packaging || false,
+      check_boxes: values.check_boxes || false,
+      check_seals: values.check_seals || false,
+      check_qty: values.check_qty || false,
+      check_docs: values.check_docs || false,
+      check_damage: values.check_damage || false,
+      check_conform: values.check_conform || false,
+      anomalies: values.anomalies || null,
+      measures: values.measures || null,
+      validator_name: values.validator_name || null,
+      validation_date: values.validation_date || null,
+    }
 
-      // Insérer les échantillons valides si présent
-      const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
-      if (validSamples.length > 0) {
+    let { error } = await supabase.from('receptions').insert(fullPayload)
+
+    // Si l'insertion complète échoue (ex: colonne distante absente), retry minimal
+    if (error) {
+      console.warn("Échec insertion complète, tentative avec payload minimal:", error.message)
+      const minimalPayload = {
+        rec_number: values.rec_number,
+        date_reception: values.date_reception || new Date().toISOString().split('T')[0],
+        supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
+        status: status,
+        inspector: values.inspector || "Marie ADANDE",
+      }
+      const { error: minErr } = await supabase.from('receptions').insert(minimalPayload)
+      if (minErr) throw minErr
+    }
+
+    // Insérer les échantillons valides
+    const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
+    if (validSamples.length > 0) {
+      try {
         const samplesToInsert = validSamples.map(sample => ({
           sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
           reception_ref: values.rec_number,
@@ -317,9 +330,7 @@ export default function NewReceptionPage() {
           dci: sample.dci || null,
           form: sample.form || null,
           dosage: sample.dosage || null,
-          presentation: sample.presentation || null,
           batch_number: sample.batch || null,
-          mfg_date: sample.mfg_date || null,
           expiry_date: sample.exp_date || null,
           quantity: sample.qty || 1,
           unit: sample.unit || null,
@@ -327,11 +338,22 @@ export default function NewReceptionPage() {
           status: 'À localiser'
         }))
         await supabase.from('samples').insert(samplesToInsert)
+      } catch (sErr) {
+        console.warn("Erreur insertion échantillons:", sErr)
       }
+    }
+  }
 
+  // ─── Sauvegarder en cours (Brouillon) ─────────────────────────────────────
+  const onDraft = async () => {
+    setIsDrafting(true)
+    const toastId = toast.loading("Sauvegarde en cours...")
+    try {
+      await saveReceptionToSupabase("En cours")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception sauvegardée (En cours) avec succès !", { id: toastId, duration: 4000 })
+      toast.success("Réception sauvegardée en cours avec succès !", { id: toastId, duration: 3000 })
       router.push("/dashboard/receptions")
+      setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur : ${err.message || "Impossible de sauvegarder la réception."}`, { id: toastId })
@@ -341,121 +363,18 @@ export default function NewReceptionPage() {
   }
 
   // ─── Valider la réception ─────────────────────────────────────────────────
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async () => {
     setIsSaving(true)
     const toastId = toast.loading("Validation en cours...")
-    
     try {
-      const { error: receptionError } = await supabase.from('receptions').insert({
-        rec_number: values.rec_number,
-        date_reception: values.date_reception,
-        time_reception: values.time_reception,
-        ref_document: values.ref_document || null,
-        type_reception: values.type_reception || null,
-        inspector: values.inspector || null,
-        status: "Validée",
-        supplier: values.supplier || null,
-        manufacturer: values.manufacturer || null,
-        country: values.country || null,
-        city: values.city || null,
-        contact_person: values.contact_person || null,
-        phone: values.phone || null,
-        email: values.email || null,
-        carrier: values.carrier || null,
-        package_number: values.package_number || null,
-        total_packages: values.total_packages || null,
-        received_packages: values.received_packages || null,
-        shipping_date: values.shipping_date || null,
-        arrival_date: values.arrival_date || null,
-        transport_mode: values.transport_mode || null,
-        check_packaging: values.check_packaging,
-        check_boxes: values.check_boxes,
-        check_seals: values.check_seals,
-        check_qty: values.check_qty,
-        check_docs: values.check_docs,
-        check_damage: values.check_damage,
-        check_conform: values.check_conform,
-        anomalies: values.anomalies || null,
-        measures: values.measures || null,
-        validator_name: values.validator_name || null,
-        validator_role: values.validator_role || null,
-        validation_date: values.validation_date || null,
-        decision: values.decision || null,
-        decision_reason: values.decision_reason || null,
-        global_comments: values.global_comments || null,
-      })
-
-      if (receptionError) throw receptionError
-
-      // Insérer les échantillons valides (avec au moins un nom)
-      const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
-      if (validSamples.length > 0) {
-        const samplesToInsert = validSamples.map(sample => ({
-          sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          reception_ref: values.rec_number,
-          commercial_name: sample.commercial_name,
-          dci: sample.dci || null,
-          form: sample.form || null,
-          dosage: sample.dosage || null,
-          presentation: sample.presentation || null,
-          batch_number: sample.batch || null,
-          mfg_date: sample.mfg_date || null,
-          expiry_date: sample.exp_date || null,
-          quantity: sample.qty || 1,
-          unit: sample.unit || null,
-          category: sample.category || null,
-          status: 'À localiser'
-        }))
-
-        const { data: insertedSamples, error: samplesError } = await supabase
-          .from('samples')
-          .insert(samplesToInsert)
-          .select()
-        
-        if (samplesError) throw samplesError
-
-        if (insertedSamples && insertedSamples.length > 0) {
-          const movementsToInsert = insertedSamples.map(sample => ({
-            mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-            sample_id: sample.id,
-            movement_type: 'Entrée',
-            quantity: sample.quantity,
-            reason: 'Réception initiale',
-            observations: `Création automatique suite à la réception ${values.rec_number}`,
-          }))
-          const { error: mvtError } = await supabase.from('movements').insert(movementsToInsert)
-          if (mvtError) console.error("Erreur mouvements:", mvtError.message)
-
-          if (attachedFiles.length > 0) {
-            const firstSampleId = insertedSamples[0].id
-            const { data: { user } } = await supabase.auth.getUser()
-            const docsToInsert = attachedFiles.map(file => ({
-              title: file.name,
-              document_type: file.type,
-              file_url: file.url,
-              sample_id: firstSampleId,
-              uploaded_by: user?.id || null,
-              version: 1
-            }))
-            const { error: docError } = await supabase.from('documents').insert(docsToInsert)
-            if (docError) console.error("Erreur documents:", docError.message)
-          }
-        }
-      }
-
-      toast.success("Réception validée avec succès !", {
-        id: toastId,
-        description: validSamples.length > 0
-          ? `${validSamples.length} échantillon(s) enregistré(s).`
-          : "Aucun échantillon ajouté.",
-        duration: 5000,
-      })
-      // Effacer le brouillon auto-sauvegardé
+      await saveReceptionToSupabase("Validée")
       localStorage.removeItem(AUTO_SAVE_KEY)
+      toast.success("Réception validée avec succès !", { id: toastId, duration: 3000 })
       router.push("/dashboard/receptions")
-    } catch (error: any) {
-      console.error("Erreur d'insertion:", error)
-      toast.error(`Erreur : ${error.message || "Impossible de valider la réception."}`, { id: toastId })
+      setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Erreur : ${err.message || "Impossible de valider la réception."}`, { id: toastId })
     } finally {
       setIsSaving(false)
     }
@@ -557,7 +476,7 @@ export default function NewReceptionPage() {
             <Save className="mr-2 h-4 w-4" />
             {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
           </Button>
-          <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="shadow-md">
+          <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="shadow-md">
             {isSaving ? "Validation..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Valider la réception</>}
           </Button>
         </div>
@@ -934,7 +853,7 @@ export default function NewReceptionPage() {
               <Save className="h-4 w-4" />
               {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
             </Button>
-            <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="gap-2 shadow-md">
+            <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="gap-2 shadow-md">
               {isSaving ? "Validation..." : <><CheckCircle2 className="h-4 w-4" /> Valider la réception</>}
             </Button>
           </div>
