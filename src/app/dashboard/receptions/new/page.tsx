@@ -580,7 +580,7 @@ export default function NewReceptionPage() {
                     <FormLabel className="font-bold text-sm text-emerald-700 dark:text-emerald-400">Conformité globale</FormLabel>
                     <div className="flex items-center gap-2">
                       <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500" /></FormControl>
-                      <span className="text-sm font-semibold text-emerald-600">🟢 Conforme</span>
+                      <span className="text-sm font-semibold text-emerald-600">Conforme</span>
                     </div>
                   </FormItem>
                 )} />
