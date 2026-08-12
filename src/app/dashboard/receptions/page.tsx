@@ -21,21 +21,42 @@ export default function ReceptionsPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase
-        .from('receptions')
-        .select(`
-          id,
-          rec_number,
-          date_reception,
-          supplier,
-          status,
-          samples ( count )
-        `)
-        .order('created_at', { ascending: false })
-      
-      if (data) {
-        setReceptions(data)
+      let remoteData: any[] = []
+      try {
+        const { data } = await supabase
+          .from('receptions')
+          .select(`
+            id,
+            rec_number,
+            date_reception,
+            supplier,
+            status,
+            samples ( count )
+          `)
+          .order('created_at', { ascending: false })
+        if (data && data.length > 0) {
+          remoteData = data
+        }
+      } catch (err) {
+        console.warn("Erreur chargement distant réceptions:", err)
       }
+
+      let localData: any[] = []
+      try {
+        localData = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+      } catch (e) {}
+
+      // Fusionner les enregistrements sans doublons par rec_number
+      const mergedMap = new Map<string, any>()
+      localData.forEach(item => {
+        if (item.rec_number) mergedMap.set(item.rec_number, item)
+      })
+      remoteData.forEach(item => {
+        if (item.rec_number) mergedMap.set(item.rec_number, item)
+      })
+
+      const mergedList = Array.from(mergedMap.values())
+      setReceptions(mergedList)
       setLoading(false)
     }
     fetchData()

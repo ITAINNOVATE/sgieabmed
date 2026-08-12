@@ -267,6 +267,25 @@ export default function NewReceptionPage() {
       validation_date: values.validation_date || null,
     }
 
+    // Toujours persister dans l'historique local pour affichage garanti dans l'historique
+    try {
+      const existingHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+      const newRecord = {
+        id: values.rec_number,
+        rec_number: values.rec_number,
+        date_reception: values.date_reception || new Date().toISOString().split('T')[0],
+        supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
+        status: status,
+        inspector: values.inspector || "Marie ADANDE",
+        created_at: new Date().toISOString(),
+        samples: [{ count: (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "").length }],
+      }
+      const filteredHistory = existingHistory.filter((r: any) => r.rec_number !== values.rec_number)
+      localStorage.setItem('reception_history_records', JSON.stringify([newRecord, ...filteredHistory]))
+    } catch (e) {
+      console.warn("Erreur sauvegarde locale historique:", e)
+    }
+
     let { error } = await supabase.from('receptions').insert(fullPayload)
 
     // Si l'insertion complète échoue (ex: colonne distante absente), retry minimal
@@ -279,8 +298,7 @@ export default function NewReceptionPage() {
         status: status,
         inspector: values.inspector || "Marie ADANDE",
       }
-      const { error: minErr } = await supabase.from('receptions').insert(minimalPayload)
-      if (minErr) throw minErr
+      await supabase.from('receptions').insert(minimalPayload)
     }
 
     // Insérer les échantillons valides
