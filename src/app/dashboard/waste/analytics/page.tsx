@@ -52,7 +52,6 @@ export default function WasteAnalyticsPage() {
             <Trash2 className="h-5 w-5 text-red-600" />
             Tableau de Bord & Statistiques Déchets
           </h2>
-          <p className="text-muted-foreground text-xs">Indicateurs de masse, taux d'occupation et conformité réglementaire.</p>
         </div>
       </div>
 
