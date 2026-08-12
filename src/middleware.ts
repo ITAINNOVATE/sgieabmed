@@ -6,45 +6,57 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, {
-              ...options,
-              path: '/',
-              sameSite: 'lax',
-            })
-          )
-        },
-      },
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    // Si les clés Supabase ne sont pas configurées, laisser passer sans bloquer
+    if (!url || !key || url.includes('placeholder')) {
+      return supabaseResponse
     }
-  )
 
-  const { data: { user } } = await supabase.auth.getUser()
+    const supabase = createServerClient(
+      url,
+      key,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+            supabaseResponse = NextResponse.next({
+              request,
+            })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, {
+                ...options,
+                path: '/',
+                sameSite: 'lax',
+              })
+            )
+          },
+        },
+      }
+    )
 
-  // Rediriger les non-connectés essayant d'accéder au dashboard
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
-  }
+    const { data: { user } } = await supabase.auth.getUser()
 
-  // Rediriger les connectés essayant d'accéder au login
-  if (user && request.nextUrl.pathname === '/') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    // Rediriger les non-connectés essayant d'accéder au dashboard
+    if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/'
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // Rediriger les connectés essayant d'accéder au login
+    if (user && request.nextUrl.pathname === '/') {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/dashboard'
+      return NextResponse.redirect(redirectUrl)
+    }
+  } catch (error) {
+    console.warn("Middleware error fallback:", error)
   }
 
   return supabaseResponse
