@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter } from "lucide-react"
+import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
@@ -18,6 +19,31 @@ export default function ReceptionsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const supabase = createClient()
+
+  const handleDeleteReception = async (rec: any) => {
+    if (!confirm(`Voulez-vous vraiment supprimer la réception ${rec.rec_number} ?`)) return
+
+    try {
+      // 1. Supprimer de Supabase si présent
+      await supabase.from('receptions').delete().or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
+      await supabase.from('samples').delete().eq('reception_ref', rec.rec_number)
+
+      // 2. Nettoyer le localStorage
+      try {
+        const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+        const updatedHistory = localHistory.filter((item: any) => item.rec_number !== rec.rec_number && item.id !== rec.id)
+        localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
+        localStorage.removeItem('reception_draft_details_' + rec.rec_number)
+      } catch (e) {}
+
+      // 3. Mettre à jour l'état local
+      setReceptions(prev => prev.filter(item => item.rec_number !== rec.rec_number && item.id !== rec.id))
+      toast.success(`Réception ${rec.rec_number} supprimée`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Erreur lors de la suppression")
+    }
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -259,12 +285,23 @@ export default function ReceptionsPage() {
                             {displayStatus}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2 text-right pr-4">
+                        <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10" asChild>
-                            <Link href={`/dashboard/receptions/new?id=${rec.id}`}>
+                            <Link href={`/dashboard/receptions/new?id=${rec.rec_number || rec.id}`}>
                               Ouvrir <ArrowRight className="ml-1 h-3 w-3" />
                             </Link>
                           </Button>
+                          {!isFinalized && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs px-2 text-destructive font-bold hover:bg-destructive/10 gap-1"
+                              onClick={() => handleDeleteReception(rec)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Supprimer</span>
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     )
