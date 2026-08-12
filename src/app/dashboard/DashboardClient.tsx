@@ -76,7 +76,15 @@ export default function DashboardClient({
   return (
     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
-      {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
+      {/* EN-TÊTE DU TABLEAU DE BORD ÉCHANTILLONS */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <Beaker className="h-5 w-5 text-[#1B5C2E]" />
+            Tableau de Bord & Statistiques Échantillons
+          </h2>
+        </div>
+      </div>
 
       {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
