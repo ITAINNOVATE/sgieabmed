@@ -166,6 +166,7 @@ export default function NewReceptionPage() {
       rec_number: "REC-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000),
       date_reception: new Date().toISOString().split('T')[0],
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
+      inspector: "Marie ADANDE",
       status: "En attente",
       samples: [{ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 }],
       check_packaging: false,
@@ -409,10 +410,10 @@ export default function NewReceptionPage() {
   const handlePrint = () => window.print()
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out max-w-[1400px] mx-auto pb-20">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out max-w-[1400px] mx-auto pb-10 -mt-4">
       
       {/* BARRE D'ACTIONS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/80 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm sticky top-20 z-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3.5 bg-card/90 backdrop-blur-md p-3.5 rounded-xl border border-border/60 shadow-xs">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" asChild className="h-10 w-10 shrink-0 rounded-full">
             <Link href="/dashboard/receptions"><ArrowLeft className="h-4 w-4" /></Link>
@@ -480,7 +481,13 @@ export default function NewReceptionPage() {
                   <FormItem><FormLabel>Réf. lettre de transmission</FormLabel><FormControl><UppercaseInput placeholder="N° lettre de transmission..." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="inspector" render={({ field }) => (
-                  <FormItem><FormLabel>Agent de réception</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Agent de réception</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value || "Marie ADANDE"} readOnly disabled className="bg-muted/50 font-bold text-foreground cursor-not-allowed opacity-100" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </CardContent>
             </Card>
