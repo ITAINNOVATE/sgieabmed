@@ -309,19 +309,19 @@ export function HeaderActions() {
       {/* 👤 PROFIL UTILISATEUR ET MENU DÉROULANT (EN BLANC PUR) */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <div className="flex items-center gap-2.5 cursor-pointer group hover:bg-white/10 p-1.5 rounded-xl transition-colors">
-            <Avatar className="h-9 w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs">
+          <Button variant="ghost" className="h-auto p-1.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 rounded-xl transition-colors text-white focus:outline-none focus-visible:ring-0">
+            <Avatar className="h-9 w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs shrink-0">
               <AvatarImage src="/avatar.png" alt="Profile" />
               <AvatarFallback className="bg-white/20 text-white font-bold text-xs">MA</AvatarFallback>
             </Avatar>
-            <div className="hidden md:flex flex-col text-left">
+            <div className="flex flex-col text-left">
               <span className="text-xs font-bold leading-tight text-white group-hover:text-white/90 transition-colors">
                 Marie ADANDE
               </span>
               <span className="text-[11px] text-white/80 font-medium">Administrateur</span>
             </div>
-            <ChevronDown className="h-4 w-4 text-white hidden md:block" />
-          </div>
+            <ChevronDown className="h-4 w-4 text-white shrink-0" />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-xl border-border">
           <DropdownMenuLabel className="font-bold text-xs px-3 py-2">Mon Compte ABMed</DropdownMenuLabel>
