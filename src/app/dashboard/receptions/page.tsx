@@ -28,12 +28,18 @@ export default function ReceptionsPage() {
       await supabase.from('receptions').delete().or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
       await supabase.from('samples').delete().eq('reception_ref', rec.rec_number)
 
-      // 2. Nettoyer le localStorage
+      // 2. Mémoriser la suppression dans localStorage
       try {
+        const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+        if (rec.rec_number && !deletedIds.includes(rec.rec_number)) deletedIds.push(rec.rec_number)
+        if (rec.id && !deletedIds.includes(rec.id)) deletedIds.push(rec.id)
+        localStorage.setItem('reception_deleted_ids', JSON.stringify(deletedIds))
+
         const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
         const updatedHistory = localHistory.filter((item: any) => item.rec_number !== rec.rec_number && item.id !== rec.id)
         localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
         localStorage.removeItem('reception_draft_details_' + rec.rec_number)
+        localStorage.removeItem('reception_form_autosave')
       } catch (e) {}
 
       // 3. Mettre à jour l'état local
@@ -104,6 +110,11 @@ export default function ReceptionsPage() {
 
   useEffect(() => {
     async function fetchData() {
+      let deletedIds: string[] = []
+      try {
+        deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+      } catch (e) {}
+
       let remoteData: any[] = []
       try {
         const { data, error } = await supabase
@@ -130,7 +141,7 @@ export default function ReceptionsPage() {
         const autoSaved = localStorage.getItem('reception_form_autosave')
         if (autoSaved) {
           const parsed = JSON.parse(autoSaved)
-          if (parsed.formData && parsed.formData.rec_number) {
+          if (parsed.formData && parsed.formData.rec_number && !deletedIds.includes(parsed.formData.rec_number)) {
             const recovered = {
               id: parsed.formData.rec_number,
               rec_number: parsed.formData.rec_number,
@@ -182,12 +193,20 @@ export default function ReceptionsPage() {
 
       // Fusionner les enregistrements sans doublons par rec_number
       const mergedMap = new Map<string, any>()
-      defaultRecords.forEach(item => mergedMap.set(item.rec_number, item))
+      defaultRecords.forEach(item => {
+        if (!deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
+          mergedMap.set(item.rec_number, item)
+        }
+      })
       localData.forEach(item => {
-        if (item.rec_number) mergedMap.set(item.rec_number, item)
+        if (item.rec_number && !deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
+          mergedMap.set(item.rec_number, item)
+        }
       })
       remoteData.forEach(item => {
-        if (item.rec_number) mergedMap.set(item.rec_number, item)
+        if (item.rec_number && !deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
+          mergedMap.set(item.rec_number, item)
+        }
       })
 
       const mergedList = Array.from(mergedMap.values()).sort((a, b) => {
