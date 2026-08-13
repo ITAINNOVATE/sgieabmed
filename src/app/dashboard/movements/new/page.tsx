@@ -17,7 +17,105 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Badge } from "@/components/ui/badge"
 
-import { ArrowLeft, Save, ArrowRightLeft, FileWarning, Search, AlertCircle, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Save, ArrowRightLeft, FileWarning, Search, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react"
+
+// --- COMPOSANT RECHERCHABLE POUR ÉCHANTILLON ---
+function SearchableSampleSelect({
+  samples,
+  value,
+  onChange
+}: {
+  samples: any[],
+  value: string,
+  onChange: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+
+  const selectedSample = samples.find(s => s.id === value)
+
+  const filteredSamples = samples.filter(s => {
+    if (!query) return true
+    const q = query.toUpperCase()
+    const num = (s.sample_number || s.id || '').toUpperCase()
+    const name = (s.commercial_name || '').toUpperCase()
+    const batch = (s.batch_number || '').toUpperCase()
+    return num.includes(q) || name.includes(q) || batch.includes(q)
+  })
+
+  return (
+    <div className="relative w-full">
+      <div className="relative">
+        <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+        <Input
+          type="text"
+          placeholder="TAPEZ POUR RECHERCHER PAR N° D'ÉCHANTILLON, NOM OU LOT..."
+          value={open ? query : (selectedSample ? `${selectedSample.sample_number || selectedSample.id} — ${selectedSample.commercial_name} (LOT: ${selectedSample.batch_number || 'N/A'})` : query)}
+          onFocus={() => {
+            setOpen(true)
+            setQuery("")
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          className="pl-9 pr-10 h-11 text-xs bg-background border-border/80 shadow-2xs font-medium cursor-text uppercase"
+        />
+        {value ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onChange("")
+              setQuery("")
+              setOpen(false)
+            }}
+            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground text-xs font-bold"
+          >
+            ✕
+          </button>
+        ) : (
+          <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+        )}
+      </div>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute z-40 w-full mt-1 bg-card border border-border/80 rounded-lg shadow-lg max-h-64 overflow-y-auto p-1.5 space-y-1">
+            {filteredSamples.length === 0 ? (
+              <div className="p-3 text-center text-xs text-muted-foreground font-medium">
+                Aucun échantillon ne correspond à votre recherche "{query}"
+              </div>
+            ) : (
+              filteredSamples.map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => {
+                    onChange(s.id)
+                    setOpen(false)
+                  }}
+                  className={`p-2.5 rounded-md text-xs cursor-pointer hover:bg-muted/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 transition-colors border border-transparent ${
+                    value === s.id ? "bg-[#1B5C2E]/10 border-[#1B5C2E]/30 font-bold" : ""
+                  }`}
+                >
+                  <div className="truncate">
+                    <span className="font-bold font-mono text-foreground">{s.sample_number || s.id}</span>
+                    {" — "}
+                    <span className="font-extrabold text-[#1B5C2E]">{s.commercial_name}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground shrink-0">
+                    LOT: <span className="font-semibold text-foreground">{s.batch_number || 'N/A'}</span> — Stock: <strong className="text-foreground">{s.quantity} {s.unit || ''}</strong>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 // --- SCHEMA ZOD ---
 const formSchema = z.object({
@@ -245,32 +343,17 @@ export default function NewMovementPage() {
             </CardHeader>
             <CardContent className="grid sm:grid-cols-2 gap-6 pt-6">
               
-              {/* ÉCHANTILLON */}
+              {/* ÉCHANTILLON RECHERCHABLE PAR SAISIE DIRECTE */}
               <FormField control={form.control} name="sample_id" render={({ field }) => (
                 <FormItem className="sm:col-span-2">
                   <FormLabel className="font-bold text-xs">Sélectionner l'Échantillon <span className="text-destructive">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger className="h-11 text-xs bg-background border-border/80 shadow-2xs font-medium">
-                        <SelectValue placeholder="Rechercher par n° ou nom..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="max-h-64">
-                      {samples.length === 0 ? (
-                        <div className="p-3 text-center text-xs text-muted-foreground">Aucun échantillon disponible</div>
-                      ) : (
-                        samples.map((s: any) => (
-                          <SelectItem key={s.id} value={s.id} className="text-xs py-2 cursor-pointer">
-                            <span className="font-bold text-foreground font-mono">{s.sample_number || s.id}</span>
-                            {" — "}
-                            <span className="font-semibold text-[#1B5C2E]">{s.commercial_name}</span>
-                            {" "}
-                            <span className="text-muted-foreground">(Lot: {s.batch_number || 'N/A'} — Stock: {s.quantity} {s.unit || ''})</span>
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SearchableSampleSelect
+                      samples={samples}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
