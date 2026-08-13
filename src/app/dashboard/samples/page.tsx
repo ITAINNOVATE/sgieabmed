@@ -163,11 +163,75 @@ export const columns: ColumnDef<Sample>[] = [
   },
 ]
 
+const DEFAULT_SAMPLES: Sample[] = [
+  {
+    id: 'sample-1',
+    sample_number: 'ECH-2026-8832',
+    reception_ref: 'REC-2026-001',
+    commercial_name: 'AMOXICILLINE 500MG',
+    dci: 'AMOXICILLINE',
+    batch_number: 'LOT-8832',
+    quantity: 150,
+    status: 'Disponible',
+    expiry_date: '2028-11-30',
+    current_location: 'MAG-A1-E3',
+  },
+  {
+    id: 'sample-2',
+    sample_number: 'ECH-2026-1192',
+    reception_ref: 'REC-2026-002',
+    commercial_name: 'PARACÉTAMOL 1G',
+    dci: 'PARACÉTAMOL',
+    batch_number: 'LOT-1192',
+    quantity: 50,
+    status: 'Disponible',
+    expiry_date: '2027-08-15',
+    current_location: 'MAG-A2-E1',
+  },
+  {
+    id: 'sample-3',
+    sample_number: 'ECH-2026-9920',
+    reception_ref: 'REC-2026-003',
+    commercial_name: 'IBUPROFÈNE 400MG',
+    dci: 'IBUPROFÈNE',
+    batch_number: 'LOT-9920',
+    quantity: 20,
+    status: 'En quarantaine',
+    expiry_date: '2027-05-20',
+    current_location: 'QUAR-01',
+  },
+  {
+    id: 'sample-4',
+    sample_number: 'ECH-2026-7331',
+    reception_ref: 'REC-2026-004',
+    commercial_name: 'CÉFOTAXIME 1G',
+    dci: 'CÉFOTAXIME',
+    batch_number: 'LOT-7331',
+    quantity: 10,
+    status: 'Disponible',
+    expiry_date: '2028-03-10',
+    current_location: 'MAG-A3-E2',
+  },
+  {
+    id: 'sample-5',
+    sample_number: 'ECH-2026-4410',
+    reception_ref: 'REC-2026-005',
+    commercial_name: 'ARTEMETHER + LUMEFANTRINE 80/480MG',
+    dci: 'ARTEMETHER / LUMEFANTRINE',
+    batch_number: 'LOT-4410',
+    quantity: 200,
+    status: 'Disponible',
+    expiry_date: '2029-01-31',
+    current_location: 'MAG-B1-E4',
+  },
+]
+
 export default function SamplesDataTable() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [data, setData] = useState<Sample[]>([])
   const [loading, setLoading] = useState(true)
+  const [globalSearch, setGlobalSearch] = useState("")
   const [rowSelection, setRowSelection] = useState({})
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
   const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
@@ -176,17 +240,79 @@ export default function SamplesDataTable() {
   const supabase = createClient()
 
   const fetchData = async () => {
-    const { data: samples } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
-    if (samples) setData(samples)
+    let remoteSamples: Sample[] = []
+    try {
+      const { data: samples } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
+      if (samples && samples.length > 0) remoteSamples = samples
+    } catch (e) {
+      console.warn("Supabase fetch failed:", e)
+    }
+
+    let localSamples: Sample[] = []
+    try {
+      const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+      const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+
+      historyRecords.forEach((rec: any) => {
+        if (deletedIds.includes(rec.rec_number) || deletedIds.includes(rec.id)) return
+
+        const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+        if (rawDetails) {
+          const parsed = JSON.parse(rawDetails)
+          if (parsed.formData && parsed.formData.samples) {
+            parsed.formData.samples.forEach((s: any, idx: number) => {
+              if (s.commercial_name && s.commercial_name.trim() !== '') {
+                const dciStr = Array.isArray(s.dci_list)
+                  ? s.dci_list.map((d: any) => `${d.dci} ${d.dosage || ''}`).join(', ')
+                  : (s.dci || '')
+
+                localSamples.push({
+                  id: `local-sample-${rec.rec_number}-${idx}`,
+                  sample_number: `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`,
+                  reception_ref: rec.rec_number,
+                  commercial_name: s.commercial_name.toUpperCase(),
+                  dci: (dciStr || s.commercial_name).toUpperCase(),
+                  batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
+                  quantity: Number(s.qty) || 1,
+                  status: rec.status === 'Finalisé' ? 'Disponible' : (rec.status || 'Disponible'),
+                  expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
+                  current_location: s.location || 'Magasin Central (Zone A)',
+                })
+              }
+            })
+          }
+        }
+      })
+    } catch (e) {}
+
+    // Fusionner tous les échantillons sans doublons
+    const sampleMap = new Map<string, Sample>()
+    DEFAULT_SAMPLES.forEach(s => sampleMap.set(s.id, s))
+    localSamples.forEach(s => sampleMap.set(s.id, s))
+    remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
+
+    setData(Array.from(sampleMap.values()))
     setLoading(false)
   }
 
   useEffect(() => { fetchData() }, [])
 
+  const filteredData = data.filter((item) => {
+    if (!globalSearch) return true
+    const q = globalSearch.toUpperCase()
+    return (
+      (item.commercial_name || "").toUpperCase().includes(q) ||
+      (item.dci || "").toUpperCase().includes(q) ||
+      (item.sample_number || "").toUpperCase().includes(q) ||
+      (item.batch_number || "").toUpperCase().includes(q) ||
+      (item.current_location || "").toUpperCase().includes(q)
+    )
+  })
+
   const unlocatedCount = data.filter(s => s.status === 'À localiser').length
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -291,13 +417,13 @@ export default function SamplesDataTable() {
       <Card className="border-border/50 shadow-sm">
         <CardContent className="p-0">
           <div className="flex items-center p-4 border-b border-border/50 gap-4">
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative flex-1 max-w-md">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par DCI..."
-                value={(table.getColumn("dci")?.getFilterValue() as string) ?? ""}
-                onChange={(event) => table.getColumn("dci")?.setFilterValue(event.target.value)}
-                className="pl-9 h-9"
+                placeholder="RECHERCHER PAR PRODUIT, DCI, N° ÉCHANTILLON, LOT..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                className="pl-9 h-9 text-xs uppercase"
               />
             </div>
             <DropdownMenu>
