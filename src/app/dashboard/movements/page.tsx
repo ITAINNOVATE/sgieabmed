@@ -25,9 +25,9 @@ export default function MovementsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
-  const supabase = createClient()
 
   useEffect(() => {
+    const supabase = createClient()
     async function fetchMovements() {
       const { data } = await supabase
         .from('movements')
@@ -50,7 +50,7 @@ export default function MovementsPage() {
       setLoading(false);
     }
     fetchMovements();
-  }, [supabase])
+  }, [])
 
   const filteredMovements = movements.filter(mvt => {
     const matchesSearch = 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { 
   ColumnDef, 
   flexRender, 
@@ -237,9 +237,9 @@ export default function SamplesDataTable() {
   const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
   const [locationSample, setLocationSample] = useState<Sample | null>(null)
-  const supabase = createClient()
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    const supabase = createClient()
     let remoteSamples: Sample[] = []
     try {
       const { data: samples } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
@@ -285,7 +285,6 @@ export default function SamplesDataTable() {
       })
     } catch (e) {}
 
-    // Fusionner tous les échantillons sans doublons
     const sampleMap = new Map<string, Sample>()
     DEFAULT_SAMPLES.forEach(s => sampleMap.set(s.id, s))
     localSamples.forEach(s => sampleMap.set(s.id, s))
@@ -293,23 +292,34 @@ export default function SamplesDataTable() {
 
     setData(Array.from(sampleMap.values()))
     setLoading(false)
-  }
+  }, [])
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [fetchData])
 
-  const filteredData = data.filter((item) => {
-    if (!globalSearch) return true
+  const filteredData = useMemo(() => {
+    if (!globalSearch) return data
     const q = globalSearch.toUpperCase()
-    return (
+    return data.filter((item) => 
       (item.commercial_name || "").toUpperCase().includes(q) ||
       (item.dci || "").toUpperCase().includes(q) ||
       (item.sample_number || "").toUpperCase().includes(q) ||
       (item.batch_number || "").toUpperCase().includes(q) ||
       (item.current_location || "").toUpperCase().includes(q)
     )
-  })
+  }, [data, globalSearch])
 
-  const unlocatedCount = data.filter(s => s.status === 'À localiser').length
+  const unlocatedCount = useMemo(() => data.filter(s => s.status === 'À localiser').length, [data])
+
+  const tableMeta = useMemo(() => ({
+    onPrintLabel: (sample: Sample) => {
+      setPrintDialogItems([sample])
+      setIsPrintDialogOpen(true)
+    },
+    onAssignLocation: (sample: Sample) => {
+      setLocationSample(sample)
+      setIsLocationDialogOpen(true)
+    }
+  }), [])
 
   const table = useReactTable({
     data: filteredData,
@@ -322,16 +332,7 @@ export default function SamplesDataTable() {
     getFilteredRowModel: getFilteredRowModel(),
     onRowSelectionChange: setRowSelection,
     state: { sorting, columnFilters, rowSelection },
-    meta: {
-      onPrintLabel: (sample: Sample) => {
-        setPrintDialogItems([sample])
-        setIsPrintDialogOpen(true)
-      },
-      onAssignLocation: (sample: Sample) => {
-        setLocationSample(sample)
-        setIsLocationDialogOpen(true)
-      }
-    }
+    meta: tableMeta
   })
 
   const selectedRows = table.getFilteredSelectedRowModel().rows
