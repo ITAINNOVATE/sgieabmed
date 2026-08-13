@@ -105,7 +105,7 @@ function SearchableSampleSelect({
                     <span className="font-extrabold text-[#1B5C2E] uppercase">{s.commercial_name}</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground shrink-0">
-                    LOT: <span className="font-semibold text-foreground">{s.batch_number || 'N/A'}</span> — Stock: <strong className="text-foreground">{s.quantity} {s.unit || ''}</strong>
+                    LOT: <span className="font-semibold text-foreground">{s.batch_number || 'N/A'}</span> — EXP: <span className="font-semibold text-destructive">{s.expiry_date || '2028-12-31'}</span> — Stock: <strong className="text-foreground">{s.quantity} {s.unit || ''}</strong>
                   </div>
                 </div>
               ))
@@ -121,7 +121,7 @@ function SearchableSampleSelect({
 const formSchema = z.object({
   sample_id: z.string().min(1, "Veuillez sélectionner un échantillon"),
   movement_type: z.string().min(1, "Type de mouvement requis"),
-  quantity: z.coerce.number().min(0, "La quantité ne peut pas être négative").optional(),
+  quantity: z.coerce.number().min(1, "La quantité doit être d'au moins 1").optional(),
   destination_location: z.string().optional(),
   reason: z.string().min(1, "Le motif est requis"),
   observations: z.string().optional(),
@@ -160,13 +160,13 @@ export default function NewMovementPage() {
         console.warn("Erreur Supabase samples:", e)
       }
 
-      // Échantillons de démonstration par défaut
+      // Échantillons de démonstration par défaut avec dates de péremption
       const defaultSamples = [
-        { id: 'sample-1', sample_number: 'ECH-2026-8832', commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', quantity: 150, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-A1-E3' },
-        { id: 'sample-2', sample_number: 'ECH-2026-1192', commercial_name: 'PARACÉTAMOL 1G', batch_number: 'LOT-1192', quantity: 50, unit: 'Flacons', status: 'Disponible', current_location: 'MAG-A2-E1' },
-        { id: 'sample-3', sample_number: 'ECH-2026-9920', commercial_name: 'IBUPROFÈNE 400MG', batch_number: 'LOT-9920', quantity: 20, unit: 'Boîtes', status: 'En quarantaine', current_location: 'QUAR-01' },
-        { id: 'sample-4', sample_number: 'ECH-2026-7331', commercial_name: 'CÉFOTAXIME 1G', batch_number: 'LOT-7331', quantity: 10, unit: 'Ampoules', status: 'Disponible', current_location: 'MAG-A3-E2' },
-        { id: 'sample-5', sample_number: 'ECH-2026-4410', commercial_name: 'ARTEMETHER + LUMEFANTRINE 80/480MG', batch_number: 'LOT-4410', quantity: 200, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-B1-E4' },
+        { id: 'sample-1', sample_number: 'ECH-2026-8832', commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', expiry_date: '2028-11-30', quantity: 150, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-A1-E3' },
+        { id: 'sample-2', sample_number: 'ECH-2026-1192', commercial_name: 'PARACÉTAMOL 1G', batch_number: 'LOT-1192', expiry_date: '2027-08-15', quantity: 50, unit: 'Flacons', status: 'Disponible', current_location: 'MAG-A2-E1' },
+        { id: 'sample-3', sample_number: 'ECH-2026-9920', commercial_name: 'IBUPROFÈNE 400MG', batch_number: 'LOT-9920', expiry_date: '2027-05-20', quantity: 20, unit: 'Boîtes', status: 'En quarantaine', current_location: 'QUAR-01' },
+        { id: 'sample-4', sample_number: 'ECH-2026-7331', commercial_name: 'CÉFOTAXIME 1G', batch_number: 'LOT-7331', expiry_date: '2028-03-10', quantity: 10, unit: 'Ampoules', status: 'Disponible', current_location: 'MAG-A3-E2' },
+        { id: 'sample-5', sample_number: 'ECH-2026-4410', commercial_name: 'ARTEMETHER + LUMEFANTRINE 80/480MG', batch_number: 'LOT-4410', expiry_date: '2029-01-31', quantity: 200, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-B1-E4' },
       ]
 
       // Échantillons issus des réceptions sauvegardées localement
@@ -189,6 +189,7 @@ export default function NewMovementPage() {
                     sample_number: `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`,
                     commercial_name: s.commercial_name.toUpperCase(),
                     batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
+                    expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
                     quantity: Number(s.qty) || 1,
                     unit: s.unit || 'Boîtes',
                     status: 'Disponible',
@@ -256,10 +257,18 @@ export default function NewMovementPage() {
 
       // --- LOGIQUE METIER (Logique de stock) ---
       if (values.movement_type === "Sortie") {
-        if (mvtQty > newQuantity) throw new Error("Stock insuffisant pour cette sortie !");
+        if (mvtQty > selectedSample.quantity) {
+          toast.error(`La quantité à sortir (${mvtQty}) dépasse le stock disponible (${selectedSample.quantity} ${selectedSample.unit || ''}) !`);
+          setIsSaving(false);
+          return;
+        }
         newQuantity -= mvtQty;
       } else if (["Transfert vers Magasin des déchets", "Destruction"].includes(values.movement_type)) {
-        if (mvtQty > newQuantity) throw new Error("Stock insuffisant pour ce transfert vers les déchets !");
+        if (mvtQty > selectedSample.quantity) {
+          toast.error(`La quantité à transférer (${mvtQty}) dépasse le stock disponible (${selectedSample.quantity} ${selectedSample.unit || ''}) !`);
+          setIsSaving(false);
+          return;
+        }
         newQuantity -= mvtQty;
         if (newQuantity === 0) newStatus = "Magasin des déchets";
       } else if (["Contrôle qualité", "Retour d'analyse"].includes(values.movement_type)) {
@@ -357,9 +366,11 @@ export default function NewMovementPage() {
                 <div className="sm:col-span-2 p-4 bg-primary/5 rounded-lg border border-primary/20 flex gap-4 items-center">
                   <AlertCircle className="h-8 w-8 text-primary shrink-0" />
                   <div>
-                    <h4 className="font-semibold">{selectedSample.commercial_name} <Badge variant="outline" className="ml-2">{selectedSample.status}</Badge></h4>
-                    <p className="text-sm text-muted-foreground">Lot: {selectedSample.batch_number} | Stock Actuel: <strong className="text-foreground">{selectedSample.quantity} {selectedSample.unit}</strong></p>
-                    <p className="text-sm text-muted-foreground">Localisation: {selectedSample.current_location || "Non définie"}</p>
+                    <h4 className="font-semibold uppercase">{selectedSample.commercial_name} <Badge variant="outline" className="ml-2">{selectedSample.status}</Badge></h4>
+                    <p className="text-sm text-muted-foreground">
+                      Lot: <strong className="text-foreground">{selectedSample.batch_number}</strong> | Stock Actuel: <strong className="text-foreground">{selectedSample.quantity} {selectedSample.unit}</strong> | Date de péremption: <strong className="text-destructive font-bold">{selectedSample.expiry_date || selectedSample.expiryDate || '2028-12-31'}</strong>
+                    </p>
+                    <p className="text-sm text-muted-foreground">Localisation: <strong className="text-foreground">{selectedSample.current_location || "Non définie"}</strong></p>
                   </div>
                 </div>
               )}
@@ -392,11 +403,28 @@ export default function NewMovementPage() {
               {isQuantityModifying && (
                 <FormField control={form.control} name="quantity" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {mvtType === "Correction d'inventaire" ? "Nouvelle quantité absolue" : "Quantité concernée"}
+                    <FormLabel className="font-bold text-xs flex items-center justify-between">
+                      <span>{mvtType === "Correction d'inventaire" ? "Nouvelle quantité absolue" : "Quantité concernée"}</span>
+                      {selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && (
+                        <span className="text-muted-foreground font-normal text-[11px]">
+                          (Stock dispo max : <strong className="text-[#1B5C2E] font-bold">{selectedSample.quantity} {selectedSample.unit || ''}</strong>)
+                        </span>
+                      )}
                     </FormLabel>
                     <FormControl>
-                      <Input type="number" min="0" {...field} />
+                      <Input
+                        type="number"
+                        min="1"
+                        max={selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) ? selectedSample.quantity : undefined}
+                        {...field}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && val > selectedSample.quantity) {
+                            toast.warning(`Attention : La quantité (${val}) dépasse le stock disponible (${selectedSample.quantity} ${selectedSample.unit || ''})`);
+                          }
+                          field.onChange(e);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
