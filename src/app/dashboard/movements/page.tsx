@@ -106,9 +106,12 @@ export default function MovementsPage() {
                   <SelectItem value="all">Tous les types</SelectItem>
                   <SelectItem value="Entrée">Entrée</SelectItem>
                   <SelectItem value="Sortie">Sortie</SelectItem>
-                  <SelectItem value="Transfert">Transfert</SelectItem>
-                  <SelectItem value="Mise en quarantaine">Quarantaine</SelectItem>
-                  <SelectItem value="Libération de quarantaine">Libération</SelectItem>
+                  <SelectItem value="Déplacer vers autre localisation">Déplacer vers autre localisation</SelectItem>
+                  <SelectItem value="Contrôle qualité">Contrôle qualité</SelectItem>
+                  <SelectItem value="Mise en quarantaine">Mise en quarantaine</SelectItem>
+                  <SelectItem value="Libération de quarantaine">Libération de quarantaine</SelectItem>
+                  <SelectItem value="Transfert vers Magasin des déchets">Transfert vers Magasin des déchets</SelectItem>
+                  <SelectItem value="Correction d'inventaire">Correction d'inventaire</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -139,19 +142,19 @@ export default function MovementsPage() {
                       <TableCell className="py-2 text-muted-foreground">{new Date(mvt.movement_date || Date.now()).toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="py-2">
                         <Badge className={`text-[10px] gap-1 ${
-                          ["Sortie", "Destruction"].includes(mvt.movement_type) ? 'bg-red-100 text-red-800' : 
-                          ["Entrée", "Retour d'analyse"].includes(mvt.movement_type) ? 'bg-emerald-100 text-emerald-800' : 
+                          ["Sortie", "Transfert vers Magasin des déchets", "Destruction"].includes(mvt.movement_type) ? 'bg-red-100 text-red-800' : 
+                          ["Entrée", "Contrôle qualité", "Retour d'analyse"].includes(mvt.movement_type) ? 'bg-emerald-100 text-emerald-800' : 
                           mvt.movement_type === 'Mise en quarantaine' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {["Sortie", "Destruction"].includes(mvt.movement_type) && <ArrowUpRight className="h-3 w-3" />}
-                          {["Entrée", "Retour d'analyse"].includes(mvt.movement_type) && <ArrowDownRight className="h-3 w-3" />}
-                          {mvt.movement_type === 'Transfert' && <ArrowRightLeft className="h-3 w-3" />}
+                          {["Sortie", "Transfert vers Magasin des déchets", "Destruction"].includes(mvt.movement_type) && <ArrowUpRight className="h-3 w-3" />}
+                          {["Entrée", "Contrôle qualité", "Retour d'analyse"].includes(mvt.movement_type) && <ArrowDownRight className="h-3 w-3" />}
+                          {["Déplacer vers autre localisation", "Transfert"].includes(mvt.movement_type) && <ArrowRightLeft className="h-3 w-3" />}
                           {mvt.movement_type === 'Mise en quarantaine' && <ShieldAlert className="h-3 w-3" />}
                           {mvt.movement_type === 'Libération de quarantaine' && <CheckCircle2 className="h-3 w-3" />}
                           {mvt.movement_type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-2 font-semibold text-foreground">
+                      <TableCell className="py-2 font-semibold text-foreground uppercase">
                         {mvt.commercial_name || 'Échantillon'} <span className="text-muted-foreground text-[11px] font-normal">(Lot: {mvt.batch_number || 'N/A'})</span>
                       </TableCell>
                       <TableCell className="py-2 text-right font-bold tabular-nums">{mvt.quantity}</TableCell>

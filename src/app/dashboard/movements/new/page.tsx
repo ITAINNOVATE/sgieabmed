@@ -126,10 +126,10 @@ const formSchema = z.object({
   reason: z.string().min(1, "Le motif est requis"),
   observations: z.string().optional(),
 }).superRefine((data, ctx) => {
-  if (data.movement_type === "Transfert" && !data.destination_location) {
+  if (["Déplacer vers autre localisation", "Transfert"].includes(data.movement_type) && !data.destination_location) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "La destination est requise pour un transfert.",
+      message: "La destination est requise pour un déplacement.",
       path: ["destination_location"]
     });
   }
@@ -227,7 +227,7 @@ export default function NewMovementPage() {
   const mvtType = form.watch("movement_type");
 
   // Règle: Quantité est-elle requise / modifiable pour ce type de mouvement ?
-  const isQuantityModifying = ["Sortie", "Retour d'analyse", "Destruction", "Correction d'inventaire"].includes(mvtType);
+  const isQuantityModifying = ["Sortie", "Contrôle qualité", "Retour d'analyse", "Transfert vers Magasin des déchets", "Destruction", "Correction d'inventaire"].includes(mvtType);
 
   // Mettre à jour l'échantillon sélectionné quand sample_id change
   const currentSampleId = form.watch("sample_id");
@@ -258,24 +258,19 @@ export default function NewMovementPage() {
       if (values.movement_type === "Sortie") {
         if (mvtQty > newQuantity) throw new Error("Stock insuffisant pour cette sortie !");
         newQuantity -= mvtQty;
-      } else if (values.movement_type === "Destruction") {
-        if (mvtQty > newQuantity) throw new Error("Stock insuffisant pour cette destruction !");
+      } else if (["Transfert vers Magasin des déchets", "Destruction"].includes(values.movement_type)) {
+        if (mvtQty > newQuantity) throw new Error("Stock insuffisant pour ce transfert vers les déchets !");
         newQuantity -= mvtQty;
-        if (newQuantity === 0) newStatus = "Détruit"; // Optionnel : changer statut si tout est détruit
-      } else if (values.movement_type === "Retour d'analyse") {
+        if (newQuantity === 0) newStatus = "Magasin des déchets";
+      } else if (["Contrôle qualité", "Retour d'analyse"].includes(values.movement_type)) {
         newQuantity += mvtQty;
       } else if (values.movement_type === "Correction d'inventaire") {
-        // En correction, on demande à l'utilisateur de saisir la "nouvelle" quantité réelle (ou la différence, ici on va dire qu'il saisit la différence)
-        // Mais pour simplifier l'UI on peut avoir un champ "Ajustement (+ ou -)".
-        // S'il saisit une correction, on va l'appliquer directement comme un delta (si la valeur est positive ou négative).
-        // Mais on a restreint à >= 0 dans Zod. On va dire que quantity en correction est la NOUVELLE quantité absolue pour éviter les confusions,
-        // ou on laisse l'utilisateur saisir la différence. Prenons Nouvelle Quantité :
         newQuantity = mvtQty;
       } else if (values.movement_type === "Mise en quarantaine") {
         newStatus = "En quarantaine";
       } else if (values.movement_type === "Libération de quarantaine") {
         newStatus = "Disponible";
-      } else if (values.movement_type === "Transfert") {
+      } else if (["Déplacer vers autre localisation", "Transfert"].includes(values.movement_type)) {
         newLocation = values.destination_location;
       }
 
@@ -288,10 +283,9 @@ export default function NewMovementPage() {
         movement_type: values.movement_type,
         quantity: isQuantityModifying ? mvtQty : selectedSample.quantity, // Tracer la qté impactée
         source_location: selectedSample.current_location,
-        destination_location: values.movement_type === "Transfert" ? values.destination_location : null,
+        destination_location: ["Déplacer vers autre localisation", "Transfert"].includes(values.movement_type) ? values.destination_location : null,
         reason: values.reason,
         observations: values.observations,
-        // user_id et validated_by devraient venir de l'Auth, mais ignorés pour la démo
       });
 
       if (mvtError) throw mvtError;
@@ -381,12 +375,12 @@ export default function NewMovementPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Sortie">Sortie (Analyse, Prêt...)</SelectItem>
-                      <SelectItem value="Transfert">Transfert de localisation</SelectItem>
-                      <SelectItem value="Retour d'analyse">Retour d'analyse</SelectItem>
+                      <SelectItem value="Sortie">Sortie</SelectItem>
+                      <SelectItem value="Déplacer vers autre localisation">Déplacer vers autre localisation</SelectItem>
+                      <SelectItem value="Contrôle qualité">Contrôle qualité</SelectItem>
                       <SelectItem value="Mise en quarantaine">Mise en quarantaine</SelectItem>
                       <SelectItem value="Libération de quarantaine">Libération de quarantaine</SelectItem>
-                      <SelectItem value="Destruction">Destruction</SelectItem>
+                      <SelectItem value="Transfert vers Magasin des déchets">Transfert vers Magasin des déchets</SelectItem>
                       <SelectItem value="Correction d'inventaire">Correction d'inventaire</SelectItem>
                     </SelectContent>
                   </Select>
@@ -409,8 +403,8 @@ export default function NewMovementPage() {
                 )} />
               )}
 
-              {/* DESTINATION (Uniquement Transfert) */}
-              {mvtType === "Transfert" && (
+              {/* DESTINATION (Uniquement Déplacer vers autre localisation) */}
+              {["Déplacer vers autre localisation", "Transfert"].includes(mvtType) && (
                 <FormField control={form.control} name="destination_location" render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Nouveau Code Emplacement</FormLabel>
