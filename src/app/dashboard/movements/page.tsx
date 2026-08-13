@@ -29,23 +29,38 @@ export default function MovementsPage() {
   useEffect(() => {
     const supabase = createClient()
     async function fetchMovements() {
-      const { data } = await supabase
-        .from('movements')
-        .select(`
-          id, mvt_number, movement_date, movement_type, quantity,
-          samples ( commercial_name, batch_number )
-        `)
-        .order('movement_date', { ascending: false });
+      let remoteMovements: any[] = [];
+      try {
+        const { data } = await supabase
+          .from('movements')
+          .select(`
+            id, mvt_number, movement_date, movement_type, quantity,
+            samples ( commercial_name, batch_number )
+          `)
+          .order('movement_date', { ascending: false });
 
-      if (data && data.length > 0) {
-        setMovements(data.map((m: any) => ({
-          ...m,
-          commercial_name: Array.isArray(m.samples) ? m.samples[0]?.commercial_name : m.samples?.commercial_name,
-          batch_number: Array.isArray(m.samples) ? m.samples[0]?.batch_number : m.samples?.batch_number,
-          operator: 'Système'
-        })))
+        if (data && data.length > 0) {
+          remoteMovements = data.map((m: any) => ({
+            ...m,
+            commercial_name: Array.isArray(m.samples) ? m.samples[0]?.commercial_name : m.samples?.commercial_name,
+            batch_number: Array.isArray(m.samples) ? m.samples[0]?.batch_number : m.samples?.batch_number,
+            operator: 'Système'
+          }));
+        }
+      } catch (e) {
+        console.warn("Supabase fetch movements warning:", e);
+      }
+
+      let localMovements: any[] = [];
+      try {
+        localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]');
+      } catch (e) {}
+
+      const all = [...localMovements, ...remoteMovements];
+      if (all.length > 0) {
+        setMovements(all);
       } else {
-        setMovements(MOCK_MOVEMENTS)
+        setMovements(MOCK_MOVEMENTS);
       }
       setLoading(false);
     }

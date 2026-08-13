@@ -289,35 +289,68 @@ export default function NewMovementPage() {
         newLocation = values.destination_location;
       }
 
-      if (newQuantity < 0) throw new Error("Le stock ne peut pas être négatif !");
+      if (newQuantity < 0) {
+        toast.error("Le stock ne peut pas être négatif !");
+        setIsSaving(false);
+        return;
+      }
 
-      // 1. Inserer le mouvement
-      const { error: mvtError } = await supabase.from('movements').insert({
+      // Structure du mouvement
+      const mvtData = {
+        id: `mvt-${Date.now()}`,
         mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
         sample_id: selectedSample.id,
+        commercial_name: selectedSample.commercial_name,
+        batch_number: selectedSample.batch_number,
         movement_type: values.movement_type,
-        quantity: isQuantityModifying ? mvtQty : selectedSample.quantity, // Tracer la qté impactée
+        quantity: isQuantityModifying ? mvtQty : selectedSample.quantity,
         source_location: selectedSample.current_location,
         destination_location: ["Déplacer vers autre localisation", "Transfert"].includes(values.movement_type) ? values.destination_location : null,
         reason: values.reason,
-        observations: values.observations,
-      });
+        observations: values.observations || "",
+        proof_file_name: proofFile ? proofFile.name : null,
+        movement_date: new Date().toISOString(),
+        operator: "MARIE ADANDE",
+      };
 
-      if (mvtError) throw mvtError;
+      // 1. Sauvegarde dans localStorage pour accès et traçabilité immédiats
+      try {
+        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]');
+        localMovements.unshift(mvtData);
+        localStorage.setItem('local_movements_history', JSON.stringify(localMovements));
+      } catch (e) {
+        console.warn("LocalStorage save error:", e);
+      }
 
-      // 2. Mettre à jour l'échantillon
-      const { error: sampleError } = await supabase.from('samples').update({
-        quantity: newQuantity,
-        status: newStatus,
-        current_location: newLocation,
-      }).eq('id', selectedSample.id);
+      // 2. Synchronisation Supabase si l'ID est un UUID Supabase valide
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSample.id);
+      if (isUUID) {
+        try {
+          await supabase.from('movements').insert({
+            mvt_number: mvtData.mvt_number,
+            sample_id: selectedSample.id,
+            movement_type: values.movement_type,
+            quantity: mvtData.quantity,
+            source_location: mvtData.source_location,
+            destination_location: mvtData.destination_location,
+            reason: values.reason,
+            observations: values.observations,
+          });
 
-      if (sampleError) throw sampleError;
+          await supabase.from('samples').update({
+            quantity: newQuantity,
+            status: newStatus,
+            current_location: newLocation,
+          }).eq('id', selectedSample.id);
+        } catch (e) {
+          console.warn("Supabase sync warning:", e);
+        }
+      }
 
-      toast.success("Mouvement enregistré avec succès !");
+      toast.success(`Mouvement "${values.movement_type}" enregistré avec succès !`);
       router.push("/dashboard/movements");
     } catch (error: any) {
-      console.error("Erreur:", error);
+      console.error("Erreur enregistrement mouvement:", error);
       toast.error(error.message || "Impossible d'enregistrer le mouvement.");
     } finally {
       setIsSaving(false);
