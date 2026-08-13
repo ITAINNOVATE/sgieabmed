@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2 } from "lucide-react"
+import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -44,6 +44,63 @@ export default function ReceptionsPage() {
       toast.error("Erreur lors de la suppression")
     }
   }
+
+  const handleValidateReception = async (rec: any) => {
+    try {
+      const validatorName = "Dr. Kadia BARRY (Responsable Qualité)"
+      const validationDate = new Date().toISOString().split('T')[0]
+
+      await supabase.from('receptions').update({
+        status: 'Validée',
+        validator_name: validatorName,
+        validation_date: validationDate,
+      }).or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
+
+      try {
+        const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+        const updatedHistory = localHistory.map((item: any) => {
+          if (item.rec_number === rec.rec_number || item.id === rec.id) {
+            return { ...item, status: 'Validée', validator_name: validatorName, validation_date: validationDate }
+          }
+          return item
+        })
+        localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
+
+        const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+        if (rawDetails) {
+          const parsed = JSON.parse(rawDetails)
+          parsed.status = 'Validée'
+          if (parsed.formData) {
+            parsed.formData.status = 'Validée'
+            parsed.formData.validator_name = validatorName
+            parsed.formData.validation_date = validationDate
+          }
+          localStorage.setItem('reception_draft_details_' + rec.rec_number, JSON.stringify(parsed))
+        }
+      } catch (e) {}
+
+      setReceptions(prev => prev.map(item => {
+        if (item.rec_number === rec.rec_number || item.id === rec.id) {
+          return { ...item, status: 'Validée' }
+        }
+        return item
+      }))
+
+      toast.success(`Réception ${rec.rec_number} validée avec succès ! (Statut: Finalisé)`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Erreur lors de la validation")
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const statusParam = new URLSearchParams(window.location.search).get('status')
+      if (statusParam === 'en_attente') {
+        setStatusFilter('en_attente')
+      }
+    }
+  }, [])
 
   useEffect(() => {
     async function fetchData() {
@@ -309,6 +366,17 @@ export default function ReceptionsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1">
+                          {isPendingValidation && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs px-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300 font-bold gap-1 shadow-2xs cursor-pointer"
+                              onClick={() => handleValidateReception(rec)}
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                              Valider
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10" asChild>
                             <Link href={`/dashboard/receptions/new?id=${rec.rec_number || rec.id}`}>
                               Ouvrir <ArrowRight className="ml-1 h-3 w-3" />

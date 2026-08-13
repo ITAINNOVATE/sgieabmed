@@ -19,7 +19,7 @@ import {
   Home, LayoutDashboard, Package, Trash2, ChartColumn, Bell,
   Settings, Inbox, ArrowLeftRight, ClipboardCheck, Folder, 
   Flame, MapPin, Building2, LogOut, ChevronRight, ChevronDown,
-  Users, History, PackageCheck, AlertCircle, BarChart3, Shield
+  Users, History, PackageCheck, AlertCircle, BarChart3, Shield, ShieldCheck
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -194,7 +194,16 @@ export function AppSidebar() {
                         }`}
                       >
                         <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Réceptions</span>
+                        <span className="truncate">Toutes les Réceptions</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/receptions?status=en_attente" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full text-white/90 hover:text-white hover:bg-white/15 font-semibold`}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+                        <span className="truncate">Réceptions en instance</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>

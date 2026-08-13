@@ -470,6 +470,24 @@ export default function NewReceptionPage() {
     }
   }
 
+  // ─── Validation officielle par le responsable ──────────────────────────────
+  const onValidateByValidator = async () => {
+    setIsSaving(true)
+    const toastId = toast.loading("Validation en cours...")
+    try {
+      await saveReceptionToSupabase("Validée")
+      localStorage.removeItem(AUTO_SAVE_KEY)
+      toast.success("Réception validée avec succès ! (Statut: Finalisé)", { id: toastId, duration: 3000 })
+      router.push("/dashboard/receptions")
+      setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(`Erreur : ${err.message || "Impossible de valider la réception."}`, { id: toastId })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // ─── Upload fichier ───────────────────────────────────────────────────────
   // ─── Upload / Attachement de fichier ──────────────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -558,8 +576,11 @@ export default function NewReceptionPage() {
             <Save className="mr-2 h-4 w-4" />
             {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
           </Button>
-          <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="shadow-md">
+          <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white">
             {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Soumettre la réception</>}
+          </Button>
+          <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold">
+            {isSaving ? "Validation..." : <><ShieldCheck className="mr-2 h-4 w-4" /> Valider la réception</>}
           </Button>
         </div>
       </div>
@@ -930,13 +951,16 @@ export default function NewReceptionPage() {
           </div>
 
           {/* BOUTONS EN BAS */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={onDraft} disabled={isDrafting} className="gap-2">
               <Save className="h-4 w-4" />
               {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
             </Button>
-            <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="gap-2 shadow-md">
+            <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white">
               {isSaving ? "Soumission..." : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
+            </Button>
+            <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold">
+              {isSaving ? "Validation..." : <><ShieldCheck className="h-4 w-4" /> Valider la réception</>}
             </Button>
           </div>
 
