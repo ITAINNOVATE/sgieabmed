@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Badge } from "@/components/ui/badge"
 
-import { ArrowLeft, Save, ArrowRightLeft, FileWarning, Search, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react"
+import { ArrowLeft, Save, ArrowRightLeft, FileWarning, Search, AlertCircle, CheckCircle2, ChevronDown, Upload, Paperclip, FileText } from "lucide-react"
 
 // --- COMPOSANT RECHERCHABLE POUR ÉCHANTILLON ---
 function SearchableSampleSelect({
@@ -146,6 +146,7 @@ export default function NewMovementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [samples, setSamples] = useState<any[]>([]);
   const [selectedSample, setSelectedSample] = useState<any>(null);
+  const [proofFile, setProofFile] = useState<{ name: string, size?: string, url?: string } | null>(null);
   
   const router = useRouter();
   const supabase = createClient();
@@ -228,7 +229,7 @@ export default function NewMovementPage() {
   const mvtType = form.watch("movement_type");
 
   // Règle: Quantité est-elle requise / modifiable pour ce type de mouvement ?
-  const isQuantityModifying = ["Sortie", "Contrôle qualité", "Retour d'analyse", "Transfert vers Magasin des déchets", "Destruction", "Correction d'inventaire"].includes(mvtType);
+  const isQuantityModifying = ["Sortie", "Expression de besoin", "Contrôle qualité", "Retour d'analyse", "Transfert vers Magasin des déchets", "Destruction", "Correction d'inventaire"].includes(mvtType);
 
   // Mettre à jour l'échantillon sélectionné quand sample_id change
   const currentSampleId = form.watch("sample_id");
@@ -247,6 +248,11 @@ export default function NewMovementPage() {
       return;
     }
 
+    if (values.movement_type === "Expression de besoin" && !proofFile) {
+      toast.error("Veuillez joindre la fiche d'expression de besoin comme preuve de l'opération.");
+      return;
+    }
+
     setIsSaving(true);
     
     try {
@@ -256,9 +262,9 @@ export default function NewMovementPage() {
       const mvtQty = values.quantity || 0;
 
       // --- LOGIQUE METIER (Logique de stock) ---
-      if (values.movement_type === "Sortie") {
+      if (["Sortie", "Expression de besoin"].includes(values.movement_type)) {
         if (mvtQty > selectedSample.quantity) {
-          toast.error(`La quantité à sortir (${mvtQty}) dépasse le stock disponible (${selectedSample.quantity} ${selectedSample.unit || ''}) !`);
+          toast.error(`La quantité demandée (${mvtQty}) dépasse le stock disponible (${selectedSample.quantity} ${selectedSample.unit || ''}) !`);
           setIsSaving(false);
           return;
         }
@@ -387,6 +393,7 @@ export default function NewMovementPage() {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="Sortie">Sortie</SelectItem>
+                      <SelectItem value="Expression de besoin">Expression de besoin (Demande personnel)</SelectItem>
                       <SelectItem value="Déplacer vers autre localisation">Déplacer vers autre localisation</SelectItem>
                       <SelectItem value="Contrôle qualité">Contrôle qualité</SelectItem>
                       <SelectItem value="Mise en quarantaine">Mise en quarantaine</SelectItem>
@@ -405,7 +412,7 @@ export default function NewMovementPage() {
                   <FormItem>
                     <FormLabel className="font-bold text-xs flex items-center justify-between">
                       <span>{mvtType === "Correction d'inventaire" ? "Nouvelle quantité absolue" : "Quantité concernée"}</span>
-                      {selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && (
+                      {selectedSample && ["Sortie", "Expression de besoin", "Transfert vers Magasin des déchets"].includes(mvtType) && (
                         <span className="text-muted-foreground font-normal text-[11px]">
                           (Stock dispo max : <strong className="text-[#1B5C2E] font-bold">{selectedSample.quantity} {selectedSample.unit || ''}</strong>)
                         </span>
@@ -415,13 +422,13 @@ export default function NewMovementPage() {
                       <Input
                         type="number"
                         min="1"
-                        max={selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) ? selectedSample.quantity : undefined}
+                        max={selectedSample && ["Sortie", "Expression de besoin", "Transfert vers Magasin des déchets"].includes(mvtType) ? selectedSample.quantity : undefined}
                         {...field}
                         onChange={(e) => {
                           let val = Number(e.target.value);
                           const maxVal = selectedSample?.quantity;
 
-                          if (selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && maxVal && val > maxVal) {
+                          if (selectedSample && ["Sortie", "Expression de besoin", "Transfert vers Magasin des déchets"].includes(mvtType) && maxVal && val > maxVal) {
                             // Refus immédiat de la valeur supérieure et blocage au max dispo
                             val = maxVal;
                             e.target.value = String(maxVal);
@@ -433,7 +440,7 @@ export default function NewMovementPage() {
                           let val = Number(e.target.value);
                           const maxVal = selectedSample?.quantity;
 
-                          if (selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && maxVal && val > maxVal) {
+                          if (selectedSample && ["Sortie", "Expression de besoin", "Transfert vers Magasin des déchets"].includes(mvtType) && maxVal && val > maxVal) {
                             e.target.value = String(maxVal);
                             form.setValue("quantity", maxVal);
                             toast.error(`Saisie refusée ! Quantité maximale en stock : ${maxVal} ${selectedSample.unit || ''}`);
@@ -457,6 +464,60 @@ export default function NewMovementPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
+              )}
+
+              {/* FICHE D'EXPRESSION DE BESOIN (JOINDRE UNE PREUVE) */}
+              {mvtType === "Expression de besoin" && (
+                <div className="sm:col-span-2 space-y-2 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-300/60 dark:border-emerald-800/60">
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="font-bold text-xs flex items-center gap-2 text-[#1B5C2E]">
+                      <Paperclip className="h-4 w-4 text-[#1B5C2E]" />
+                      Fiche d'Expression de besoin (Preuve requise) <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG ou DOC (max 10 Mo)</span>
+                  </div>
+
+                  {proofFile ? (
+                    <div className="flex items-center justify-between p-3 bg-card rounded-md border border-border text-xs shadow-2xs">
+                      <div className="flex items-center gap-2.5 truncate">
+                        <FileText className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                        <span className="font-bold text-foreground truncate">{proofFile.name}</span>
+                        {proofFile.size && <span className="text-[10px] text-muted-foreground font-mono">({proofFile.size})</span>}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setProofFile(null)}
+                        className="h-7 text-xs text-destructive hover:bg-destructive/10 font-medium"
+                      >
+                        Supprimer la fiche
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-xs font-bold ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#1B5C2E] hover:bg-[#154824] text-white h-9 px-4 py-2 shadow-2xs">
+                        <Upload className="mr-2 h-4 w-4" /> Joindre la fiche d'expression de besoin
+                        <input
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+                              setProofFile({ name: file.name, size: sizeStr, url: URL.createObjectURL(file) });
+                              toast.success(`Fiche "${file.name}" jointe avec succès !`);
+                            }
+                          }}
+                        />
+                      </label>
+                      <span className="text-xs text-muted-foreground italic">
+                        Demande d'échantillon formalisée par le personnel
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
 
               <FormField control={form.control} name="reason" render={({ field }) => (

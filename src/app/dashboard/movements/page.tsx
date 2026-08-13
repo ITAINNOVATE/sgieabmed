@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search } from "lucide-react"
+import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText } from "lucide-react"
 
 const MOCK_MOVEMENTS = [
   { id: '1', mvt_number: 'MVT-2026-001', movement_date: '2026-01-15T10:00:00.000Z', movement_type: 'Entrée', quantity: 150, commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', operator: 'JEAN DUPONT' },
@@ -106,6 +106,7 @@ export default function MovementsPage() {
                   <SelectItem value="all">Tous les types</SelectItem>
                   <SelectItem value="Entrée">Entrée</SelectItem>
                   <SelectItem value="Sortie">Sortie</SelectItem>
+                  <SelectItem value="Expression de besoin">Expression de besoin</SelectItem>
                   <SelectItem value="Déplacer vers autre localisation">Déplacer vers autre localisation</SelectItem>
                   <SelectItem value="Contrôle qualité">Contrôle qualité</SelectItem>
                   <SelectItem value="Mise en quarantaine">Mise en quarantaine</SelectItem>
@@ -142,10 +143,12 @@ export default function MovementsPage() {
                       <TableCell className="py-2 text-muted-foreground">{new Date(mvt.movement_date || Date.now()).toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="py-2">
                         <Badge className={`text-[10px] gap-1 ${
+                          mvt.movement_type === "Expression de besoin" ? 'bg-purple-100 text-purple-800 border-purple-200' :
                           ["Sortie", "Transfert vers Magasin des déchets", "Destruction"].includes(mvt.movement_type) ? 'bg-red-100 text-red-800' : 
                           ["Entrée", "Contrôle qualité", "Retour d'analyse"].includes(mvt.movement_type) ? 'bg-emerald-100 text-emerald-800' : 
                           mvt.movement_type === 'Mise en quarantaine' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                         }`}>
+                          {mvt.movement_type === "Expression de besoin" && <FileText className="h-3 w-3" />}
                           {["Sortie", "Transfert vers Magasin des déchets", "Destruction"].includes(mvt.movement_type) && <ArrowUpRight className="h-3 w-3" />}
                           {["Entrée", "Contrôle qualité", "Retour d'analyse"].includes(mvt.movement_type) && <ArrowDownRight className="h-3 w-3" />}
                           {["Déplacer vers autre localisation", "Transfert"].includes(mvt.movement_type) && <ArrowRightLeft className="h-3 w-3" />}
