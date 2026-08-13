@@ -234,6 +234,17 @@ export default function NewMovementPage() {
       defaultSamples.forEach(s => sampleMap.set(s.id, s))
       localSamples.forEach(s => sampleMap.set(s.id, s))
       remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
+
+      // Appliquer les mises à jour de stock issues des mouvements validés
+      try {
+        const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        sampleMap.forEach((sample, key) => {
+          if (overrides[key]) {
+            sampleMap.set(key, { ...sample, ...overrides[key] })
+          }
+        })
+      } catch (e) {}
+
       setSamples(Array.from(sampleMap.values()))
     }
     fetchSamples();
@@ -312,12 +323,23 @@ export default function NewMovementPage() {
         new_location: newLocation,
       };
 
-      // 1. Sauvegarde locale immédiate
+      // 1. Sauvegarde locale immédiate du mouvement
       try {
         const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]');
         localMovements.unshift(mvtData);
         localStorage.setItem('local_movements_history', JSON.stringify(localMovements));
       } catch (e) { console.warn("LocalStorage save error:", e); }
+
+      // 1b. Persister l'override de stock pour cet échantillon (appliqué à toutes les pages)
+      try {
+        const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        overrides[selectedSample.id] = {
+          quantity: newQuantity,
+          status: newStatus,
+          current_location: newLocation,
+        }
+        localStorage.setItem('local_sample_overrides', JSON.stringify(overrides))
+      } catch (e) { console.warn("Override save error:", e); }
 
       // 2. Sync Supabase si UUID valide
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSample.id);

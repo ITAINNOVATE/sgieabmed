@@ -290,6 +290,16 @@ export default function SamplesDataTable() {
     localSamples.forEach(s => sampleMap.set(s.id, s))
     remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
 
+    // Appliquer les mises à jour de stock issues des mouvements validés
+    try {
+      const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+      sampleMap.forEach((sample, key) => {
+        if (overrides[key]) {
+          sampleMap.set(key, { ...sample, ...overrides[key] })
+        }
+      })
+    } catch (e) {}
+
     setData(Array.from(sampleMap.values()))
     setLoading(false)
   }, [])
