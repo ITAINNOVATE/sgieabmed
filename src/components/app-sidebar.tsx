@@ -31,41 +31,35 @@ export function AppSidebar() {
   // State pour suivre les menus déroulants ouverts
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     dashboards: false,
-    samples: false,
+    samples: true,
     waste: false,
     reports: false,
     alerts: false,
     admin: false,
   })
 
-  // Ouverture exclusive (Accordéon) de la section parente selon l'URL active
+  // Synchroniser l'ouverture de la section selon la page active sans bloquer les clics manuels
   useEffect(() => {
     if (pathname.includes('/analytics')) {
-      setOpenSections({ dashboards: true, samples: false, waste: false, reports: false, alerts: false, admin: false })
+      setOpenSections(prev => ({ ...prev, dashboards: true }))
     } else if (pathname.includes('/destructions') || pathname.includes('/waste')) {
-      setOpenSections({ dashboards: false, samples: false, waste: true, reports: false, alerts: false, admin: false })
-    } else if (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/samples') || pathname.includes('/documents')) {
-      setOpenSections({ dashboards: false, samples: true, waste: false, reports: false, alerts: false, admin: false })
+      setOpenSections(prev => ({ ...prev, waste: true }))
+    } else if (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/samples')) {
+      setOpenSections(prev => ({ ...prev, samples: true }))
     } else if (pathname.includes('/reports')) {
-      setOpenSections({ dashboards: false, samples: false, waste: false, reports: true, alerts: false, admin: false })
+      setOpenSections(prev => ({ ...prev, reports: true }))
     } else if (pathname.includes('/alerts')) {
-      setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: true, admin: false })
+      setOpenSections(prev => ({ ...prev, alerts: true }))
     } else if (pathname.includes('/admin') || pathname.includes('/initialization')) {
-      setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: false, admin: true })
-    } else {
-      setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: false, admin: false })
+      setOpenSections(prev => ({ ...prev, admin: true }))
     }
   }, [pathname])
 
-  // Clic manuel : Mode Accordéon (referme automatiquement toutes les autres sections)
+  // Clic manuel : permuter librement l'ouverture de n'importe quel menu sans verrouillage
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
-      dashboards: section === 'dashboards' ? !prev.dashboards : false,
-      samples: section === 'samples' ? !prev.samples : false,
-      waste: section === 'waste' ? !prev.waste : false,
-      reports: section === 'reports' ? !prev.reports : false,
-      alerts: section === 'alerts' ? !prev.alerts : false,
-      admin: section === 'admin' ? !prev.admin : false,
+      ...prev,
+      [section]: !prev[section]
     }))
   }
 
