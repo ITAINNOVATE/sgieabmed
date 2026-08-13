@@ -268,36 +268,52 @@ export default function ReceptionsPage() {
               <div className="flex items-center bg-muted p-0.5 rounded-lg border border-border/50">
                 <Button
                   type="button"
-                  variant={statusFilter === "all" ? "default" : "ghost"}
+                  variant="ghost"
                   size="sm"
-                  className="h-7 text-xs px-2.5 rounded-md font-semibold"
+                  className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
+                    statusFilter === "all"
+                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
+                      : "text-muted-foreground hover:bg-[#1B5C2E] hover:text-white"
+                  }`}
                   onClick={() => setStatusFilter("all")}
                 >
                   Tous
                 </Button>
                 <Button
                   type="button"
-                  variant={statusFilter === "en_cours" ? "default" : "ghost"}
+                  variant="ghost"
                   size="sm"
-                  className="h-7 text-xs px-2.5 rounded-md font-semibold text-red-600 dark:text-red-400"
+                  className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
+                    statusFilter === "en_cours"
+                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
+                      : "text-red-600 dark:text-red-400 hover:bg-[#1B5C2E] hover:text-white"
+                  }`}
                   onClick={() => setStatusFilter("en_cours")}
                 >
                   En cours
                 </Button>
                 <Button
                   type="button"
-                  variant={statusFilter === "en_attente" ? "default" : "ghost"}
+                  variant="ghost"
                   size="sm"
-                  className="h-7 text-xs px-2.5 rounded-md font-semibold text-emerald-600 dark:text-emerald-400"
+                  className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
+                    statusFilter === "en_attente"
+                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
+                      : "text-emerald-600 dark:text-emerald-400 hover:bg-[#1B5C2E] hover:text-white"
+                  }`}
                   onClick={() => setStatusFilter("en_attente")}
                 >
                   En attente de validation
                 </Button>
                 <Button
                   type="button"
-                  variant={statusFilter === "finalise" ? "default" : "ghost"}
+                  variant="ghost"
                   size="sm"
-                  className="h-7 text-xs px-2.5 rounded-md font-semibold text-emerald-600 dark:text-emerald-400"
+                  className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
+                    statusFilter === "finalise"
+                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
+                      : "text-emerald-600 dark:text-emerald-400 hover:bg-[#1B5C2E] hover:text-white"
+                  }`}
                   onClick={() => setStatusFilter("finalise")}
                 >
                   Finalisé
