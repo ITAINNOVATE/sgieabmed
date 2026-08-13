@@ -167,13 +167,34 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    -ms-overflow-style: none; /* IE & Edge */
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(27, 92, 46, 0.4) transparent;
   }
-  *::-webkit-scrollbar {
-    display: none !important; /* Chrome, Safari, Edge, Opera */
-    width: 0 !important;
-    height: 0 !important;
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    display: block !important;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(27, 92, 46, 0.4);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(27, 92, 46, 0.8);
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(67, 160, 71, 0.4);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(67, 160, 71, 0.8);
   }
   body {
     @apply bg-background text-foreground;
@@ -190,12 +211,5 @@
   html {
     @apply font-sans;
     font-size: 17px;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  html::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
   }
 }
