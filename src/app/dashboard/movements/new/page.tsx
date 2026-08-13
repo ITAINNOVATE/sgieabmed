@@ -54,8 +54,63 @@ export default function NewMovementPage() {
 
   useEffect(() => {
     async function fetchSamples() {
-      const { data } = await supabase.from('samples').select('*').order('created_at', { ascending: false });
-      if (data) setSamples(data);
+      let remoteSamples: any[] = []
+      try {
+        const { data } = await supabase.from('samples').select('*').order('created_at', { ascending: false });
+        if (data && data.length > 0) remoteSamples = data
+      } catch (e) {
+        console.warn("Erreur Supabase samples:", e)
+      }
+
+      // Échantillons de démonstration par défaut
+      const defaultSamples = [
+        { id: 'sample-1', sample_number: 'ECH-2026-8832', commercial_name: 'Amoxicilline 500mg', batch_number: 'LOT-8832', quantity: 150, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-A1-E3' },
+        { id: 'sample-2', sample_number: 'ECH-2026-1192', commercial_name: 'Paracétamol 1g', batch_number: 'LOT-1192', quantity: 50, unit: 'Flacons', status: 'Disponible', current_location: 'MAG-A2-E1' },
+        { id: 'sample-3', sample_number: 'ECH-2026-9920', commercial_name: 'Ibuprofène 400mg', batch_number: 'LOT-9920', quantity: 20, unit: 'Boîtes', status: 'En quarantaine', current_location: 'QUAR-01' },
+        { id: 'sample-4', sample_number: 'ECH-2026-7331', commercial_name: 'Céfotaxime 1g', batch_number: 'LOT-7331', quantity: 10, unit: 'Ampoules', status: 'Disponible', current_location: 'MAG-A3-E2' },
+        { id: 'sample-5', sample_number: 'ECH-2026-4410', commercial_name: 'Artemether + Lumefantrine 80/480mg', batch_number: 'LOT-4410', quantity: 200, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-B1-E4' },
+      ]
+
+      // Échantillons issus des réceptions sauvegardées localement
+      let localSamples: any[] = []
+      try {
+        const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+        const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+
+        historyRecords.forEach((rec: any) => {
+          if (deletedIds.includes(rec.rec_number) || deletedIds.includes(rec.id)) return
+          
+          const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+          if (rawDetails) {
+            const parsed = JSON.parse(rawDetails)
+            if (parsed.formData && parsed.formData.samples) {
+              parsed.formData.samples.forEach((s: any, idx: number) => {
+                if (s.commercial_name && s.commercial_name.trim() !== '') {
+                  localSamples.push({
+                    id: `local-sample-${rec.rec_number}-${idx}`,
+                    sample_number: `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`,
+                    commercial_name: s.commercial_name,
+                    batch_number: s.batch || 'LOT-TEMP',
+                    quantity: Number(s.qty) || 1,
+                    unit: s.unit || 'Boîtes',
+                    status: 'Disponible',
+                    current_location: 'Magasin Central (Zone A)',
+                  })
+                }
+              })
+            }
+          }
+        })
+      } catch (e) {}
+
+      // Fusionner tous les échantillons sans doublons
+      const sampleMap = new Map<string, any>()
+      defaultSamples.forEach(s => sampleMap.set(s.id, s))
+      localSamples.forEach(s => sampleMap.set(s.id, s))
+      remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
+
+      const allSamples = Array.from(sampleMap.values())
+      setSamples(allSamples)
     }
     fetchSamples();
   }, []);
@@ -193,19 +248,27 @@ export default function NewMovementPage() {
               {/* ÉCHANTILLON */}
               <FormField control={form.control} name="sample_id" render={({ field }) => (
                 <FormItem className="sm:col-span-2">
-                  <FormLabel>Sélectionner l'Échantillon</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormLabel className="font-bold text-xs">Sélectionner l'Échantillon <span className="text-destructive">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
                     <FormControl>
-                      <SelectTrigger className="h-12 text-base">
+                      <SelectTrigger className="h-11 text-xs bg-background border-border/80 shadow-2xs font-medium">
                         <SelectValue placeholder="Rechercher par n° ou nom..." />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {samples.map((s: any) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          <span className="font-medium">{s.sample_number}</span> - {s.commercial_name} (Lot: {s.batch_number}) - Stock: {s.quantity}
-                        </SelectItem>
-                      ))}
+                    <SelectContent className="max-h-64">
+                      {samples.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-muted-foreground">Aucun échantillon disponible</div>
+                      ) : (
+                        samples.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id} className="text-xs py-2 cursor-pointer">
+                            <span className="font-bold text-foreground font-mono">{s.sample_number || s.id}</span>
+                            {" — "}
+                            <span className="font-semibold text-[#1B5C2E]">{s.commercial_name}</span>
+                            {" "}
+                            <span className="text-muted-foreground">(Lot: {s.batch_number || 'N/A'} — Stock: {s.quantity} {s.unit || ''})</span>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
