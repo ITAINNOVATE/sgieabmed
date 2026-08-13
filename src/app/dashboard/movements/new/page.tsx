@@ -418,11 +418,26 @@ export default function NewMovementPage() {
                         max={selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) ? selectedSample.quantity : undefined}
                         {...field}
                         onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && val > selectedSample.quantity) {
-                            toast.warning(`Attention : La quantité (${val}) dépasse le stock disponible (${selectedSample.quantity} ${selectedSample.unit || ''})`);
+                          let val = Number(e.target.value);
+                          const maxVal = selectedSample?.quantity;
+
+                          if (selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && maxVal && val > maxVal) {
+                            // Refus immédiat de la valeur supérieure et blocage au max dispo
+                            val = maxVal;
+                            e.target.value = String(maxVal);
+                            toast.error(`Quantité supérieure refusée ! La valeur a été ramenée au stock disponible (${maxVal} ${selectedSample.unit || ''}).`);
                           }
-                          field.onChange(e);
+                          field.onChange(val);
+                        }}
+                        onInput={(e: any) => {
+                          let val = Number(e.target.value);
+                          const maxVal = selectedSample?.quantity;
+
+                          if (selectedSample && ["Sortie", "Transfert vers Magasin des déchets"].includes(mvtType) && maxVal && val > maxVal) {
+                            e.target.value = String(maxVal);
+                            form.setValue("quantity", maxVal);
+                            toast.error(`Saisie refusée ! Quantité maximale en stock : ${maxVal} ${selectedSample.unit || ''}`);
+                          }
                         }}
                       />
                     </FormControl>
