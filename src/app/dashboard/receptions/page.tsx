@@ -272,8 +272,8 @@ export default function ReceptionsPage() {
                   size="sm"
                   className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
                     statusFilter === "all"
-                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
-                      : "text-muted-foreground hover:bg-[#1B5C2E] hover:text-white"
+                      ? "!bg-[#1B5C2E] !text-white shadow-xs hover:!bg-[#154824] hover:!text-white focus:!text-white focus:!bg-[#1B5C2E] active:!text-white"
+                      : "text-muted-foreground hover:!bg-[#1B5C2E] hover:!text-white"
                   }`}
                   onClick={() => setStatusFilter("all")}
                 >
@@ -285,8 +285,8 @@ export default function ReceptionsPage() {
                   size="sm"
                   className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
                     statusFilter === "en_cours"
-                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
-                      : "text-red-600 dark:text-red-400 hover:bg-[#1B5C2E] hover:text-white"
+                      ? "!bg-[#1B5C2E] !text-white shadow-xs hover:!bg-[#154824] hover:!text-white focus:!text-white focus:!bg-[#1B5C2E] active:!text-white"
+                      : "text-red-600 dark:text-red-400 hover:!bg-[#1B5C2E] hover:!text-white"
                   }`}
                   onClick={() => setStatusFilter("en_cours")}
                 >
@@ -298,8 +298,8 @@ export default function ReceptionsPage() {
                   size="sm"
                   className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
                     statusFilter === "en_attente"
-                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
-                      : "text-emerald-600 dark:text-emerald-400 hover:bg-[#1B5C2E] hover:text-white"
+                      ? "!bg-[#1B5C2E] !text-white shadow-xs hover:!bg-[#154824] hover:!text-white focus:!text-white focus:!bg-[#1B5C2E] active:!text-white"
+                      : "text-emerald-600 dark:text-emerald-400 hover:!bg-[#1B5C2E] hover:!text-white"
                   }`}
                   onClick={() => setStatusFilter("en_attente")}
                 >
@@ -311,8 +311,8 @@ export default function ReceptionsPage() {
                   size="sm"
                   className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
                     statusFilter === "finalise"
-                      ? "bg-[#1B5C2E] text-white shadow-xs hover:bg-[#154824]"
-                      : "text-emerald-600 dark:text-emerald-400 hover:bg-[#1B5C2E] hover:text-white"
+                      ? "!bg-[#1B5C2E] !text-white shadow-xs hover:!bg-[#154824] hover:!text-white focus:!text-white focus:!bg-[#1B5C2E] active:!text-white"
+                      : "text-emerald-600 dark:text-emerald-400 hover:!bg-[#1B5C2E] hover:!text-white"
                   }`}
                   onClick={() => setStatusFilter("finalise")}
                 >
