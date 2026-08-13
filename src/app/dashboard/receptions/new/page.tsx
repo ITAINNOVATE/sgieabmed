@@ -579,9 +579,15 @@ export default function NewReceptionPage() {
           <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white">
             {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Soumettre la réception</>}
           </Button>
-          <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold">
-            {isSaving ? "Validation..." : <><ShieldCheck className="mr-2 h-4 w-4" /> Valider la réception</>}
-          </Button>
+          {form.watch("status") === "En attente de validation" || form.watch("status") === "Soumise" ? (
+            <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
+              {isSaving ? "Validation..." : <><ShieldCheck className="mr-2 h-4 w-4" /> Valider la réception</>}
+            </Button>
+          ) : (
+            <Button type="button" disabled className="bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title="Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception.">
+              <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground/60" /> Valider la réception
+            </Button>
+          )}
         </div>
       </div>
 
@@ -959,9 +965,15 @@ export default function NewReceptionPage() {
             <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white">
               {isSaving ? "Soumission..." : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
             </Button>
-            <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold">
-              {isSaving ? "Validation..." : <><ShieldCheck className="h-4 w-4" /> Valider la réception</>}
-            </Button>
+            {form.watch("status") === "En attente de validation" || form.watch("status") === "Soumise" ? (
+              <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
+                {isSaving ? "Validation..." : <><ShieldCheck className="h-4 w-4" /> Valider la réception</>}
+              </Button>
+            ) : (
+              <Button type="button" disabled className="gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title="Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception.">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground/60" /> Valider la réception
+              </Button>
+            )}
           </div>
 
         </form>
