@@ -99,10 +99,10 @@ function SearchableSampleSelect({
                     value === s.id ? "bg-[#1B5C2E]/10 border-[#1B5C2E]/30 font-bold" : ""
                   }`}
                 >
-                  <div className="truncate">
+                  <div className="truncate uppercase">
                     <span className="font-bold font-mono text-foreground">{s.sample_number || s.id}</span>
                     {" — "}
-                    <span className="font-extrabold text-[#1B5C2E]">{s.commercial_name}</span>
+                    <span className="font-extrabold text-[#1B5C2E] uppercase">{s.commercial_name}</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground shrink-0">
                     LOT: <span className="font-semibold text-foreground">{s.batch_number || 'N/A'}</span> — Stock: <strong className="text-foreground">{s.quantity} {s.unit || ''}</strong>
@@ -162,11 +162,11 @@ export default function NewMovementPage() {
 
       // Échantillons de démonstration par défaut
       const defaultSamples = [
-        { id: 'sample-1', sample_number: 'ECH-2026-8832', commercial_name: 'Amoxicilline 500mg', batch_number: 'LOT-8832', quantity: 150, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-A1-E3' },
-        { id: 'sample-2', sample_number: 'ECH-2026-1192', commercial_name: 'Paracétamol 1g', batch_number: 'LOT-1192', quantity: 50, unit: 'Flacons', status: 'Disponible', current_location: 'MAG-A2-E1' },
-        { id: 'sample-3', sample_number: 'ECH-2026-9920', commercial_name: 'Ibuprofène 400mg', batch_number: 'LOT-9920', quantity: 20, unit: 'Boîtes', status: 'En quarantaine', current_location: 'QUAR-01' },
-        { id: 'sample-4', sample_number: 'ECH-2026-7331', commercial_name: 'Céfotaxime 1g', batch_number: 'LOT-7331', quantity: 10, unit: 'Ampoules', status: 'Disponible', current_location: 'MAG-A3-E2' },
-        { id: 'sample-5', sample_number: 'ECH-2026-4410', commercial_name: 'Artemether + Lumefantrine 80/480mg', batch_number: 'LOT-4410', quantity: 200, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-B1-E4' },
+        { id: 'sample-1', sample_number: 'ECH-2026-8832', commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', quantity: 150, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-A1-E3' },
+        { id: 'sample-2', sample_number: 'ECH-2026-1192', commercial_name: 'PARACÉTAMOL 1G', batch_number: 'LOT-1192', quantity: 50, unit: 'Flacons', status: 'Disponible', current_location: 'MAG-A2-E1' },
+        { id: 'sample-3', sample_number: 'ECH-2026-9920', commercial_name: 'IBUPROFÈNE 400MG', batch_number: 'LOT-9920', quantity: 20, unit: 'Boîtes', status: 'En quarantaine', current_location: 'QUAR-01' },
+        { id: 'sample-4', sample_number: 'ECH-2026-7331', commercial_name: 'CÉFOTAXIME 1G', batch_number: 'LOT-7331', quantity: 10, unit: 'Ampoules', status: 'Disponible', current_location: 'MAG-A3-E2' },
+        { id: 'sample-5', sample_number: 'ECH-2026-4410', commercial_name: 'ARTEMETHER + LUMEFANTRINE 80/480MG', batch_number: 'LOT-4410', quantity: 200, unit: 'Boîtes', status: 'Disponible', current_location: 'MAG-B1-E4' },
       ]
 
       // Échantillons issus des réceptions sauvegardées localement
@@ -187,8 +187,8 @@ export default function NewMovementPage() {
                   localSamples.push({
                     id: `local-sample-${rec.rec_number}-${idx}`,
                     sample_number: `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`,
-                    commercial_name: s.commercial_name,
-                    batch_number: s.batch || 'LOT-TEMP',
+                    commercial_name: s.commercial_name.toUpperCase(),
+                    batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
                     quantity: Number(s.qty) || 1,
                     unit: s.unit || 'Boîtes',
                     status: 'Disponible',
