@@ -239,13 +239,18 @@ export default function SamplesDataTable() {
   const [locationSample, setLocationSample] = useState<Sample | null>(null)
 
   const fetchData = useCallback(async () => {
-    const supabase = createClient()
     let remoteSamples: Sample[] = []
     try {
-      const { data: samples } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
-      if (samples && samples.length > 0) remoteSamples = samples
+      const supabase = createClient()
+      const fetchPromise = supabase.from('samples').select('*').order('created_at', { ascending: false })
+      const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
+      
+      const res = await Promise.race([fetchPromise, timeoutPromise])
+      if (res && res.data && res.data.length > 0) {
+        remoteSamples = res.data
+      }
     } catch (e) {
-      console.warn("Supabase fetch failed:", e)
+      console.warn("Supabase fetch failed or timed out:", e)
     }
 
     let localSamples: Sample[] = []
@@ -285,13 +290,13 @@ export default function SamplesDataTable() {
       })
     } catch (e) {}
 
-    const sampleMap = new Map<string, Sample>()
-    DEFAULT_SAMPLES.forEach(s => sampleMap.set(s.id, s))
-    localSamples.forEach(s => sampleMap.set(s.id, s))
-    remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
-
-    // Appliquer les mises à jour de stock issues des mouvements validés
     try {
+      const sampleMap = new Map<string, Sample>()
+      DEFAULT_SAMPLES.forEach(s => sampleMap.set(s.id, s))
+      localSamples.forEach(s => sampleMap.set(s.id, s))
+      remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
+
+      // Appliquer les mises à jour de stock issues des mouvements validés
       const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
       const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
 
@@ -338,12 +343,14 @@ export default function SamplesDataTable() {
           });
         }
       });
-    } catch (e) {
-      console.warn("Error applying stock overrides:", e);
-    }
 
-    setData(Array.from(sampleMap.values()))
-    setLoading(false)
+      setData(Array.from(sampleMap.values()))
+    } catch (e) {
+      console.warn("Error processing samples data:", e);
+      setData(DEFAULT_SAMPLES)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])

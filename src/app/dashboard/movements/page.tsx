@@ -27,20 +27,22 @@ export default function MovementsPage() {
   const [typeFilter, setTypeFilter] = useState("all")
 
   useEffect(() => {
-    const supabase = createClient()
     async function fetchMovements() {
       let remoteMovements: any[] = [];
       try {
-        const { data } = await supabase
+        const supabase = createClient()
+        const fetchPromise = supabase
           .from('movements')
           .select(`
             id, mvt_number, movement_date, movement_type, quantity,
             samples ( commercial_name, batch_number )
           `)
           .order('movement_date', { ascending: false });
+        const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 1500));
 
-        if (data && data.length > 0) {
-          remoteMovements = data.map((m: any) => ({
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        if (res && res.data && res.data.length > 0) {
+          remoteMovements = res.data.map((m: any) => ({
             ...m,
             commercial_name: Array.isArray(m.samples) ? m.samples[0]?.commercial_name : m.samples?.commercial_name,
             batch_number: Array.isArray(m.samples) ? m.samples[0]?.batch_number : m.samples?.batch_number,
@@ -56,13 +58,18 @@ export default function MovementsPage() {
         localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]');
       } catch (e) {}
 
-      const all = [...localMovements, ...remoteMovements];
-      if (all.length > 0) {
-        setMovements(all);
-      } else {
+      try {
+        const all = [...localMovements, ...remoteMovements];
+        if (all.length > 0) {
+          setMovements(all);
+        } else {
+          setMovements(MOCK_MOVEMENTS);
+        }
+      } catch (e) {
         setMovements(MOCK_MOVEMENTS);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchMovements();
   }, [])
