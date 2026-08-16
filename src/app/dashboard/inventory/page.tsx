@@ -1,6 +1,7 @@
-export const dynamic = 'force-dynamic';
+"use client"
 
-import { createClient } from '@/utils/supabase/server';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/utils/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,8 +22,11 @@ import {
   Eye,
   ArrowUpDown,
   PackageSearch,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { clearAllTestData } from '@/utils/clean-test-data';
 
 interface InventorySample {
   commercial_name: string;
@@ -104,41 +108,60 @@ function getStatusBadge(status: string) {
   }
 }
 
-export default async function InventoryPage() {
-  let inventories: Inventory[] = [];
+export default function InventoryPage() {
+  const [inventories, setInventories] = useState<Inventory[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from('inventories')
-      .select(`
-        id, name, inventory_type, status, created_at, completed_at,
-        inventory_items ( id, system_quantity, physical_quantity, discrepancy_reason, samples ( commercial_name, batch_number, sample_number ) )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (data && data.length > 0) {
-      inventories = data.map((inv: any) => ({
-        id: inv.id,
-        name: inv.name,
-        inventory_type: inv.inventory_type,
-        status: inv.status,
-        created_at: inv.created_at,
-        completed_at: inv.completed_at,
-        items: (inv.inventory_items ?? []).map((item: any) => ({
-          id: item.id,
-          system_quantity: item.system_quantity,
-          physical_quantity: item.physical_quantity,
-          discrepancy_reason: item.discrepancy_reason,
-          sample: item.samples ? (Array.isArray(item.samples) ? item.samples[0] : item.samples) : null,
-        })),
-      }));
-    } else {
-      inventories = MOCK_INVENTORIES;
+  const fetchInventories = async () => {
+    if (typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true') {
+      setInventories([]);
+      setLoading(false);
+      return;
     }
-  } catch {
-    inventories = MOCK_INVENTORIES;
-  }
+
+    try {
+      const supabase = createClient();
+      const fetchPromise = supabase
+        .from('inventories')
+        .select(`
+          id, name, inventory_type, status, created_at, completed_at,
+          inventory_items ( id, system_quantity, physical_quantity, discrepancy_reason, samples ( commercial_name, batch_number, sample_number ) )
+        `)
+        .order('created_at', { ascending: false });
+
+      const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 1500));
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (res && res.data && res.data.length > 0) {
+        const loaded = res.data.map((inv: any) => ({
+          id: inv.id,
+          name: inv.name,
+          inventory_type: inv.inventory_type,
+          status: inv.status,
+          created_at: inv.created_at,
+          completed_at: inv.completed_at,
+          items: (inv.inventory_items ?? []).map((item: any) => ({
+            id: item.id,
+            system_quantity: item.system_quantity,
+            physical_quantity: item.physical_quantity,
+            discrepancy_reason: item.discrepancy_reason,
+            sample: item.samples ? (Array.isArray(item.samples) ? item.samples[0] : item.samples) : null,
+          })),
+        }));
+        setInventories(loaded);
+      } else {
+        setInventories(MOCK_INVENTORIES);
+      }
+    } catch {
+      setInventories(MOCK_INVENTORIES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventories();
+  }, []);
 
   const total = inventories.length;
   const inProgress = inventories.filter((i) => i.status === 'En cours').length;
@@ -158,11 +181,27 @@ export default async function InventoryPage() {
           </h2>
           <p className="text-muted-foreground text-xs">Contrôle physique périodique des stocks et traçabilité des écarts.</p>
         </div>
-        <Button asChild size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
-          <Link href="/dashboard/inventory/new">
-            <Plus className="h-3.5 w-3.5" /> Démarrer un inventaire
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            size="sm" 
+            variant="outline"
+            className="text-destructive hover:bg-destructive/10 border-destructive/30 text-xs font-bold gap-1.5 h-8 px-3"
+            onClick={async () => {
+              if (window.confirm("Êtes-vous sûr de vouloir effacer toutes les réceptions, mouvements, stocks et inventaires ?")) {
+                await clearAllTestData();
+                toast.success("Tous les inventaires et données de test ont été effacés avec succès !");
+                setInventories([]);
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-destructive" /> Effacer inventaires & données
+          </Button>
+          <Button asChild size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+            <Link href="/dashboard/inventory/new">
+              <Plus className="h-3.5 w-3.5" /> Démarrer un inventaire
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* KPIS COMPACTS SANS SCROLL */}
@@ -208,7 +247,7 @@ export default async function InventoryPage() {
         </Card>
       </div>
 
-      {/* TABLEAU DES INVENTAIRES (STATIQUE 1-ÉCRAN) */}
+      {/* TABLEAU DES INVENTAIRES */}
       <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
         <CardHeader className="p-3 pb-2 border-b border-border/50">
           <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -230,32 +269,40 @@ export default async function InventoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inventories.slice(0, 4).map((inventory) => {
-                  const itemCount = inventory.items?.length ?? 0;
-                  const discrepancies = (inventory.items ?? []).filter((item) => item.system_quantity !== item.physical_quantity).length;
+                {inventories.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-xs text-muted-foreground font-medium">
+                      Aucune session d'inventaire enregistrée.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  inventories.slice(0, 10).map((inventory) => {
+                    const itemCount = inventory.items?.length ?? 0;
+                    const discrepancies = (inventory.items ?? []).filter((item) => item.system_quantity !== item.physical_quantity).length;
 
-                  return (
-                    <TableRow key={inventory.id} className="text-xs hover:bg-muted/30">
-                      <TableCell className="pl-4 py-2 font-bold text-foreground">{inventory.name}</TableCell>
-                      <TableCell className="py-2">
-                        <Badge variant="outline" className="text-[10px] bg-background">{inventory.inventory_type}</Badge>
-                      </TableCell>
-                      <TableCell className="py-2">{getStatusBadge(inventory.status)}</TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{formatDate(inventory.created_at)}</TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{formatDate(inventory.completed_at)}</TableCell>
-                      <TableCell className="py-2 font-medium">
-                        {itemCount} article(s) {discrepancies > 0 && <span className="text-red-600 font-bold ml-1">({discrepancies} écart)</span>}
-                      </TableCell>
-                      <TableCell className="py-2 text-right pr-4">
-                        <Button variant="ghost" size="sm" asChild className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10">
-                          <Link href={`/dashboard/inventory/${inventory.id}`}>
-                            <Eye className="h-3.5 w-3.5 mr-1" /> Consulter
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                    return (
+                      <TableRow key={inventory.id} className="text-xs hover:bg-muted/30">
+                        <TableCell className="pl-4 py-2 font-bold text-foreground">{inventory.name}</TableCell>
+                        <TableCell className="py-2">
+                          <Badge variant="outline" className="text-[10px] bg-background">{inventory.inventory_type}</Badge>
+                        </TableCell>
+                        <TableCell className="py-2">{getStatusBadge(inventory.status)}</TableCell>
+                        <TableCell className="py-2 text-muted-foreground">{formatDate(inventory.created_at)}</TableCell>
+                        <TableCell className="py-2 text-muted-foreground">{formatDate(inventory.completed_at)}</TableCell>
+                        <TableCell className="py-2 font-medium">
+                          {itemCount} article(s) {discrepancies > 0 && <span className="text-red-600 font-bold ml-1">({discrepancies} écart)</span>}
+                        </TableCell>
+                        <TableCell className="py-2 text-right pr-4">
+                          <Button variant="ghost" size="sm" asChild className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10">
+                            <Link href={`/dashboard/inventory/${inventory.id}`}>
+                              <Eye className="h-3.5 w-3.5 mr-1" /> Consulter
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>

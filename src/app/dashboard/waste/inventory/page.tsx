@@ -21,7 +21,10 @@ export default function WasteInventoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  const filteredInventories = MOCK_WASTE_INVENTORIES.filter(inv => {
+  const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
+  const list = isWiped ? [] : MOCK_WASTE_INVENTORIES
+
+  const filteredInventories = list.filter(inv => {
     const matchesSearch = 
       inv.inv_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.location.toLowerCase().includes(searchTerm.toLowerCase())
