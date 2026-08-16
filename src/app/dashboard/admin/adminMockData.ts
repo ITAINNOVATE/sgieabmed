@@ -132,16 +132,11 @@ const MOCK_USERS: User[] = [
 
 const MOCK_LOGIN_LOGS: LoginLog[] = [
   { id: "log-1", username: "m.adande", event_type: "Connexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: 120, created_at: "2026-07-29T10:30:00Z" },
-  { id: "log-2", username: "a.kouassi", event_type: "Connexion", ip_address: "197.234.221.18", user_agent: "Firefox / macOS", duration: 45, created_at: "2026-07-29T09:45:00Z" },
-  { id: "log-3", username: "c.dossa", event_type: "Connexion", ip_address: "197.234.220.40", user_agent: "Edge / Windows 10", duration: 90, created_at: "2026-07-28T16:10:00Z" },
-  { id: "log-4", username: "p.sossou", event_type: "Échec de connexion", ip_address: "41.85.160.12", user_agent: "Safari / iOS", duration: null, created_at: "2026-07-28T14:05:00Z" },
   { id: "log-5", username: "m.adande", event_type: "Déconnexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: 180, created_at: "2026-07-27T18:00:00Z" }
 ]
 
 const MOCK_AUDIT_LOGS: AdminAuditLog[] = [
-  { id: "aud-1", username: "Marie ADANDE", action: "Modification", entity_type: "Sécurité", details: "Mise à jour de la politique de mot de passe", ip_address: "197.234.221.15", created_at: "2026-07-29T10:15:00Z" },
-  { id: "aud-2", username: "Marie ADANDE", action: "Création", entity_type: "Utilisateur", details: "Création du compte Dr. Alain KOUASSI", ip_address: "197.234.221.15", created_at: "2026-07-28T11:00:00Z" },
-  { id: "aud-3", username: "Chantal DOSSA", action: "Validation", entity_type: "Déchets", details: "Validation du bordereau de destruction DES-2026-003", ip_address: "197.234.220.40", created_at: "2026-07-27T15:30:00Z" }
+  { id: "aud-1", username: "Marie ADANDE", action: "Modification", entity_type: "Sécurité", details: "Mise à jour de la politique de mot de passe", ip_address: "197.234.221.15", created_at: "2026-07-29T10:15:00Z" }
 ]
 
 // Fallback modules
