@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText } from "lucide-react"
+import { toast } from "sonner"
+import { clearAllTestData } from "@/utils/clean-test-data"
+import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText, Trash2 } from "lucide-react"
 
 const MOCK_MOVEMENTS = [
   { id: '1', mvt_number: 'MVT-2026-001', movement_date: '2026-01-15T10:00:00.000Z', movement_type: 'Entrée', quantity: 150, commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', operator: 'JEAN DUPONT' },
@@ -96,11 +98,27 @@ export default function MovementsPage() {
           </h2>
           <p className="text-muted-foreground text-xs">Traçabilité complète des entrées, sorties, transferts et mises en quarantaine.</p>
         </div>
-        <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0" asChild>
-          <Link href="/dashboard/movements/new">
-            <Plus className="h-3.5 w-3.5" /> Enregistrer un mouvement
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            size="sm" 
+            variant="outline"
+            className="text-destructive hover:bg-destructive/10 border-destructive/30 text-xs font-bold gap-1.5 h-8 px-3"
+            onClick={async () => {
+              if (window.confirm("Êtes-vous sûr de vouloir effacer toutes les données de test ? Cette action réinitialisera l'historique des mouvements.")) {
+                await clearAllTestData()
+                toast.success("Toutes les données de test ont été effacées avec succès !")
+                window.location.reload()
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-destructive" /> Effacer données de test
+          </Button>
+          <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0" asChild>
+            <Link href="/dashboard/movements/new">
+              <Plus className="h-3.5 w-3.5" /> Enregistrer un mouvement
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* CARTE DE TABLEAU COMPACT STATIQUE 1-ÉCRAN */}

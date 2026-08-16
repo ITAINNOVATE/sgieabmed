@@ -12,7 +12,7 @@ import {
   useReactTable,
   ColumnFiltersState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, History, Printer, MapPin } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, Trash2, History, Printer, MapPin } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { exportToExcel, exportToPDF } from "@/utils/exportUtils"
+import { clearAllTestData } from "@/utils/clean-test-data"
 import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { SampleLocationDialog } from "@/components/sample-location-dialog"
@@ -471,6 +472,19 @@ export default function SamplesDataTable() {
           )}
           <Button variant="outline" className="shadow-sm rounded-xl" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
           <Button variant="outline" className="shadow-sm rounded-xl" onClick={handleExportPDF}><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
+          <Button 
+            variant="outline" 
+            className="shadow-sm rounded-xl text-destructive hover:bg-destructive/10 border-destructive/30"
+            onClick={async () => {
+              if (window.confirm("Êtes-vous sûr de vouloir effacer toutes les données de test ? Cette action réinitialisera les mouvements et les stocks.")) {
+                await clearAllTestData()
+                toast.success("Toutes les données de test ont été effacées avec succès !")
+                fetchData()
+              }
+            }}
+          >
+            <Trash2 className="mr-2 h-4 w-4 text-destructive" /> Effacer données de test
+          </Button>
         </div>
       </div>
 
