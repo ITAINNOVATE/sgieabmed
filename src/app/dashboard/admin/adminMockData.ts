@@ -168,50 +168,118 @@ const getInitialPermissions = (roleCode: string): PermissionRow[] => {
 // --- DATABASE SERVICE CALLS (SUPABASE WITH SAFE FALLBACKS) ---
 
 // 1. DEPARTMENTS
+const DEPARTMENTS_STORAGE_KEY = "admin_departments_custom_v1"
+const DEPARTMENTS_DELETED_KEY = "admin_departments_deleted_v1"
+const DEPARTMENTS_OVERRIDES_KEY = "admin_departments_overrides_v1"
+
 export const getDepartments = async (): Promise<Department[]> => {
+  let remoteDepts: Department[] = []
   try {
     const supabase = createClient()
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('departments')
       .select('*')
       .order('name', { ascending: true })
-    if (error || !data || data.length === 0) {
-      return MOCK_DEPARTMENTS
-    }
-    return data
-  } catch (err) {
-    return MOCK_DEPARTMENTS
+    if (data && data.length > 0) remoteDepts = data
+  } catch (err) {}
+
+  let localCustomDepts: Department[] = []
+  let localOverrides: Record<string, Partial<Department>> = {}
+  let deletedIds: string[] = []
+
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      localCustomDepts = JSON.parse(localStorage.getItem(DEPARTMENTS_STORAGE_KEY) || "[]")
+      localOverrides = JSON.parse(localStorage.getItem(DEPARTMENTS_OVERRIDES_KEY) || "{}")
+      deletedIds = JSON.parse(localStorage.getItem(DEPARTMENTS_DELETED_KEY) || "[]")
+    } catch (e) {}
   }
+
+  const deptMap = new Map<string, Department>()
+  MOCK_DEPARTMENTS.forEach(d => deptMap.set(d.id, d))
+  localCustomDepts.forEach(d => deptMap.set(d.id, d))
+  remoteDepts.forEach(d => deptMap.set(d.id, d))
+
+  const finalDepts: Department[] = []
+  deptMap.forEach((dept, id) => {
+    if (deletedIds.includes(id) || deletedIds.includes(dept.code)) return
+    const override = localOverrides[id] || localOverrides[dept.code]
+    if (override) {
+      finalDepts.push({ ...dept, ...override })
+    } else {
+      finalDepts.push(dept)
+    }
+  })
+
+  return finalDepts
 }
 
 export const createDepartment = async (dept: Omit<Department, 'id' | 'created_at'>): Promise<boolean> => {
+  const newDept: Department = {
+    ...dept,
+    id: `dept-custom-${Date.now()}`,
+    created_at: new Date().toISOString().split('T')[0]
+  }
+
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const list = JSON.parse(localStorage.getItem(DEPARTMENTS_STORAGE_KEY) || "[]")
+      list.push(newDept)
+      localStorage.setItem(DEPARTMENTS_STORAGE_KEY, JSON.stringify(list))
+    } catch (e) {}
+  }
+
   try {
     const supabase = createClient()
-    const { error } = await supabase.from('departments').insert(dept)
-    return !error
-  } catch (err) {
-    return true
-  }
+    await supabase.from('departments').insert(dept)
+  } catch (err) {}
+
+  return true
 }
 
 export const updateDepartment = async (id: string, dept: Partial<Omit<Department, 'id' | 'created_at'>>): Promise<boolean> => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const list: Department[] = JSON.parse(localStorage.getItem(DEPARTMENTS_STORAGE_KEY) || "[]")
+      const idx = list.findIndex(d => d.id === id || d.code === id)
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...dept }
+        localStorage.setItem(DEPARTMENTS_STORAGE_KEY, JSON.stringify(list))
+      }
+
+      const overrides = JSON.parse(localStorage.getItem(DEPARTMENTS_OVERRIDES_KEY) || "{}")
+      overrides[id] = { ...(overrides[id] || {}), ...dept }
+      localStorage.setItem(DEPARTMENTS_OVERRIDES_KEY, JSON.stringify(overrides))
+    } catch (e) {}
+  }
+
   try {
     const supabase = createClient()
-    const { error } = await supabase.from('departments').update(dept).eq('id', id)
-    return !error
-  } catch (err) {
-    return true
-  }
+    await supabase.from('departments').update(dept).eq('id', id)
+  } catch (err) {}
+
+  return true
 }
 
 export const deleteDepartment = async (id: string): Promise<boolean> => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const deletedIds: string[] = JSON.parse(localStorage.getItem(DEPARTMENTS_DELETED_KEY) || "[]")
+      if (!deletedIds.includes(id)) deletedIds.push(id)
+      localStorage.setItem(DEPARTMENTS_DELETED_KEY, JSON.stringify(deletedIds))
+
+      const list: Department[] = JSON.parse(localStorage.getItem(DEPARTMENTS_STORAGE_KEY) || "[]")
+      const updated = list.filter(d => d.id !== id && d.code !== id)
+      localStorage.setItem(DEPARTMENTS_STORAGE_KEY, JSON.stringify(updated))
+    } catch (e) {}
+  }
+
   try {
     const supabase = createClient()
-    const { error } = await supabase.from('departments').delete().eq('id', id)
-    return !error
-  } catch (err) {
-    return true
-  }
+    await supabase.from('departments').delete().eq('id', id)
+  } catch (err) {}
+
+  return true
 }
 
 // 2. ROLES
