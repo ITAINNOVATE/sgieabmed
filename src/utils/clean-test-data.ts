@@ -9,25 +9,36 @@ export async function clearAllTestData(): Promise<boolean> {
       localStorage.removeItem('local_movements_history')
       localStorage.removeItem('local_sample_overrides')
       localStorage.removeItem('reception_history_records')
-      localStorage.removeItem('reception_deleted_ids')
+      localStorage.removeItem('reception_form_autosave')
 
-      // Nettoyer les clés de détails de brouillon de réception
+      // Récupérer et nettoyer toutes les clés créées lors des tests de réception ou de mouvements
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        if (key && (key.startsWith('reception_draft_details_') || key.startsWith('reception_'))) {
+        if (key && (
+          key.startsWith('reception_') || 
+          key.startsWith('local_') || 
+          key.startsWith('sample_') ||
+          key.includes('draft')
+        )) {
           keysToRemove.push(key)
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k))
+
+      // Enregistrer la liste des identifiants et mots clés de test supprimés
+      const testDeletedList = ['GSJSJH', 'DJDK', 'ECH-2026-2632-1', 'REC-2026-2632']
+      localStorage.setItem('reception_deleted_ids', JSON.stringify(testDeletedList))
     }
 
-    // 2. Nettoyage optionnel Supabase si disponible
+    // 2. Nettoyage Supabase si disponible
     try {
       const supabase = createClient()
       await supabase.from('movements').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('samples').delete().neq('id', 'sample-1').neq('id', 'sample-2').neq('id', 'sample-3').neq('id', 'sample-4').neq('id', 'sample-5')
+      await supabase.from('receptions').delete().neq('id', 'rec-default-1').neq('id', 'rec-default-2').neq('id', 'rec-default-3')
     } catch (e) {
-      // Ignorer si pas d'accès Supabase
+      console.warn("Supabase cleanup notice:", e)
     }
 
     return true

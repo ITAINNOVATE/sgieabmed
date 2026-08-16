@@ -292,10 +292,29 @@ export default function SamplesDataTable() {
     } catch (e) {}
 
     try {
+      const deletedIds: string[] = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
       const sampleMap = new Map<string, Sample>()
-      DEFAULT_SAMPLES.forEach(s => sampleMap.set(s.id, s))
-      localSamples.forEach(s => sampleMap.set(s.id, s))
-      remoteSamples.forEach(s => sampleMap.set(s.id || s.sample_number, s))
+
+      const isDeleted = (s: any) => {
+        if (!s) return true
+        const name = (s.commercial_name || '').toUpperCase()
+        const num = (s.sample_number || s.id || '').toUpperCase()
+        const batch = (s.batch_number || '').toUpperCase()
+        return deletedIds.some((d: string) => {
+          const upperD = d.toUpperCase()
+          return (upperD && (name.includes(upperD) || num.includes(upperD) || batch.includes(upperD) || s.id === d))
+        })
+      }
+
+      DEFAULT_SAMPLES.forEach(s => {
+        if (!isDeleted(s)) sampleMap.set(s.id, s)
+      })
+      localSamples.forEach(s => {
+        if (!isDeleted(s)) sampleMap.set(s.id, s)
+      })
+      remoteSamples.forEach(s => {
+        if (!isDeleted(s)) sampleMap.set(s.id || s.sample_number, s)
+      })
 
       // Appliquer les mises à jour de stock issues des mouvements validés
       const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
@@ -354,7 +373,16 @@ export default function SamplesDataTable() {
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('test_data_cleaned_v2')) {
+      clearAllTestData().then(() => {
+        localStorage.setItem('test_data_cleaned_v2', 'true')
+        fetchData()
+      })
+    } else {
+      fetchData()
+    }
+  }, [fetchData])
 
   const filteredData = useMemo(() => {
     if (!globalSearch) return data
