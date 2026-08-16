@@ -293,12 +293,54 @@ export default function SamplesDataTable() {
     // Appliquer les mises à jour de stock issues des mouvements validés
     try {
       const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+      const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+
       sampleMap.forEach((sample, key) => {
-        if (overrides[key]) {
-          sampleMap.set(key, { ...sample, ...overrides[key] })
+        const comboKey = sample.commercial_name && sample.batch_number 
+          ? `${sample.commercial_name.toUpperCase()}___${sample.batch_number.toUpperCase()}`
+          : null;
+
+        // 1. Chercher dans local_sample_overrides par clé, id, N° d'échantillon, Nom produit ou clé combinée
+        let override = overrides[key] || 
+                       (sample.id ? overrides[sample.id] : null) || 
+                       (sample.sample_number ? overrides[sample.sample_number] : null) ||
+                       (sample.commercial_name ? overrides[sample.commercial_name.toUpperCase()] : null) ||
+                       (comboKey ? overrides[comboKey] : null);
+
+        // 2. Si pas trouvé dans overrides, chercher le tout dernier mouvement validé dans local_movements_history
+        if (!override && localMovements.length > 0) {
+          const matchingMvt = localMovements.find((m: any) => {
+            if (m.sample_id && sample.id && m.sample_id === sample.id) return true;
+            if (m.sample_number && sample.sample_number && m.sample_number === sample.sample_number) return true;
+            if (m.commercial_name && sample.commercial_name && m.commercial_name.toUpperCase() === sample.commercial_name.toUpperCase()) {
+              if (!m.batch_number || !sample.batch_number || m.batch_number.toUpperCase() === sample.batch_number.toUpperCase()) {
+                return true;
+              }
+            }
+            return false;
+          });
+
+          if (matchingMvt && typeof matchingMvt.new_quantity === 'number') {
+            override = {
+              quantity: matchingMvt.new_quantity,
+              status: matchingMvt.new_status || sample.status,
+              current_location: matchingMvt.new_location || sample.current_location
+            };
+          }
         }
-      })
-    } catch (e) {}
+
+        if (override) {
+          sampleMap.set(key, { 
+            ...sample, 
+            quantity: override.quantity !== undefined ? Number(override.quantity) : sample.quantity,
+            status: override.status || sample.status,
+            current_location: override.current_location || sample.current_location
+          });
+        }
+      });
+    } catch (e) {
+      console.warn("Error applying stock overrides:", e);
+    }
 
     setData(Array.from(sampleMap.values()))
     setLoading(false)

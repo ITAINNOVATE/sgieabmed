@@ -238,12 +238,52 @@ export default function NewMovementPage() {
       // Appliquer les mises à jour de stock issues des mouvements validés
       try {
         const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+
         sampleMap.forEach((sample, key) => {
-          if (overrides[key]) {
-            sampleMap.set(key, { ...sample, ...overrides[key] })
+          const comboKey = sample.commercial_name && sample.batch_number 
+            ? `${sample.commercial_name.toUpperCase()}___${sample.batch_number.toUpperCase()}`
+            : null;
+
+          let override = overrides[key] || 
+                         (sample.id ? overrides[sample.id] : null) || 
+                         (sample.sample_number ? overrides[sample.sample_number] : null) ||
+                         (sample.commercial_name ? overrides[sample.commercial_name.toUpperCase()] : null) ||
+                         (comboKey ? overrides[comboKey] : null);
+
+          if (!override && localMovements.length > 0) {
+            const matchingMvt = localMovements.find((m: any) => {
+              if (m.sample_id && sample.id && m.sample_id === sample.id) return true;
+              if (m.sample_number && sample.sample_number && m.sample_number === sample.sample_number) return true;
+              if (m.commercial_name && sample.commercial_name && m.commercial_name.toUpperCase() === sample.commercial_name.toUpperCase()) {
+                if (!m.batch_number || !sample.batch_number || m.batch_number.toUpperCase() === sample.batch_number.toUpperCase()) {
+                  return true;
+                }
+              }
+              return false;
+            });
+
+            if (matchingMvt && typeof matchingMvt.new_quantity === 'number') {
+              override = {
+                quantity: matchingMvt.new_quantity,
+                status: matchingMvt.new_status || sample.status,
+                current_location: matchingMvt.new_location || sample.current_location
+              };
+            }
           }
-        })
-      } catch (e) {}
+
+          if (override) {
+            sampleMap.set(key, { 
+              ...sample, 
+              quantity: override.quantity !== undefined ? Number(override.quantity) : sample.quantity,
+              status: override.status || sample.status,
+              current_location: override.current_location || sample.current_location
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Error applying stock overrides in form:", e);
+      }
 
       setSamples(Array.from(sampleMap.values()))
     }
@@ -306,6 +346,7 @@ export default function NewMovementPage() {
         id: `mvt-${Date.now()}`,
         mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
         sample_id: selectedSample.id,
+        sample_number: selectedSample.sample_number || selectedSample.id,
         commercial_name: selectedSample.commercial_name,
         batch_number: selectedSample.batch_number,
         movement_type: values.movement_type,
@@ -330,13 +371,20 @@ export default function NewMovementPage() {
         localStorage.setItem('local_movements_history', JSON.stringify(localMovements));
       } catch (e) { console.warn("LocalStorage save error:", e); }
 
-      // 1b. Persister l'override de stock pour cet échantillon (appliqué à toutes les pages)
+      // 1b. Persister l'override de stock pour cet échantillon sous toutes ses clés d'accès
       try {
         const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
-        overrides[selectedSample.id] = {
+        const overrideData = {
           quantity: newQuantity,
           status: newStatus,
           current_location: newLocation,
+        }
+        if (selectedSample.id) overrides[selectedSample.id] = overrideData;
+        if (selectedSample.sample_number) overrides[selectedSample.sample_number] = overrideData;
+        if (selectedSample.commercial_name) overrides[selectedSample.commercial_name.toUpperCase()] = overrideData;
+        if (selectedSample.commercial_name && selectedSample.batch_number) {
+          const comboKey = `${selectedSample.commercial_name.toUpperCase()}___${selectedSample.batch_number.toUpperCase()}`;
+          overrides[comboKey] = overrideData;
         }
         localStorage.setItem('local_sample_overrides', JSON.stringify(overrides))
       } catch (e) { console.warn("Override save error:", e); }
