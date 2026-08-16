@@ -329,7 +329,135 @@ export const deleteRole = async (id: string): Promise<boolean> => {
   }
 }
 
-// 3. PERMISSIONS
+// 3. PERMISSIONS COMPLÈTES ET SOUS-MENUS PAR RÔLE ET UTILISATEUR
+export interface DetailedPermissionRow {
+  id: string
+  module: string
+  submenu: string
+  path: string
+  is_parent?: boolean
+  can_view: boolean
+  can_create: boolean
+  can_modify: boolean
+  can_delete: boolean
+  can_validate: boolean
+  can_export: boolean
+  can_print: boolean
+}
+
+export const DEFAULT_DETAILED_PERMISSIONS: DetailedPermissionRow[] = [
+  // 1. TABLEAUX DE BORD
+  { id: "dashboards-main", module: "Tableaux de Bord", submenu: "Tableaux de bord généraux", path: "/dashboard", is_parent: true, can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "dashboards-samples", module: "Tableaux de Bord", submenu: "Échantillons pharmaceutiques", path: "/dashboard/analytics", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "dashboards-waste", module: "Tableaux de Bord", submenu: "Déchets pharmaceutiques", path: "/dashboard/waste/analytics", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+
+  // 2. GESTION DES ÉCHANTILLONS
+  { id: "samples-main", module: "Gestion des Échantillons", submenu: "Vue globale Échantillothèque", path: "/dashboard/samples", is_parent: true, can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "samples-receptions", module: "Gestion des Échantillons", submenu: "Toutes les Réceptions", path: "/dashboard/receptions", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "samples-pending-receptions", module: "Gestion des Échantillons", submenu: "Réceptions en instance", path: "/dashboard/receptions?status=en_attente", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "samples-movements", module: "Gestion des Échantillons", submenu: "Mouvements & Cartographie", path: "/dashboard/movements", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "samples-inventory", module: "Gestion des Échantillons", submenu: "Inventaires & Contrôles", path: "/dashboard/inventory", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "samples-stock", module: "Gestion des Échantillons", submenu: "Stocks & Armoires", path: "/dashboard/samples", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "samples-documents", module: "Gestion des Échantillons", submenu: "Documentation & Certificats", path: "/dashboard/documents", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: false, can_export: true, can_print: true },
+
+  // 3. GESTION DES DÉCHETS
+  { id: "waste-main", module: "Gestion des Déchets", submenu: "Vue globale Local Déchets", path: "/dashboard/waste", is_parent: true, can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "waste-new", module: "Gestion des Déchets", submenu: "Réception des déchets", path: "/dashboard/waste/new", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "waste-movements", module: "Gestion des Déchets", submenu: "Mouvements déchets", path: "/dashboard/waste/movements", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "waste-inventory", module: "Gestion des Déchets", submenu: "Inventaire déchets", path: "/dashboard/waste/inventory", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "waste-stock", module: "Gestion des Déchets", submenu: "Stocks déchets", path: "/dashboard/waste", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "waste-destructions", module: "Gestion des Déchets", submenu: "Planification & Destruction", path: "/dashboard/destructions", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+
+  // 4. RAPPORTS & CERTIFICATS
+  { id: "reports-main", module: "Rapports & Certificats", submenu: "Rapports analytiques", path: "/dashboard/reports", is_parent: true, can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "reports-samples", module: "Rapports & Certificats", submenu: "Rapports Échantillons", path: "/dashboard/reports/samples", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "reports-waste", module: "Rapports & Certificats", submenu: "Rapports Déchets", path: "/dashboard/reports/waste", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "reports-certificates", module: "Rapports & Certificats", submenu: "Certificats de destruction", path: "/dashboard/reports/certificates", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+
+  // 5. CENTRE D'ALERTES
+  { id: "alerts-main", module: "Centre d'Alertes", submenu: "Vue synthétique des alertes", path: "/dashboard/alerts", is_parent: true, can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "alerts-expirations", module: "Centre d'Alertes", submenu: "Péremptions imminentes", path: "/dashboard/alerts/expirations", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "alerts-thresholds", module: "Centre d'Alertes", submenu: "Seuils de stock critique", path: "/dashboard/alerts/thresholds", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+
+  // 6. ADMINISTRATION SYSTÈME
+  { id: "admin-main", module: "Administration Système", submenu: "Module Administrateur", path: "/dashboard/admin", is_parent: true, can_view: true, can_create: true, can_modify: true, can_delete: true, can_validate: true, can_export: true, can_print: true },
+  { id: "admin-users", module: "Administration Système", submenu: "Gestion Utilisateurs", path: "/dashboard/admin/users", can_view: true, can_create: true, can_modify: true, can_delete: true, can_validate: true, can_export: true, can_print: true },
+  { id: "admin-roles", module: "Administration Système", submenu: "Rôles & Permissions", path: "/dashboard/admin/permissions", can_view: true, can_create: true, can_modify: true, can_delete: true, can_validate: true, can_export: true, can_print: true },
+  { id: "admin-services", module: "Administration Système", submenu: "Services & Directions", path: "/dashboard/admin/services", can_view: true, can_create: true, can_modify: true, can_delete: true, can_validate: true, can_export: true, can_print: true },
+  { id: "admin-audit", module: "Administration Système", submenu: "Journal d'audit", path: "/dashboard/admin/audit", can_view: true, can_create: false, can_modify: false, can_delete: false, can_validate: false, can_export: true, can_print: true },
+  { id: "admin-security", module: "Administration Système", submenu: "Paramètres de sécurité", path: "/dashboard/admin/security", can_view: true, can_create: true, can_modify: true, can_delete: true, can_validate: true, can_export: true, can_print: true },
+]
+
+export const getDetailedPermissions = async (targetType: 'role' | 'user', targetCodeOrId: string): Promise<DetailedPermissionRow[]> => {
+  const storageKey = targetType === 'role' 
+    ? `detailed_perms_role_${targetCodeOrId}` 
+    : `detailed_perms_user_${targetCodeOrId}`
+
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (e) {}
+  }
+
+  return DEFAULT_DETAILED_PERMISSIONS.map(row => {
+    let canView = true
+    let canCreate = true
+    let canModify = true
+    let canDelete = targetCodeOrId === 'ADMIN_SYS' || targetCodeOrId === 'usr-1' || targetCodeOrId === 'usr-admin'
+    let canValidate = true
+
+    if (targetCodeOrId === 'GEST_ECH' || targetCodeOrId === 'RESP_ECH') {
+      if (row.module === 'Administration Système') {
+        canView = false; canCreate = false; canModify = false; canValidate = false;
+      }
+    }
+
+    return {
+      ...row,
+      can_view: canView,
+      can_create: canCreate,
+      can_modify: canModify,
+      can_delete: canDelete,
+      can_validate: canValidate,
+    }
+  })
+}
+
+export const saveDetailedPermissions = async (targetType: 'role' | 'user', targetCodeOrId: string, perms: DetailedPermissionRow[]): Promise<boolean> => {
+  const storageKey = targetType === 'role' 
+    ? `detailed_perms_role_${targetCodeOrId}` 
+    : `detailed_perms_user_${targetCodeOrId}`
+
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(perms))
+    } catch (e) {}
+  }
+
+  try {
+    const supabase = createClient()
+    const table = targetType === 'role' ? 'role_permissions_detailed' : 'user_permissions_detailed'
+    await supabase.from(table).upsert(perms.map(p => ({
+      target_id: targetCodeOrId,
+      menu_id: p.id,
+      module: p.module,
+      submenu: p.submenu,
+      can_view: p.can_view,
+      can_create: p.can_create,
+      can_modify: p.can_modify,
+      can_delete: p.can_delete,
+      can_validate: p.can_validate,
+      can_export: p.can_export,
+      can_print: p.can_print
+    })))
+  } catch (e) {}
+
+  return true
+}
+
 export const getPermissions = async (): Promise<RolePermissions[]> => {
   try {
     const supabase = createClient()
