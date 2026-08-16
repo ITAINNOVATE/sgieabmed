@@ -4,14 +4,14 @@ import { createClient } from "@/utils/supabase/client"
 
 export async function clearAllTestData(): Promise<boolean> {
   try {
-    // 1. Nettoyage du localStorage
+    // 1. Nettoyage complet du localStorage
     if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem('all_data_wiped', 'true')
       localStorage.removeItem('local_movements_history')
       localStorage.removeItem('local_sample_overrides')
       localStorage.removeItem('reception_history_records')
       localStorage.removeItem('reception_form_autosave')
 
-      // Récupérer et nettoyer toutes les clés créées lors des tests de réception ou de mouvements
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
@@ -26,24 +26,30 @@ export async function clearAllTestData(): Promise<boolean> {
       }
       keysToRemove.forEach(k => localStorage.removeItem(k))
 
-      // Enregistrer la liste des identifiants et mots clés de test supprimés
-      const testDeletedList = ['GSJSJH', 'DJDK', 'ECH-2026-2632-1', 'REC-2026-2632']
-      localStorage.setItem('reception_deleted_ids', JSON.stringify(testDeletedList))
+      // Poser le drapeau d'effacement total
+      localStorage.setItem('all_data_wiped', 'true')
     }
 
-    // 2. Nettoyage Supabase si disponible
+    // 2. Suppression de toutes les lignes dans Supabase
     try {
       const supabase = createClient()
       await supabase.from('movements').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-      await supabase.from('samples').delete().neq('id', 'sample-1').neq('id', 'sample-2').neq('id', 'sample-3').neq('id', 'sample-4').neq('id', 'sample-5')
-      await supabase.from('receptions').delete().neq('id', 'rec-default-1').neq('id', 'rec-default-2').neq('id', 'rec-default-3')
+      await supabase.from('samples').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('receptions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
     } catch (e) {
-      console.warn("Supabase cleanup notice:", e)
+      console.warn("Supabase total cleanup notice:", e)
     }
 
     return true
   } catch (error) {
-    console.error("Erreur lors de la suppression des données de test:", error)
+    console.error("Erreur lors de la suppression totale des données:", error)
     return false
+  }
+}
+
+export function restoreDefaultDemoData() {
+  if (typeof window !== "undefined" && window.localStorage) {
+    localStorage.removeItem('all_data_wiped')
+    localStorage.removeItem('reception_deleted_ids')
   }
 }

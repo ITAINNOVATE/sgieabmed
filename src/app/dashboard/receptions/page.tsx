@@ -110,6 +110,12 @@ export default function ReceptionsPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true') {
+        setReceptions([])
+        setLoading(false)
+        return
+      }
+
       let deletedIds: string[] = []
       try {
         deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')

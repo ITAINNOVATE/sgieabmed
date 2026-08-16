@@ -240,6 +240,12 @@ export default function SamplesDataTable() {
   const [locationSample, setLocationSample] = useState<Sample | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true') {
+      setData([])
+      setLoading(false)
+      return
+    }
+
     let remoteSamples: Sample[] = []
     try {
       const supabase = createClient()
@@ -374,9 +380,9 @@ export default function SamplesDataTable() {
   }, [])
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !localStorage.getItem('test_data_cleaned_v2')) {
+    if (typeof window !== 'undefined' && !localStorage.getItem('test_data_cleaned_v3')) {
       clearAllTestData().then(() => {
-        localStorage.setItem('test_data_cleaned_v2', 'true')
+        localStorage.setItem('test_data_cleaned_v3', 'true')
         fetchData()
       })
     } else {

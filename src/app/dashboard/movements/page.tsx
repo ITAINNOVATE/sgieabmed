@@ -30,6 +30,12 @@ export default function MovementsPage() {
 
   useEffect(() => {
     async function fetchMovements() {
+      if (typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true') {
+        setMovements([])
+        setLoading(false)
+        return
+      }
+
       let remoteMovements: any[] = [];
       try {
         const supabase = createClient()
