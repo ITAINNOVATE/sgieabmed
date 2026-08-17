@@ -757,7 +757,7 @@ export default function NewMovementPage() {
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Nouveau Code Emplacement</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: MAG1-A1-E2" {...field} />
+                      <Input placeholder="" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -813,7 +813,7 @@ export default function NewMovementPage() {
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Motif de l'opération <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Prélèvement pour analyse labo..." {...field} />
+                    <Input placeholder="" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

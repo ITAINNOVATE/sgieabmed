@@ -255,7 +255,7 @@ export function QRCodeScannerDialog({ isOpen, onClose }: QRCodeScannerDialogProp
               <div className="flex gap-2">
                 <Input
                   id="manual-code"
-                  placeholder="Ex: ECH-2026-0001 ou UUID..."
+                  placeholder=""
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
                   className="rounded-xl h-10 bg-muted/30 focus-visible:ring-primary/40 border-none shadow-sm"

@@ -442,39 +442,39 @@ export default function UsersAdminPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Prénom *</label>
-                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Ex: Kadia" className="h-9 text-xs" />
+                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="" className="h-9 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Nom *</label>
-                  <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Ex: Barry" className="h-9 text-xs" />
+                  <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="" className="h-9 text-xs" />
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Nom d'utilisateur *</label>
-                  <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Ex: k.barry" className="h-9 text-xs" />
+                  <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="" className="h-9 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Matricule</label>
-                  <Input value={matricule} onChange={e => setMatricule(e.target.value)} placeholder="Ex: ABM-2024-..." className="h-9 text-xs" />
+                  <Input value={matricule} onChange={e => setMatricule(e.target.value)} placeholder="" className="h-9 text-xs" />
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Email Professionnel *</label>
-                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ex: k.barry@abmed.gov" className="h-9 text-xs" />
+                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="" className="h-9 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Téléphone</label>
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex: +229 97..." className="h-9 text-xs" />
+                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="" className="h-9 text-xs" />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground/80">Fonction / Titre professionnel</label>
-                <Input value={fonction} onChange={e => setFonction(e.target.value)} placeholder="Ex: Chargé de la libération des lots" className="h-9 text-xs" />
+                <Input value={fonction} onChange={e => setFonction(e.target.value)} placeholder="" className="h-9 text-xs" />
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">

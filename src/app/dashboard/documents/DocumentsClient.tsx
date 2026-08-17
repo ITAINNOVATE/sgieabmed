@@ -250,7 +250,7 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
               <div className="space-y-1">
                 <label className="font-bold">Titre du document *</label>
                 <Input 
-                  placeholder="Ex: Certificat d'analyse Lot X" 
+                  placeholder="" 
                   className="h-8 text-xs"
                   value={docTitle} 
                   onChange={(e) => setDocTitle(e.target.value)} 

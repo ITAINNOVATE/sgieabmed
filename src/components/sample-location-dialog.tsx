@@ -260,7 +260,7 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">5. Position exacte (optionnel)</Label>
             <Input
-              placeholder="ex: A-01, Bac 3, Rangée gauche..."
+              placeholder=""
               value={positionDetail}
               onChange={e => setPositionDetail(e.target.value)}
               className="h-9"

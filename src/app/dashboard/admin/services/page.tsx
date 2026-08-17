@@ -198,7 +198,7 @@ export default function DepartmentsAdminPage() {
                 <Input 
                   value={name} 
                   onChange={e => setName(e.target.value)} 
-                  placeholder="Ex: Direction des Laboratoires" 
+                  placeholder="" 
                   className="h-9 text-xs" 
                 />
               </div>
@@ -208,7 +208,7 @@ export default function DepartmentsAdminPage() {
                 <Input 
                   value={code} 
                   onChange={e => setCode(e.target.value)} 
-                  placeholder="Ex: DIR-LAB" 
+                  placeholder="" 
                   className="h-9 text-xs font-mono uppercase" 
                 />
               </div>
@@ -218,7 +218,7 @@ export default function DepartmentsAdminPage() {
                 <Input 
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
-                  placeholder="Ex: Analyses physico-chimiques et gestion des echantillons..." 
+                  placeholder="" 
                   className="h-9 text-xs" 
                 />
               </div>

@@ -138,7 +138,7 @@ export default function NewInventoryPage() {
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-foreground">Nom de l'inventaire</FormLabel>
                     <FormControl>
-                      <Input placeholder="ex: Inventaire Annuel 2026" className="h-9 text-xs bg-background" {...field} />
+                      <Input placeholder="" className="h-9 text-xs bg-background" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

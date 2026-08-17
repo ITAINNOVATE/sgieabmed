@@ -218,7 +218,7 @@ export default function RolesAdminPage() {
                 <Input 
                   value={name} 
                   onChange={e => setName(e.target.value)} 
-                  placeholder="Ex: Responsable Qualité" 
+                  placeholder="" 
                   className="h-9 text-xs" 
                 />
               </div>
@@ -229,7 +229,7 @@ export default function RolesAdminPage() {
                   value={code} 
                   onChange={e => setCode(e.target.value)} 
                   disabled={!!editingRole}
-                  placeholder="Ex: RESP_QUAL" 
+                  placeholder="" 
                   className="h-9 text-xs font-mono uppercase" 
                 />
                 {!editingRole && (
@@ -242,7 +242,7 @@ export default function RolesAdminPage() {
                 <Textarea 
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
-                  placeholder="Ex: Validation de la conformité, audits et accès aux logs..." 
+                  placeholder="" 
                   className="min-h-[100px] text-xs"
                 />
               </div>
