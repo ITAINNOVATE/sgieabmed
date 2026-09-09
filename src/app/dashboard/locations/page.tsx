@@ -14,9 +14,6 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from "@/components/ui/dialog"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select"
-import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from "@/components/ui/accordion"
 import {
@@ -153,10 +150,16 @@ function AddZoneDialog({ rooms, onSuccess }: { rooms: Room[]; onSuccess: () => v
           <div className="space-y-3 py-2">
             <div className="space-y-1">
               <Label>Salle *</Label>
-              <Select value={roomId} onValueChange={(v) => setRoomId(v || "")}>
-                <SelectTrigger><SelectValue placeholder="Choisir une salle..." /></SelectTrigger>
-                <SelectContent>{rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Choisir une salle...</option>
+                {rooms.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1"><Label>Nom de la zone *</Label><Input placeholder="Ex: Zone A" value={name} onChange={e => setName(e.target.value)} /></div>
           </div>
@@ -216,17 +219,30 @@ function AddCabinetDialog({ rooms, zones, onSuccess }: { rooms: Room[]; zones: Z
           <div className="space-y-3 py-2">
             <div className="space-y-1">
               <Label>Salle *</Label>
-              <Select value={roomId} onValueChange={v => { setRoomId(v || ""); setZoneId("") }}>
-                <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
-                <SelectContent>{rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                value={roomId}
+                onChange={e => { setRoomId(e.target.value); setZoneId("") }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Choisir une salle...</option>
+                {rooms.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <Label>Zone *</Label>
-              <Select value={zoneId} onValueChange={(v) => setZoneId(v || "")} disabled={!roomId}>
-                <SelectTrigger><SelectValue placeholder={!roomId ? "Sélectionnez d'abord une salle" : "Choisir..."} /></SelectTrigger>
-                <SelectContent>{filteredZones.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                value={zoneId}
+                onChange={(e) => setZoneId(e.target.value)}
+                disabled={!roomId}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <option value="">{!roomId ? "Sélectionnez d'abord une salle" : "Choisir une zone..."}</option>
+                {filteredZones.map(z => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1"><Label>Nom de l'armoire *</Label><Input placeholder="Ex: Armoire A1" value={name} onChange={e => setName(e.target.value)} /></div>
           </div>
@@ -297,24 +313,44 @@ function AddShelfDialog({ rooms, zones, cabinets, onSuccess }: { rooms: Room[]; 
           <div className="space-y-3 py-2">
             <div className="space-y-1">
               <Label>Salle *</Label>
-              <Select value={roomId} onValueChange={v => { setRoomId(v || ""); setZoneId(""); setCabinetId("") }}>
-                <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
-                <SelectContent>{rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                value={roomId}
+                onChange={e => { setRoomId(e.target.value); setZoneId(""); setCabinetId("") }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Choisir une salle...</option>
+                {rooms.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <Label>Zone *</Label>
-              <Select value={zoneId} onValueChange={v => { setZoneId(v || ""); setCabinetId("") }} disabled={!roomId}>
-                <SelectTrigger><SelectValue placeholder={!roomId ? "Sélectionnez d'abord une salle" : "Choisir..."} /></SelectTrigger>
-                <SelectContent>{filteredZones.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                value={zoneId}
+                onChange={e => { setZoneId(e.target.value); setCabinetId("") }}
+                disabled={!roomId}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <option value="">{!roomId ? "Sélectionnez d'abord une salle" : "Choisir une zone..."}</option>
+                {filteredZones.map(z => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <Label>Armoire *</Label>
-              <Select value={cabinetId} onValueChange={(v) => setCabinetId(v || "")} disabled={!zoneId}>
-                <SelectTrigger><SelectValue placeholder={!zoneId ? "Sélectionnez d'abord une zone" : "Choisir..."} /></SelectTrigger>
-                <SelectContent>{filteredCabinets.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                value={cabinetId}
+                onChange={(e) => setCabinetId(e.target.value)}
+                disabled={!zoneId}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <option value="">{!zoneId ? "Sélectionnez d'abord une zone" : "Choisir une armoire..."}</option>
+                {filteredCabinets.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1"><Label>Nom de l'étagère *</Label><Input placeholder="Ex: Étagère 1" value={name} onChange={e => setName(e.target.value)} /></div>
             <div className="space-y-1">
