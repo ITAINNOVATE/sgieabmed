@@ -548,13 +548,12 @@ export function AppSidebar() {
 
       {/* PIED DE LA SIDEBAR INSTITUTIONNEL SUR FOND BLANC PUR (JOUR & NUIT) */}
       <SidebarFooter className="p-3 border-t border-border/60 space-y-2 shrink-0 bg-white dark:bg-card transition-colors">
-        <div className="flex items-center justify-start px-1 py-0.5">
-          <Image 
+        <div className="flex items-center justify-center px-1 py-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
             src="/logoabmed.png" 
             alt="Logo ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
-            width={180} 
-            height={45} 
-            className="h-10 w-auto max-w-[200px] object-contain dark:brightness-0 dark:invert transition-all" 
+            style={{ height: '40px', width: 'auto', maxWidth: '200px', objectFit: 'contain' }}
           />
         </div>
 
