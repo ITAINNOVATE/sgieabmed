@@ -39,12 +39,21 @@ export function AppSidebar() {
     admin: false,
   })
 
-  // Synchronisation de l'accordéon selon l'URL active (priorité à la section Déchets en premier pour éviter les conflits d'URLs)
+  // Synchronisation de l'accordéon selon l'URL active
   useEffect(() => {
-    if (pathname.includes('/waste') || pathname.includes('/destructions')) {
-      setOpenSections({ dashboards: false, samples: false, waste: true, reports: false, alerts: false, admin: false })
+    if (pathname === '/dashboard/analytics') {
+      setOpenSections({ dashboards: true, samples: false, waste: false, reports: false, alerts: false, admin: false })
+    } else if (pathname === '/dashboard/waste/analytics') {
+      // Tableau de bord Déchets → ouvre Tableaux de Bord, PAS Gestion des déchets
+      setOpenSections({ dashboards: true, samples: false, waste: false, reports: false, alerts: false, admin: false })
     } else if (pathname.includes('/analytics')) {
       setOpenSections({ dashboards: true, samples: false, waste: false, reports: false, alerts: false, admin: false })
+    } else if (
+      (pathname.includes('/waste') || pathname.includes('/destructions')) &&
+      !pathname.includes('/analytics')
+    ) {
+      // Les vrais sous-modules déchets (hors analytics)
+      setOpenSections({ dashboards: false, samples: false, waste: true, reports: false, alerts: false, admin: false })
     } else if (
       pathname.includes('/receptions') || 
       pathname.includes('/movements') || 
