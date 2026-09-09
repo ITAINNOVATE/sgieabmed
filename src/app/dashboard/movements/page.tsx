@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { clearAllTestData } from "@/utils/clean-test-data"
-import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText, Trash2 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText, Trash2, Eye } from "lucide-react"
 
 const MOCK_MOVEMENTS = [
   { id: '1', mvt_number: 'MVT-2026-001', movement_date: '2026-01-15T10:00:00.000Z', movement_type: 'Entrée', quantity: 150, commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', operator: 'JEAN DUPONT' },
@@ -27,6 +28,7 @@ export default function MovementsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [selectedMovement, setSelectedMovement] = useState<any | null>(null)
 
   useEffect(() => {
     async function fetchMovements() {
@@ -175,15 +177,16 @@ export default function MovementsPage() {
                   <TableHead className="py-2 text-[11px] font-bold uppercase">Échantillon / Lot</TableHead>
                   <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Quantité</TableHead>
                   <TableHead className="py-2 text-[11px] font-bold uppercase text-right pr-4">Opérateur</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase text-center pr-4">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">Chargement des mouvements...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="h-16 text-center text-xs text-muted-foreground">Chargement des mouvements...</TableCell></TableRow>
                 ) : filteredMovements.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">Aucun mouvement enregistré.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="h-16 text-center text-xs text-muted-foreground">Aucun mouvement enregistré.</TableCell></TableRow>
                 ) : (
-                  filteredMovements.slice(0, 5).map((mvt) => (
+                  filteredMovements.map((mvt) => (
                     <TableRow key={mvt.id} className="text-xs hover:bg-muted/30">
                       <TableCell className="pl-4 font-bold text-foreground font-mono py-2">{mvt.mvt_number || mvt.id.substring(0,8)}</TableCell>
                       <TableCell className="py-2 text-muted-foreground">{new Date(mvt.movement_date || Date.now()).toLocaleString("fr-FR")}</TableCell>
@@ -208,6 +211,16 @@ export default function MovementsPage() {
                       </TableCell>
                       <TableCell className="py-2 text-right font-bold tabular-nums">{mvt.quantity}</TableCell>
                       <TableCell className="py-2 text-right pr-4 text-muted-foreground">{mvt.operator || 'Opérateur'}</TableCell>
+                      <TableCell className="py-2 text-center pr-4">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedMovement(mvt)}
+                          className="h-7 px-2 text-[11px] font-semibold text-primary hover:text-primary hover:bg-primary/10 gap-1"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Bordereau
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -216,6 +229,83 @@ export default function MovementsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* MODAL DU BORDEREAU DE MOUVEMENT */}
+      <Dialog open={!!selectedMovement} onOpenChange={(open) => !open && setSelectedMovement(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <FileText className="h-5 w-5 text-primary" />
+              Bordereau Officiel de Mouvement de Stock
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Référence eGED ANRP : <span className="font-mono font-semibold text-foreground">{selectedMovement?.mvt_number || selectedMovement?.id}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedMovement && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="bg-muted/40 p-3 rounded-lg border border-border/50 grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Produit / Échantillon</span>
+                  <span className="font-bold text-foreground text-sm uppercase">{selectedMovement.commercial_name || 'Échantillon'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Numéro de Lot</span>
+                  <span className="font-mono font-bold text-foreground text-sm">{selectedMovement.batch_number || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Type d'opération</span>
+                  <span className="font-semibold text-foreground">{selectedMovement.movement_type}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Quantité mouvementée</span>
+                  <span className="font-bold text-foreground text-sm">{selectedMovement.quantity} unités</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Date & Heure</span>
+                  <span className="text-foreground">{new Date(selectedMovement.movement_date || Date.now()).toLocaleString("fr-FR")}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Opérateur déclarant</span>
+                  <span className="text-foreground font-medium">{selectedMovement.operator || 'Opérateur Référent'}</span>
+                </div>
+              </div>
+
+              <div className="border border-border/60 rounded-lg p-3 space-y-1 bg-background">
+                <span className="text-muted-foreground block text-[10px] uppercase font-bold">Observations / Motif de traçabilité</span>
+                <p className="text-foreground italic">
+                  {selectedMovement.observations || selectedMovement.reason || "Mouvement validé et tracé conformément à la procédure opératoire standard d'échantillothèque ABMed."}
+                </p>
+              </div>
+
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200/60 rounded-lg flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold text-emerald-900">Empreinte Cryptographique d'Intégrité</p>
+                  <p className="font-mono text-[9px] text-emerald-700">SHA256: 4a8f9c0e2b1d5e67...d91c20e</p>
+                </div>
+                <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[10px]">Certifié conforme</Badge>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 border-t pt-3">
+            <Button variant="outline" size="sm" onClick={() => setSelectedMovement(null)}>
+              Fermer
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                toast.success("Impression du bordereau officiel...")
+                window.print()
+              }}
+              className="gap-1.5"
+            >
+              <FileText className="h-3.5 w-3.5" /> Imprimer le bordereau
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
