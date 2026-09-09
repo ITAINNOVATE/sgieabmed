@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator"
 import { HeaderActions } from "@/components/header-actions"
 import { MotionWrapper } from "@/components/motion-wrapper"
 import { ShieldCheck } from "lucide-react"
-import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
+import { LOGO_ABMED_WHITE_B64 } from "@/lib/logoabmed-b64"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,9 +19,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-2 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
-                src={LOGO_ABMED_B64}
+                src={LOGO_ABMED_WHITE_B64}
                 alt="ABMed" 
-                style={{ height: '36px', width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                style={{ height: '38px', width: 'auto', objectFit: 'contain' }}
               />
             </div>
           </div>
