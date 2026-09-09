@@ -5,6 +5,7 @@ import { HeaderActions } from "@/components/header-actions"
 
 import { MotionWrapper } from "@/components/motion-wrapper"
 import { ShieldCheck } from "lucide-react"
+import Image from "next/image"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-2 sm:gap-3">
             <SidebarTrigger className="text-white hover:text-white/80 transition-colors h-9 w-9 p-1.5 cursor-pointer rounded-lg bg-white/10 hover:bg-white/20 shrink-0" />
             <Separator orientation="vertical" className="h-6 opacity-40 bg-white hidden sm:block" />
+            <div className="flex items-center gap-2 shrink-0">
+              <Image 
+                src="/logoabmed.png" 
+                alt="ABMed" 
+                width={140} 
+                height={35} 
+                className="h-9 w-auto object-contain brightness-0 invert" 
+              />
+            </div>
           </div>
 
           {/* Titre central institutionnel avec icône Bouclier (Masqué sur mobile) */}
