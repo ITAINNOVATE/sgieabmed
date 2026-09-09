@@ -79,15 +79,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
-      {/* En-tête sur fond BLANC pur (Jour & Nuit) avec Logo Officiel eGED aux Couleurs Originales */}
-      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-center bg-white border-b border-border/40 shrink-0 transition-colors">
+      {/* En-tête sur fond BLANC pur (Jour & Nuit) avec Logo Officiel ABMed */}
+      <SidebarHeader className="h-[72px] px-3.5 flex items-center justify-center bg-white dark:bg-card border-b border-border/40 shrink-0 transition-colors">
         <Link href="/dashboard" className="flex items-center justify-center w-full h-full py-1">
           <Image 
-            src="/logoeGED.png" 
-            alt="eGED - Gestion des échantillons et déchets pharmaceutiques" 
+            src="/logoabmed.png" 
+            alt="ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
             width={240} 
             height={90} 
-            className="h-[52px] w-auto max-w-full object-contain object-center transition-all mx-auto"
+            className="h-[52px] w-auto max-w-full object-contain object-center transition-all mx-auto dark:brightness-0 dark:invert"
             priority 
           />
         </Link>
