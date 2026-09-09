@@ -12,6 +12,7 @@ import {
 import { login } from "./actions/auth"
 import Image from "next/image"
 import dynamic from "next/dynamic"
+import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
 
 const QRCodeScannerDialog = dynamic(
   () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
@@ -34,13 +35,11 @@ export default function LoginPage({
         
         {/* LOGO OFFICIEL ABMED EN HAUT À GAUCHE */}
         <div className="flex items-center gap-3">
-          <Image 
-            src="/logoabmed.png" 
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src={LOGO_ABMED_B64}
             alt="Logo ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
-            width={240} 
-            height={60} 
-            className="h-12 w-auto max-w-[260px] object-contain dark:brightness-0 dark:invert transition-all" 
-            priority
+            style={{ height: '48px', width: 'auto', maxWidth: '260px', objectFit: 'contain' }}
           />
         </div>
 
