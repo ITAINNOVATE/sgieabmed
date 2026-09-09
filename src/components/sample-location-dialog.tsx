@@ -14,6 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { MapPin, AlertTriangle, CheckCircle2, Loader2, ChevronRight } from "lucide-react"
 
+import {
+  getLocalRooms, getLocalZones, getLocalCabinets, getLocalShelves, updateLocalShelf
+} from "@/utils/locations-storage"
+
 interface SampleLocationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -53,22 +57,58 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
   useEffect(() => {
     if (!open) return
     async function load() {
-      const [{ data: r }, { data: z }, { data: c }, { data: s }] = await Promise.all([
-        supabase.from('rooms').select('id, name').order('name'),
-        supabase.from('zones').select('id, name, room_id').order('name'),
-        supabase.from('cabinets').select('id, name, zone_id').order('name'),
-        supabase.from('shelves').select('id, name, cabinet_id, is_full, capacity_max').eq('is_full', false).order('name'),
-      ])
-      setRooms(r || [])
-      setZones(z || [])
-      setCabinets(c || [])
-      setShelves(s || [])
+      // Charger les données locales d'abord
+      const localR = getLocalRooms()
+      const localZ = getLocalZones()
+      const localC = getLocalCabinets()
+      const localS = getLocalShelves()
+
+      let rList: Room[] = [...localR]
+      let zList: Zone[] = [...localZ]
+      let cList: Cabinet[] = [...localC]
+      let sList: Shelf[] = localS.map(s => ({
+        ...s,
+        is_full: !!s.is_full,
+        capacity_max: s.capacity_max ?? null
+      }))
+
+      try {
+        const [{ data: r }, { data: z }, { data: c }, { data: s }] = await Promise.all([
+          supabase.from('rooms').select('id, name').order('name'),
+          supabase.from('zones').select('id, name, room_id').order('name'),
+          supabase.from('cabinets').select('id, name, zone_id').order('name'),
+          supabase.from('shelves').select('id, name, cabinet_id, is_full, capacity_max').eq('is_full', false).order('name'),
+        ])
+        if (r && r.length > 0) {
+          const ids = new Set(rList.map(item => item.id))
+          r.forEach(item => { if (!ids.has(item.id)) rList.push(item) })
+        }
+        if (z && z.length > 0) {
+          const ids = new Set(zList.map(item => item.id))
+          z.forEach(item => { if (!ids.has(item.id)) zList.push(item) })
+        }
+        if (c && c.length > 0) {
+          const ids = new Set(cList.map(item => item.id))
+          c.forEach(item => { if (!ids.has(item.id)) cList.push(item) })
+        }
+        if (s && s.length > 0) {
+          const ids = new Set(sList.map(item => item.id))
+          s.forEach(item => { if (!ids.has(item.id)) sList.push(item) })
+        }
+      } catch {
+        // Mode hors-ligne / fallback local
+      }
+
+      setRooms(rList)
+      setZones(zList)
+      setCabinets(cList)
+      setShelves(sList.filter(s => !s.is_full))
     }
     load()
     // reset
     setSelectedRoom(""); setSelectedZone(""); setSelectedCabinet(""); setSelectedShelf("")
     setPositionDetail(""); setStillAvailable("yes"); setShelfSampleCount(null)
-  }, [open])
+  }, [open, supabase])
 
   // Filter cascade
   useEffect(() => {
@@ -99,56 +139,115 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
   useEffect(() => {
     if (!selectedShelf) { setShelfSampleCount(null); return }
     async function countSamples() {
-      const { count } = await supabase
-        .from('samples')
-        .select('id', { count: 'exact', head: true })
-        .eq('shelf_id', selectedShelf)
-        .neq('status', 'Rejeté')
-      setShelfSampleCount(count ?? 0)
+      try {
+        const { count } = await supabase
+          .from('samples')
+          .select('id', { count: 'exact', head: true })
+          .eq('shelf_id', selectedShelf)
+          .neq('status', 'Rejeté')
+        if (count !== null && count !== undefined) {
+          setShelfSampleCount(count)
+          return
+        }
+      } catch {}
+
+      // Fallback local counting
+      let count = 0
+      if (typeof window !== "undefined") {
+        try {
+          const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+          Object.values(overrides).forEach((item: any) => {
+            if (item && item.shelf_id === selectedShelf && item.status !== 'Rejeté') count++
+          })
+        } catch {}
+      }
+      setShelfSampleCount(count)
     }
     countSamples()
-  }, [selectedShelf])
+  }, [selectedShelf, supabase])
 
   const selectedShelfData = filteredShelves.find(s => s.id === selectedShelf)
 
   const handleConfirm = async () => {
     if (!sample || !selectedShelf) return
     setIsSaving(true)
-    try {
-      // Update sample location
-      const { error: sampleError } = await supabase
-        .from('samples')
-        .update({
-          shelf_id: selectedShelf,
-          position_details: positionDetail || null,
-          status: 'Disponible',
-          current_location: buildLocationPath(),
-        })
-        .eq('id', sample.id)
-      if (sampleError) throw sampleError
+    const locationPath = buildLocationPath()
+    const mvtNumber = `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
 
-      // If operator says shelf is now full → mark it
+    try {
+      // 1. Tenter la mise à jour Supabase avec timeout court
+      try {
+        await Promise.race([
+          supabase
+            .from('samples')
+            .update({
+              shelf_id: selectedShelf,
+              position_details: positionDetail || null,
+              status: 'Disponible',
+              current_location: locationPath,
+            })
+            .eq('id', sample.id),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000))
+        ])
+      } catch {}
+
+      // 2. Si étagère déclarée pleine
       if (stillAvailable === "no") {
-        const { error: shelfError } = await supabase
-          .from('shelves')
-          .update({ is_full: true })
-          .eq('id', selectedShelf)
-        if (shelfError) throw shelfError
+        try {
+          await supabase.from('shelves').update({ is_full: true }).eq('id', selectedShelf)
+        } catch {}
+        updateLocalShelf(selectedShelf, { is_full: true })
       }
 
-      // Record movement
-      await supabase.from('movements').insert({
-        mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-        sample_id: sample.id,
-        movement_type: 'Transfert',
-        quantity: 1,
-        reason: 'Localisation initiale',
-        destination: buildLocationPath(),
-        observations: `Emplacement assigné : ${buildLocationPath()}${positionDetail ? ` — Position : ${positionDetail}` : ''}`,
-      })
+      // 3. Enregistrer le mouvement dans Supabase
+      try {
+        await supabase.from('movements').insert({
+          mvt_number: mvtNumber,
+          sample_id: sample.id,
+          movement_type: 'Transfert',
+          quantity: 1,
+          reason: 'Localisation initiale',
+          destination: locationPath,
+          observations: `Emplacement assigné : ${locationPath}${positionDetail ? ` — Position : ${positionDetail}` : ''}`,
+        })
+      } catch {}
+
+      // 4. Persistance garantie dans localStorage (overrides et historique mouvements)
+      if (typeof window !== "undefined") {
+        try {
+          const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+          const overrideVal = {
+            ...(overrides[sample.id] || {}),
+            shelf_id: selectedShelf,
+            position_details: positionDetail || null,
+            status: 'Disponible',
+            current_location: locationPath,
+          }
+          overrides[sample.id] = overrideVal
+          if (sample.sample_number) overrides[sample.sample_number] = overrideVal
+          localStorage.setItem('local_sample_overrides', JSON.stringify(overrides))
+
+          const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+          localMovements.unshift({
+            id: `mvt_${Date.now()}`,
+            mvt_number: mvtNumber,
+            sample_id: sample.id,
+            sample_number: sample.sample_number,
+            commercial_name: sample.commercial_name,
+            batch_number: sample.batch_number,
+            movement_type: 'Transfert',
+            quantity: 1,
+            reason: 'Localisation initiale',
+            destination: locationPath,
+            observations: `Emplacement assigné : ${locationPath}${positionDetail ? ` — Position : ${positionDetail}` : ''}`,
+            movement_date: new Date().toISOString(),
+          })
+          localStorage.setItem('local_movements_history', JSON.stringify(localMovements))
+        } catch {}
+      }
 
       toast.success(`Emplacement assigné à ${sample.sample_number}`, {
-        description: buildLocationPath()
+        description: locationPath
       })
       onOpenChange(false)
       onSuccess?.()

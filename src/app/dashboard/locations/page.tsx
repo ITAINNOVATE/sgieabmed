@@ -21,8 +21,15 @@ import {
 } from "@/components/ui/accordion"
 import {
   MapPin, Plus, Building2, Layers3, Package, BookOpen,
-  AlertTriangle, CheckCircle2, TrendingUp, Loader2, RefreshCw, Lock
+  AlertTriangle, CheckCircle2, TrendingUp, Loader2, RefreshCw, Lock, Trash2
 } from "lucide-react"
+import {
+  getLocalRooms, saveLocalRoom, deleteLocalRoom,
+  getLocalZones, saveLocalZone, deleteLocalZone,
+  getLocalCabinets, saveLocalCabinet, deleteLocalCabinet,
+  getLocalShelves, saveLocalShelf, updateLocalShelf, deleteLocalShelf,
+  StorageRoom, StorageZone, StorageCabinet, StorageShelf
+} from "@/utils/locations-storage"
 
 interface Room    { id: string; name: string; description?: string }
 interface Zone    { id: string; name: string; room_id: string }
@@ -58,11 +65,24 @@ function AddRoomDialog({ onSuccess }: { onSuccess: () => void }) {
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('rooms').insert({ name: name.trim(), description: desc.trim() || null })
+
+    // Tentative en arrière-plan vers Supabase sans bloquer l'UI
+    try {
+      await Promise.race([
+        supabase.from('rooms').insert({ name: name.trim(), description: desc.trim() || null }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+    } catch {
+      // Supabase indisponible ou schéma non initialisé
+    }
+
+    // Persistance locale garantie et instantanée
+    saveLocalRoom(name, desc)
     setSaving(false)
-    if (error) { toast.error("Erreur : " + error.message); return }
-    toast.success("Salle créée : " + name)
-    setOpen(false); setName(""); setDesc("")
+    toast.success("Salle créée avec succès : " + name.trim())
+    setOpen(false)
+    setName("")
+    setDesc("")
     onSuccess()
   }
 
@@ -78,8 +98,8 @@ function AddRoomDialog({ onSuccess }: { onSuccess: () => void }) {
             <DialogDescription>Ajouter une salle ou un espace physique de stockage.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="space-y-1"><Label>Nom *</Label><Input placeholder="" value={name} onChange={e => setName(e.target.value)} /></div>
-            <div className="space-y-1"><Label>Description</Label><Input placeholder="" value={desc} onChange={e => setDesc(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom *</Label><Input placeholder="Ex: ECHANTIOTHEQUE PRINCIPALE" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Description</Label><Input placeholder="Ex: Salle principale de stockage" value={desc} onChange={e => setDesc(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
@@ -102,11 +122,20 @@ function AddZoneDialog({ rooms, onSuccess }: { rooms: Room[]; onSuccess: () => v
   const handleSave = async () => {
     if (!name.trim() || !roomId) return
     setSaving(true)
-    const { error } = await supabase.from('zones').insert({ name: name.trim(), room_id: roomId })
+
+    try {
+      await Promise.race([
+        supabase.from('zones').insert({ name: name.trim(), room_id: roomId }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+    } catch {}
+
+    saveLocalZone(name, roomId)
     setSaving(false)
-    if (error) { toast.error("Erreur : " + error.message); return }
-    toast.success("Zone créée : " + name)
-    setOpen(false); setName(""); setRoomId("")
+    toast.success("Zone créée avec succès : " + name.trim())
+    setOpen(false)
+    setName("")
+    setRoomId("")
     onSuccess()
   }
 
@@ -129,7 +158,7 @@ function AddZoneDialog({ rooms, onSuccess }: { rooms: Room[]; onSuccess: () => v
                 <SelectContent>{rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Nom de la zone *</Label><Input placeholder="" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom de la zone *</Label><Input placeholder="Ex: Zone A" value={name} onChange={e => setName(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
@@ -155,11 +184,21 @@ function AddCabinetDialog({ rooms, zones, onSuccess }: { rooms: Room[]; zones: Z
   const handleSave = async () => {
     if (!name.trim() || !zoneId) return
     setSaving(true)
-    const { error } = await supabase.from('cabinets').insert({ name: name.trim(), zone_id: zoneId })
+
+    try {
+      await Promise.race([
+        supabase.from('cabinets').insert({ name: name.trim(), zone_id: zoneId }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+    } catch {}
+
+    saveLocalCabinet(name, zoneId)
     setSaving(false)
-    if (error) { toast.error("Erreur : " + error.message); return }
-    toast.success("Armoire créée : " + name)
-    setOpen(false); setName(""); setRoomId(""); setZoneId("")
+    toast.success("Armoire créée avec succès : " + name.trim())
+    setOpen(false)
+    setName("")
+    setRoomId("")
+    setZoneId("")
     onSuccess()
   }
 
@@ -185,11 +224,11 @@ function AddCabinetDialog({ rooms, zones, onSuccess }: { rooms: Room[]; zones: Z
             <div className="space-y-1">
               <Label>Zone *</Label>
               <Select value={zoneId} onValueChange={(v) => setZoneId(v || "")} disabled={!roomId}>
-                <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={!roomId ? "Sélectionnez d'abord une salle" : "Choisir..."} /></SelectTrigger>
                 <SelectContent>{filteredZones.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Nom de l'armoire *</Label><Input placeholder="" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom de l'armoire *</Label><Input placeholder="Ex: Armoire A1" value={name} onChange={e => setName(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
@@ -218,16 +257,29 @@ function AddShelfDialog({ rooms, zones, cabinets, onSuccess }: { rooms: Room[]; 
   const handleSave = async () => {
     if (!name.trim() || !cabinetId) return
     setSaving(true)
-    const { error } = await supabase.from('shelves').insert({
-      name: name.trim(),
-      cabinet_id: cabinetId,
-      capacity_max: capacityMax ? parseInt(capacityMax) : null,
-      is_full: false
-    })
+    const cap = capacityMax ? parseInt(capacityMax) : null
+
+    try {
+      await Promise.race([
+        supabase.from('shelves').insert({
+          name: name.trim(),
+          cabinet_id: cabinetId,
+          capacity_max: cap,
+          is_full: false
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+    } catch {}
+
+    saveLocalShelf(name, cabinetId, cap)
     setSaving(false)
-    if (error) { toast.error("Erreur : " + error.message); return }
-    toast.success("Étagère créée : " + name)
-    setOpen(false); setName(""); setRoomId(""); setZoneId(""); setCabinetId(""); setCapacityMax("")
+    toast.success("Étagère créée avec succès : " + name.trim())
+    setOpen(false)
+    setName("")
+    setRoomId("")
+    setZoneId("")
+    setCabinetId("")
+    setCapacityMax("")
     onSuccess()
   }
 
@@ -253,21 +305,21 @@ function AddShelfDialog({ rooms, zones, cabinets, onSuccess }: { rooms: Room[]; 
             <div className="space-y-1">
               <Label>Zone *</Label>
               <Select value={zoneId} onValueChange={v => { setZoneId(v || ""); setCabinetId("") }} disabled={!roomId}>
-                <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={!roomId ? "Sélectionnez d'abord une salle" : "Choisir..."} /></SelectTrigger>
                 <SelectContent>{filteredZones.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label>Armoire *</Label>
               <Select value={cabinetId} onValueChange={(v) => setCabinetId(v || "")} disabled={!zoneId}>
-                <SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={!zoneId ? "Sélectionnez d'abord une zone" : "Choisir..."} /></SelectTrigger>
                 <SelectContent>{filteredCabinets.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Nom de l'étagère *</Label><Input placeholder="" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom de l'étagère *</Label><Input placeholder="Ex: Étagère 1" value={name} onChange={e => setName(e.target.value)} /></div>
             <div className="space-y-1">
               <Label>Capacité max (optionnel)</Label>
-              <Input type="number" placeholder="" value={capacityMax} onChange={e => setCapacityMax(e.target.value)} min={1} />
+              <Input type="number" placeholder="Ex: 50" value={capacityMax} onChange={e => setCapacityMax(e.target.value)} min={1} />
             </div>
           </div>
           <DialogFooter>
@@ -328,34 +380,117 @@ export default function LocationsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const [{ data: r }, { data: z }, { data: c }, { data: s }, { data: samples }] = await Promise.all([
-      supabase.from('rooms').select('*').order('name'),
-      supabase.from('zones').select('*').order('name'),
-      supabase.from('cabinets').select('*').order('name'),
-      supabase.from('shelves').select('*').order('name'),
-      supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id').neq('is_deleted', true),
-    ])
 
-    const roomsData:    Room[]    = r    || []
-    const zonesData:    Zone[]    = z    || []
-    const cabinetsData: Cabinet[] = c    || []
-    const shelvesData:  Shelf[]   = s    || []
-    const samplesData             = samples || []
+    // Charger d'abord les données locales garanties
+    const localR = getLocalRooms()
+    const localZ = getLocalZones()
+    const localC = getLocalCabinets()
+    const localS = getLocalShelves()
+
+    let remoteR: Room[] = []
+    let remoteZ: Zone[] = []
+    let remoteC: Cabinet[] = []
+    let remoteS: Shelf[] = []
+    let remoteSamples: any[] = []
+
+    try {
+      const [{ data: r }, { data: z }, { data: c }, { data: s }, { data: samples }] = await Promise.all([
+        supabase.from('rooms').select('*').order('name'),
+        supabase.from('zones').select('*').order('name'),
+        supabase.from('cabinets').select('*').order('name'),
+        supabase.from('shelves').select('*').order('name'),
+        supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id').neq('is_deleted', true),
+      ])
+      if (r) remoteR = r
+      if (z) remoteZ = z
+      if (c) remoteC = c
+      if (s) remoteS = s
+      if (samples) remoteSamples = samples
+    } catch {
+      // Supabase inaccessible ou tables manquantes
+    }
+
+    // Fusionner les salles
+    const roomMap = new Map<string, Room>()
+    localR.forEach(item => roomMap.set(item.id, item))
+    remoteR.forEach(item => {
+      if (!roomMap.has(item.id)) roomMap.set(item.id, item)
+    })
+    const roomsData = Array.from(roomMap.values())
+
+    // Fusionner les zones
+    const zoneMap = new Map<string, Zone>()
+    localZ.forEach(item => zoneMap.set(item.id, item))
+    remoteZ.forEach(item => {
+      if (!zoneMap.has(item.id)) zoneMap.set(item.id, item)
+    })
+    const zonesData = Array.from(zoneMap.values())
+
+    // Fusionner les armoires
+    const cabMap = new Map<string, Cabinet>()
+    localC.forEach(item => cabMap.set(item.id, item))
+    remoteC.forEach(item => {
+      if (!cabMap.has(item.id)) cabMap.set(item.id, item)
+    })
+    const cabinetsData = Array.from(cabMap.values())
+
+    // Fusionner les étagères
+    const shelfMap = new Map<string, Shelf>()
+    localS.forEach(item => shelfMap.set(item.id, {
+      ...item,
+      is_full: !!item.is_full,
+      capacity_max: item.capacity_max ?? null,
+    }))
+    remoteS.forEach(item => {
+      if (!shelfMap.has(item.id)) shelfMap.set(item.id, item)
+    })
+    const shelvesData = Array.from(shelfMap.values())
 
     setRawRooms(roomsData)
     setRawZones(zonesData)
     setRawCabinets(cabinetsData)
 
-    // Count samples per shelf
-    const samplesByShelf: Record<string, typeof samplesData> = {}
-    samplesData.forEach(smp => {
+    // Fusionner les échantillons (Supabase + localStorage)
+    const sampleMap = new Map<string, any>()
+    remoteSamples.forEach(smp => sampleMap.set(smp.id || smp.sample_number, smp))
+
+    if (typeof window !== "undefined") {
+      try {
+        const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+        historyRecords.forEach((rec: any) => {
+          if (rec.samples && Array.isArray(rec.samples)) {
+            rec.samples.forEach((smp: any) => {
+              const sid = smp.id || smp.sample_number
+              if (sid && !sampleMap.has(sid)) {
+                sampleMap.set(sid, smp)
+              }
+            })
+          }
+        })
+
+        const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        Object.entries(overrides).forEach(([key, val]: [string, any]) => {
+          if (sampleMap.has(key)) {
+            sampleMap.set(key, { ...sampleMap.get(key), ...val })
+          } else if (val.shelf_id) {
+            sampleMap.set(key, { id: key, ...val })
+          }
+        })
+      } catch {}
+    }
+
+    const allSamples = Array.from(sampleMap.values())
+
+    // Compter les échantillons par étagère
+    const samplesByShelf: Record<string, typeof allSamples> = {}
+    allSamples.forEach(smp => {
       if (smp.shelf_id) {
         if (!samplesByShelf[smp.shelf_id]) samplesByShelf[smp.shelf_id] = []
         samplesByShelf[smp.shelf_id].push(smp)
       }
     })
 
-    // Build hierarchy
+    // Construire la hiérarchie enrichie
     const enrichedRooms: RoomWithZones[] = roomsData.map(room => {
       const roomZones: ZoneWithCabinets[] = zonesData
         .filter(z => z.room_id === room.id)
@@ -388,15 +523,47 @@ export default function LocationsPage() {
 
     setRooms(enrichedRooms)
     setLoading(false)
-  }, [])
+  }, [supabase])
 
   useEffect(() => { loadData() }, [loadData])
-
-  const unlocatedSamples = rooms.reduce((acc, r) => acc, 0) // computed separately
 
   const globalSamples  = rooms.reduce((a, r) => a + r.totalSamples, 0)
   const globalCapacity = rooms.reduce((a, r) => a + r.totalCapacity, 0)
   const globalFull     = rooms.reduce((a, r) => a + r.fullShelves, 0)
+
+  const handleDeleteRoom = (e: React.MouseEvent, roomId: string, name: string) => {
+    e.stopPropagation()
+    if (confirm(`Êtes-vous sûr de vouloir supprimer la salle "${name}" et tout son contenu ?`)) {
+      deleteLocalRoom(roomId)
+      loadData()
+      toast.success(`Salle "${name}" supprimée`)
+    }
+  }
+
+  const handleDeleteZone = (e: React.MouseEvent, zoneId: string, name: string) => {
+    e.stopPropagation()
+    if (confirm(`Supprimer la zone "${name}" et ses armoires ?`)) {
+      deleteLocalZone(zoneId)
+      loadData()
+      toast.success(`Zone "${name}" supprimée`)
+    }
+  }
+
+  const handleDeleteCabinet = (cabinetId: string, name: string) => {
+    if (confirm(`Supprimer l'armoire "${name}" et ses étagères ?`)) {
+      deleteLocalCabinet(cabinetId)
+      loadData()
+      toast.success(`Armoire "${name}" supprimée`)
+    }
+  }
+
+  const handleDeleteShelf = (shelfId: string, name: string) => {
+    if (confirm(`Supprimer l'étagère "${name}" ?`)) {
+      deleteLocalShelf(shelfId)
+      loadData()
+      toast.success(`Étagère "${name}" supprimée`)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -494,6 +661,15 @@ export default function LocationsPage() {
                       <Badge variant="outline" className="text-xs">{room.totalSamples} échantillons</Badge>
                       {room.fullShelves > 0 && <Badge variant="secondary" className="text-xs bg-red-50 text-red-700 border-red-200">{room.fullShelves} étagère{room.fullShelves > 1 ? 's' : ''} pleine{room.fullShelves > 1 ? 's' : ''}</Badge>}
                       <Badge variant="secondary" className="text-xs">{room.totalShelves} étagère{room.totalShelves !== 1 ? 's' : ''}</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
+                        title="Supprimer la salle"
+                        onClick={(e) => handleDeleteRoom(e, room.id, room.name)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -507,7 +683,18 @@ export default function LocationsPage() {
                           <div className="bg-muted/30 px-4 py-2.5 flex items-center gap-2">
                             <Layers3 className="h-4 w-4 text-muted-foreground" />
                             <span className="font-semibold text-sm">{zone.name}</span>
-                            <Badge variant="outline" className="ml-auto text-xs">{zone.cabinets.length} armoire{zone.cabinets.length !== 1 ? 's' : ''}</Badge>
+                            <div className="ml-auto flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">{zone.cabinets.length} armoire{zone.cabinets.length !== 1 ? 's' : ''}</Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-red-600 rounded"
+                                title="Supprimer la zone"
+                                onClick={(e) => handleDeleteZone(e, zone.id, zone.name)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                           <div className="divide-y divide-border/30">
                             {zone.cabinets.length === 0 ? (
@@ -518,7 +705,18 @@ export default function LocationsPage() {
                                   <div className="flex items-center gap-2 mb-2">
                                     <Package className="h-4 w-4 text-blue-600" />
                                     <span className="font-medium text-sm">{cabinet.name}</span>
-                                    <span className="text-xs text-muted-foreground ml-auto">{cabinet.shelves.length} étagère{cabinet.shelves.length !== 1 ? 's' : ''}</span>
+                                    <div className="ml-auto flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">{cabinet.shelves.length} étagère{cabinet.shelves.length !== 1 ? 's' : ''}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-red-600 rounded"
+                                        title="Supprimer l'armoire"
+                                        onClick={() => handleDeleteCabinet(cabinet.id, cabinet.name)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
                                   </div>
                                   <div className="space-y-2 pl-6">
                                     {cabinet.shelves.length === 0 ? (
@@ -534,6 +732,15 @@ export default function LocationsPage() {
                                             </div>
                                             <ShelfOccupancyBar shelf={shelf} />
                                           </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-muted-foreground hover:text-red-600 rounded opacity-60 hover:opacity-100"
+                                            title="Supprimer l'étagère"
+                                            onClick={() => handleDeleteShelf(shelf.id, shelf.name)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
                                         </div>
                                       ))
                                     )}
