@@ -248,7 +248,7 @@ export default function WasteClient({
                   {filteredBatches.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="h-16 text-center text-xs text-muted-foreground">Aucun lot de déchet trouvé.</TableCell></TableRow>
                   ) : (
-                    filteredBatches.slice(0, 5).map((batch) => (
+                    filteredBatches.map((batch) => (
                       <TableRow key={batch.id} className="text-xs hover:bg-muted/30">
                         <TableCell className="pl-3 py-2">
                           <Checkbox 

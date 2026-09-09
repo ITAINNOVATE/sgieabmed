@@ -12,11 +12,48 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+const MOCK_DESTRUCTION_PLANS = [
+  {
+    id: '1',
+    plan_number: 'DES-2026-0042',
+    planned_date: '2026-04-10',
+    execution_date: null,
+    status: 'En préparation',
+    items: [
+      { id: 'item-1', quantity: 150, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
+    ]
+  },
+  {
+    id: '2',
+    plan_number: 'DES-2026-0038',
+    planned_date: '2026-03-20',
+    execution_date: null,
+    status: 'Validation Qualité',
+    items: [
+      { id: 'item-2', quantity: 45, waste_batch: { batch_number: 'DEC-2026-88120', waste_type: 'Produits chimiques dangereux', unit: 'L', status: 'En attente de destruction' } },
+      { id: 'item-3', quantity: 12, waste_batch: { batch_number: 'DEC-2026-99201', waste_type: 'Flacons cassés', unit: 'Kg', status: 'En attente de destruction' } }
+    ]
+  },
+  {
+    id: '3',
+    plan_number: 'DES-2026-0031',
+    planned_date: '2026-02-15',
+    execution_date: '2026-02-16T14:00:00.000Z',
+    status: 'Exécuté',
+    items: [
+      { id: 'item-4', quantity: 230, waste_batch: { batch_number: 'DEC-2026-11409', waste_type: 'Déchets infectieux (DASRI)', unit: 'Kg', status: 'Détruit' } },
+      { id: 'item-5', quantity: 80, waste_batch: { batch_number: 'DEC-2026-44021', waste_type: 'Emballages souillés', unit: 'Kg', status: 'Détruit' } }
+    ]
+  },
+]
+
 export default function DestructionsClient({ initialPlans }: { initialPlans: any[] }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  const filteredPlans = initialPlans.filter(plan => {
+  const plansList = initialPlans && initialPlans.length > 0 ? initialPlans : MOCK_DESTRUCTION_PLANS
+
+  const filteredPlans = plansList.filter(plan => {
     const matchesSearch = 
       plan.plan_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       plan.status.toLowerCase().includes(searchTerm.toLowerCase())
@@ -136,7 +173,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
                 {filteredPlans.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">Aucun plan de destruction trouvé.</TableCell></TableRow>
                 ) : (
-                  filteredPlans.slice(0, 5).map((plan) => {
+                  filteredPlans.map((plan) => {
                     const totalQty = plan.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 150;
                     const itemsCount = plan.items?.length || 3;
                     
