@@ -24,6 +24,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { logout } from "@/app/actions/auth"
+import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -551,7 +552,7 @@ export function AppSidebar() {
         <div className="flex items-center justify-center px-1 py-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
-            src="/logoabmed.png" 
+            src={LOGO_ABMED_B64}
             alt="Logo ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
             style={{ height: '40px', width: 'auto', maxWidth: '200px', objectFit: 'contain' }}
           />
