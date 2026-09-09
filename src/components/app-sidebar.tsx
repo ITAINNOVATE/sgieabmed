@@ -250,6 +250,19 @@ export function AppSidebar() {
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
+                        href="/dashboard/locations" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/locations')
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Localisations</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link 
                         href="/dashboard/samples" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/samples')
@@ -300,6 +313,21 @@ export function AppSidebar() {
                 </SidebarMenuButton>
                 {openSections.waste && (
                   <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
+                    {/* P1 CORRIGÉ: Toutes les Réceptions pointe vers la liste */}
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/waste" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/waste')
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Toutes les Réceptions</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    {/* P1 CORRIGÉ: Nouvelle Réception pointe vers le formulaire */}
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/waste/new" 
@@ -309,8 +337,8 @@ export function AppSidebar() {
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Réception</span>
+                        <PackageCheck className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Nouvelle Réception</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
@@ -341,19 +369,6 @@ export function AppSidebar() {
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
-                        href="/dashboard/waste" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/waste')
-                            ? "bg-white text-red-600 font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Stocks</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
                         href="/dashboard/destructions" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/destructions')
@@ -365,17 +380,18 @@ export function AppSidebar() {
                         <span className="truncate">Destruction</span>
                       </Link>
                     </SidebarMenuSubItem>
+                    {/* P3 CORRIGÉ: Documentation Déchets avec filtre type */}
                     <SidebarMenuSubItem>
                       <Link 
-                        href="/dashboard/documents" 
+                        href="/dashboard/documents?type=dechet" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/documents')
+                          pathname === '/dashboard/documents' && typeof window !== 'undefined' && window.location.search.includes('type=dechet')
                             ? "bg-white text-red-600 font-bold shadow-xs"
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
                         <Folder className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Documentation</span>
+                        <span className="truncate">Documentation Déchets</span>
                       </Link>
                     </SidebarMenuSubItem>
                   </SidebarMenuSub>
@@ -519,6 +535,34 @@ export function AppSidebar() {
                       >
                         <Building2 className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Services & Directions</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    {/* P2 CORRIGÉ: Rôles ajouté */}
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/admin/roles" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/admin/roles')
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <Shield className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Rôles</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    {/* P2 CORRIGÉ: Permissions ajouté */}
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/admin/permissions" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/admin/permissions')
+                            ? "bg-white text-[#0B5ED7] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Permissions</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
