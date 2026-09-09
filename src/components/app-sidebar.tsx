@@ -547,23 +547,15 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* PIED DE LA SIDEBAR INSTITUTIONNEL SUR FOND BLANC PUR (JOUR & NUIT) */}
-      <SidebarFooter className="p-3 border-t border-border/60 space-y-2 shrink-0 bg-white transition-colors">
-        <div className="flex items-center gap-2.5 px-1">
-          <div className="shrink-0 flex items-center justify-center h-8 w-8">
-            <Image 
-              src="/logoABMeD.png" 
-              alt="Logo ABMed" 
-              width={32} 
-              height={32} 
-              className="h-8 w-8 object-contain" 
-            />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-extrabold text-xs text-[#1B5C2E] leading-none">ABMed</span>
-            <span className="text-[8.5px] text-muted-foreground leading-tight mt-0.5 font-medium">
-              Agence béninoise du Médicament et des autres produits de Santé
-            </span>
-          </div>
+      <SidebarFooter className="p-3 border-t border-border/60 space-y-2 shrink-0 bg-white dark:bg-card transition-colors">
+        <div className="flex items-center justify-start px-1 py-0.5">
+          <Image 
+            src="/logoabmed.png" 
+            alt="Logo ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
+            width={180} 
+            height={45} 
+            className="h-10 w-auto max-w-[200px] object-contain dark:brightness-0 dark:invert transition-all" 
+          />
         </div>
 
         <form action={logout}>

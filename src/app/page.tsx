@@ -34,23 +34,14 @@ export default function LoginPage({
         
         {/* LOGO OFFICIEL ABMED EN HAUT À GAUCHE */}
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 shrink-0 flex items-center justify-center">
-            <Image 
-              src="/logoABMeD.png" 
-              alt="Logo ABMed" 
-              width={40} 
-              height={40} 
-              className="h-10 w-10 object-contain" 
-            />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-extrabold text-xl tracking-tight text-[#1B5C2E] dark:text-white leading-none">
-              ABMed
-            </span>
-            <span className="text-[8.5px] font-bold uppercase text-muted-foreground tracking-wider leading-tight mt-0.5">
-              AGENCE BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ
-            </span>
-          </div>
+          <Image 
+            src="/logoabmed.png" 
+            alt="Logo ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
+            width={240} 
+            height={60} 
+            className="h-12 w-auto max-w-[260px] object-contain dark:brightness-0 dark:invert transition-all" 
+            priority
+          />
         </div>
 
         {/* CONTENU CENTRAL : LOGO OFFICIEL eGED & PRÉSENTATION */}
