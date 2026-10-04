@@ -689,25 +689,29 @@ export default function NewReceptionPage() {
       console.warn("Erreur sauvegarde locale historique:", e)
     }
 
-    let { error } = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
+    try {
+      let { error } = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
 
-    // Si l'upsert échoue (ex: colonne absente ou contrainte), tenter update puis insert minimal
-    if (error) {
-      console.warn("Échec upsert complet, tentative update/insert:", error.message)
-      const { error: updateErr } = await supabase.from('receptions').update(fullPayload).eq('rec_number', values.rec_number)
-      if (updateErr) {
-        const minimalPayload = {
-          rec_number: values.rec_number,
-          date_reception: values.date_reception || new Date().toISOString().split('T')[0],
-          supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
-          status: status,
-          inspector: values.inspector || "Marie ADANDE",
-        }
-        const { error: minUpdateErr } = await supabase.from('receptions').update(minimalPayload).eq('rec_number', values.rec_number)
-        if (minUpdateErr) {
-          await supabase.from('receptions').insert(minimalPayload)
+      // Si l'upsert échoue (ex: colonne absente ou contrainte), tenter update puis insert minimal
+      if (error) {
+        console.warn("Échec upsert complet, tentative update/insert:", error.message)
+        const { error: updateErr } = await supabase.from('receptions').update(fullPayload).eq('rec_number', values.rec_number)
+        if (updateErr) {
+          const minimalPayload = {
+            rec_number: values.rec_number,
+            date_reception: values.date_reception || new Date().toISOString().split('T')[0],
+            supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
+            status: status,
+            inspector: values.inspector || "Marie ADANDE",
+          }
+          const { error: minUpdateErr } = await supabase.from('receptions').update(minimalPayload).eq('rec_number', values.rec_number)
+          if (minUpdateErr) {
+            await supabase.from('receptions').insert(minimalPayload)
+          }
         }
       }
+    } catch (dbErr) {
+      console.warn("Supabase receptions database operation warning:", dbErr)
     }
 
     // Insérer les échantillons valides

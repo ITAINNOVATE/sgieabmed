@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Plus, Flame, Search, Eye, MoreHorizontal, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react"
 
@@ -51,7 +51,25 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  const plansList = initialPlans && initialPlans.length > 0 ? initialPlans : MOCK_DESTRUCTION_PLANS
+  const [plansList, setPlansList] = useState<any[]>(() => {
+    return initialPlans && initialPlans.length > 0 ? initialPlans : MOCK_DESTRUCTION_PLANS
+  })
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('destruction_plans_custom_v1')
+      if (stored) {
+        const customPlans = JSON.parse(stored)
+        if (Array.isArray(customPlans) && customPlans.length > 0) {
+          const base = initialPlans && initialPlans.length > 0 ? initialPlans : MOCK_DESTRUCTION_PLANS
+          const merged = [...customPlans, ...base.filter((bp: any) => !customPlans.some((cp: any) => cp.id === bp.id || cp.plan_number === bp.plan_number))]
+          setPlansList(merged)
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }, [initialPlans])
 
   const filteredPlans = plansList.filter(plan => {
     const matchesSearch = 
@@ -100,7 +118,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
             <div className="p-2 bg-amber-500/10 text-amber-600 rounded-lg"><AlertTriangle className="h-4 w-4" /></div>
             <div>
               <p className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">Destructions en attente</p>
-              <h3 className="text-xl font-black text-foreground">{initialPlans.filter(p => ['Validation Responsable', 'Validation Qualité', 'En attente exécution'].includes(p.status)).length || 7}</h3>
+              <h3 className="text-xl font-black text-foreground">{plansList.filter(p => ['Validation Responsable', 'Validation Qualité', 'En attente exécution'].includes(p.status)).length}</h3>
             </div>
           </CardContent>
         </Card>
@@ -109,7 +127,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
             <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg"><ShieldCheck className="h-4 w-4" /></div>
             <div>
               <p className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">En cours de validation</p>
-              <h3 className="text-xl font-black text-foreground">{initialPlans.filter(p => ['Validation Responsable', 'Validation Qualité'].includes(p.status)).length || 3}</h3>
+              <h3 className="text-xl font-black text-foreground">{plansList.filter(p => ['Validation Responsable', 'Validation Qualité'].includes(p.status)).length}</h3>
             </div>
           </CardContent>
         </Card>
@@ -118,7 +136,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
             <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg"><CheckCircle2 className="h-4 w-4" /></div>
             <div>
               <p className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">Destructions exécutées</p>
-              <h3 className="text-xl font-black text-foreground">{initialPlans.filter(p => p.status === 'Exécuté' || p.status === 'Archivé').length || 23}</h3>
+              <h3 className="text-xl font-black text-foreground">{plansList.filter(p => p.status === 'Exécuté' || p.status === 'Archivé').length}</h3>
             </div>
           </CardContent>
         </Card>

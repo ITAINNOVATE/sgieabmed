@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { 
   Plus, Trash2, Search, Filter, Flame, Eye, Printer, 
@@ -39,7 +39,25 @@ export default function WasteClient({
   initialBatches: any[], 
   destructions?: any[] 
 }) {
-  const batches = initialBatches && initialBatches.length > 0 ? initialBatches : MOCK_WASTE_BATCHES
+  const [batches, setBatches] = useState<any[]>(() => {
+    return initialBatches && initialBatches.length > 0 ? initialBatches : MOCK_WASTE_BATCHES
+  })
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('waste_batches_custom_v1')
+      if (stored) {
+        const localBatches = JSON.parse(stored)
+        if (Array.isArray(localBatches) && localBatches.length > 0) {
+          const base = initialBatches && initialBatches.length > 0 ? initialBatches : MOCK_WASTE_BATCHES
+          const merged = [...localBatches, ...base.filter((b: any) => !localBatches.some((lb: any) => lb.id === b.id || lb.batch_number === b.batch_number))]
+          setBatches(merged)
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }, [initialBatches])
   const [activeView, setActiveView] = useState<'table' | 'analytics'>('table')
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")

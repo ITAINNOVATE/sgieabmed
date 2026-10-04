@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -24,8 +25,16 @@ const getFileIcon = (type: string) => {
 }
 
 export default function DocumentsClient({ initialDocuments, samplesList }: DocumentsClientProps) {
+  const searchParams = useSearchParams()
+  const initialTypeFromUrl = searchParams.get('type')
   const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState(initialTypeFromUrl === 'dechet' ? 'dechet' : 'all')
+
+  useEffect(() => {
+    if (initialTypeFromUrl === 'dechet') {
+      setTypeFilter('dechet')
+    }
+  }, [initialTypeFromUrl])
   
   // Modal states
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -43,7 +52,16 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
       doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.sample.toLowerCase().includes(searchTerm.toLowerCase())
       
-    const matchesType = typeFilter === "all" || doc.type === typeFilter
+    let matchesType = true
+    if (typeFilter === "all") {
+      matchesType = true
+    } else if (typeFilter === "dechet") {
+      const t = (doc.type || "").toLowerCase()
+      const title = (doc.title || "").toLowerCase()
+      matchesType = t.includes("destruction") || t.includes("déchet") || t.includes("dechet") || t.includes("bsd") || title.includes("destruction") || title.includes("déchet") || title.includes("dechet")
+    } else {
+      matchesType = doc.type === typeFilter
+    }
     
     return matchesSearch && matchesType
   })
@@ -158,15 +176,17 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
                 />
               </div>
               <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || "all")}>
-                <SelectTrigger className="h-8 w-36 text-xs bg-background">
-                  <SelectValue placeholder="Type" />
+                <SelectTrigger className="h-8 w-44 text-xs bg-background">
+                  <SelectValue placeholder="Type de document" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous</SelectItem>
-                  <SelectItem value="Certificat d'analyse">Certificat</SelectItem>
-                  <SelectItem value="Rapport d'essai">Rapport</SelectItem>
-                  <SelectItem value="Formulaire de réception">Réception</SelectItem>
-                  <SelectItem value="Photo de destruction">Photo</SelectItem>
+                  <SelectItem value="all">Tous les documents</SelectItem>
+                  <SelectItem value="dechet">Déchets & Destructions (BSD, PV)</SelectItem>
+                  <SelectItem value="Certificat d'analyse">Certificat d'analyse</SelectItem>
+                  <SelectItem value="Rapport d'essai">Rapport d'essai</SelectItem>
+                  <SelectItem value="Formulaire de réception">Formulaire de réception</SelectItem>
+                  <SelectItem value="Rapport de destruction">Rapport de destruction</SelectItem>
+                  <SelectItem value="Photo de destruction">Photo de destruction</SelectItem>
                 </SelectContent>
               </Select>
             </div>

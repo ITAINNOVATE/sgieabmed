@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { supabase } from "@/lib/supabase"
 import DocumentsClient from "./DocumentsClient"
 
@@ -50,12 +51,16 @@ export default async function DocumentsPage() {
   const displayDocuments = documents.length ? documents : [
     { id: '1', title: 'Certificat d\'Analyse Amoxicilline', type: "Certificat d'analyse", sample: 'ECH-001 - Amoxicilline 500mg', version: 'v1.0', author: 'Kadia Barry', date: new Date().toLocaleDateString('fr-FR'), file_url: '#' },
     { id: '2', title: 'Photo destruction ECH-002', type: 'Photo de destruction', sample: 'ECH-002 - Ibuprofène 400mg', version: 'v1.0', author: 'Moussa Traoré', date: new Date(Date.now() - 86400000).toLocaleDateString('fr-FR'), file_url: '#' },
-    { id: '3', title: 'Rapport Destruction trimestriel Q2', type: 'Rapport de destruction', sample: 'N/A', version: 'v2.1', author: 'System', date: new Date(Date.now() - 172800000).toLocaleDateString('fr-FR'), file_url: '#' }
+    { id: '3', title: 'Rapport Destruction trimestriel Q2', type: 'Rapport de destruction', sample: 'N/A', version: 'v2.1', author: 'System', date: new Date(Date.now() - 172800000).toLocaleDateString('fr-FR'), file_url: '#' },
+    { id: '4', title: 'Bordereau Suivi Déchets (BSD-2026-088)', type: 'Bordereau de suivi des déchets (BSD)', sample: 'DEC-2026-73355', version: 'v1.0', author: 'Marie ADANDE', date: new Date(Date.now() - 259200000).toLocaleDateString('fr-FR'), file_url: '#' },
+    { id: '5', title: 'Procès-Verbal Destruction DES-2026-0031', type: 'Procès-Verbal de destruction', sample: 'DEC-2026-11409', version: 'v1.0', author: 'Dr. Valère GANDONOU', date: new Date(Date.now() - 345600000).toLocaleDateString('fr-FR'), file_url: '#' }
   ]
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
-      <DocumentsClient initialDocuments={displayDocuments} samplesList={samplesList} />
+      <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-xs animate-pulse">Chargement de la gestion documentaire...</div>}>
+        <DocumentsClient initialDocuments={displayDocuments} samplesList={samplesList} />
+      </Suspense>
     </div>
   )
 }

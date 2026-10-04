@@ -118,24 +118,49 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
         } else if (MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id]) {
           setWasteBatch(MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id])
         } else {
-          // Fallback dynamique générique pour tout ID testé
-          setWasteBatch({
-            id: resolvedParams.id,
-            batch_number: `DEC-2026-${resolvedParams.id.substring(0, 5).toUpperCase()}`,
-            waste_type: 'Déchet Pharmaceutique Standard',
-            quantity: 50,
-            unit: 'Kg',
-            current_location: 'Local Déchets A1',
-            status: 'Déclaré',
-            observations: 'Lot enregistré dans le cadre du suivi réglementaire ABMed.',
-            created_at: new Date().toISOString(),
-            creator: { first_name: 'Marie', last_name: 'ADANDE' },
-            sample: null,
-            sample_id: null
-          })
+          // Vérifier si présent dans le localStorage
+          let foundLocal: any = null
+          try {
+            const stored = localStorage.getItem('waste_batches_custom_v1')
+            if (stored) {
+              const list = JSON.parse(stored)
+              foundLocal = list.find((b: any) => b.id === resolvedParams.id || b.batch_number === resolvedParams.id)
+            }
+          } catch (e) {}
+
+          if (foundLocal) {
+            setWasteBatch(foundLocal)
+          } else {
+            // Fallback dynamique générique pour tout ID testé
+            setWasteBatch({
+              id: resolvedParams.id,
+              batch_number: `DEC-2026-${resolvedParams.id.substring(0, 5).toUpperCase()}`,
+              waste_type: 'Déchet Pharmaceutique Standard',
+              quantity: 50,
+              unit: 'Kg',
+              current_location: 'Local Déchets A1',
+              status: 'Déclaré',
+              observations: 'Lot enregistré dans le cadre du suivi réglementaire ABMed.',
+              created_at: new Date().toISOString(),
+              creator: { first_name: 'Marie', last_name: 'ADANDE' },
+              sample: null,
+              sample_id: null
+            })
+          }
         }
       } catch (err) {
-        if (MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id]) {
+        let foundLocal: any = null
+        try {
+          const stored = localStorage.getItem('waste_batches_custom_v1')
+          if (stored) {
+            const list = JSON.parse(stored)
+            foundLocal = list.find((b: any) => b.id === resolvedParams.id || b.batch_number === resolvedParams.id)
+          }
+        } catch (e) {}
+
+        if (foundLocal) {
+          setWasteBatch(foundLocal)
+        } else if (MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id]) {
           setWasteBatch(MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id])
         } else {
           setWasteBatch({
