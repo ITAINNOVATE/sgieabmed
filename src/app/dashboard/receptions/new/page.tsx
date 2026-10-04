@@ -689,25 +689,32 @@ export default function NewReceptionPage() {
       console.warn("Erreur sauvegarde locale historique:", e)
     }
 
-    let { error } = await supabase.from('receptions').insert(fullPayload)
+    let { error } = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
 
-    // Si l'insertion complète échoue (ex: colonne distante absente), retry minimal
+    // Si l'upsert échoue (ex: colonne absente ou contrainte), tenter update puis insert minimal
     if (error) {
-      console.warn("Échec insertion complète, tentative avec payload minimal:", error.message)
-      const minimalPayload = {
-        rec_number: values.rec_number,
-        date_reception: values.date_reception || new Date().toISOString().split('T')[0],
-        supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
-        status: status,
-        inspector: values.inspector || "Marie ADANDE",
+      console.warn("Échec upsert complet, tentative update/insert:", error.message)
+      const { error: updateErr } = await supabase.from('receptions').update(fullPayload).eq('rec_number', values.rec_number)
+      if (updateErr) {
+        const minimalPayload = {
+          rec_number: values.rec_number,
+          date_reception: values.date_reception || new Date().toISOString().split('T')[0],
+          supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
+          status: status,
+          inspector: values.inspector || "Marie ADANDE",
+        }
+        const { error: minUpdateErr } = await supabase.from('receptions').update(minimalPayload).eq('rec_number', values.rec_number)
+        if (minUpdateErr) {
+          await supabase.from('receptions').insert(minimalPayload)
+        }
       }
-      await supabase.from('receptions').insert(minimalPayload)
     }
 
     // Insérer les échantillons valides
     const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
     if (validSamples.length > 0) {
       try {
+        await supabase.from('samples').delete().eq('reception_ref', values.rec_number)
         const samplesToInsert = validSamples.map(sample => ({
           sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
           reception_ref: values.rec_number,
@@ -754,9 +761,9 @@ export default function NewReceptionPage() {
     try {
       await saveReceptionToSupabase("En attente de validation")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception soumise avec succès !", { id: toastId, duration: 3000 })
-      router.push("/dashboard/receptions")
-      setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
+      toast.success("Réception soumise avec succès ! Elle est désormais visible dans les réceptions en instance.", { id: toastId, duration: 3500 })
+      router.push("/dashboard/receptions?status=en_attente")
+      setTimeout(() => { window.location.href = "/dashboard/receptions?status=en_attente" }, 300)
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur : ${err.message || "Impossible de soumettre la réception."}`, { id: toastId })

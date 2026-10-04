@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +28,7 @@ import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   // State pour suivre les menus déroulants ouverts
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -86,6 +87,9 @@ export function AppSidebar() {
   }
 
   const isActive = (path: string) => pathname === path
+  const statusParam = searchParams?.get('status')
+  const isPendingReceptions = pathname === '/dashboard/receptions' && statusParam === 'en_attente'
+  const isAllReceptions = pathname === '/dashboard/receptions' && (!statusParam || statusParam === 'all')
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border shadow-sm bg-sidebar text-sidebar-foreground">
@@ -204,7 +208,7 @@ export function AppSidebar() {
                       <Link 
                         href="/dashboard/receptions" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/receptions')
+                          isAllReceptions
                             ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
@@ -216,9 +220,13 @@ export function AppSidebar() {
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/receptions?status=en_attente" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full text-white/90 hover:text-white hover:bg-white/15 font-semibold`}
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isPendingReceptions
+                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
                       >
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+                        <ShieldCheck className={`h-3.5 w-3.5 shrink-0 ${isPendingReceptions ? "text-amber-600" : "text-amber-300"}`} />
                         <span className="truncate">Réceptions en instance</span>
                       </Link>
                     </SidebarMenuSubItem>

@@ -3,11 +3,14 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { HeaderActions } from "@/components/header-actions"
 import { MotionWrapper } from "@/components/motion-wrapper"
 import { ShieldCheck } from "lucide-react"
+import { Suspense } from "react"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <Suspense fallback={null}>
+        <AppSidebar />
+      </Suspense>
       <main className="flex-1 overflow-y-auto flex flex-col min-h-screen bg-background relative">
         {/* EN-TÊTE FIXE BLEU eGED #003B5C (Jour & Nuit) - RESPONSIVE MOBILE */}
         <header className="flex h-[64px] sm:h-[72px] items-center justify-between gap-2 sm:gap-4 border-b border-border/40 bg-[#003B5C] text-white px-3 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
