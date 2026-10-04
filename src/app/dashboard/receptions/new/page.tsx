@@ -191,43 +191,267 @@ export const GALENIC_FORM_GROUPS = [
 
 export const ALL_GALENIC_FORMS = GALENIC_FORM_GROUPS.flatMap((g) => g.items)
 
+export const DOSAGE_GROUPS = [
+  {
+    group: "Milligrammes (mg) - Doses courantes",
+    items: [
+      "100 mg",
+      "125 mg",
+      "150 mg",
+      "200 mg",
+      "250 mg",
+      "300 mg",
+      "400 mg",
+      "500 mg",
+      "600 mg",
+      "750 mg",
+      "800 mg",
+      "875 mg",
+      "1 000 mg",
+    ],
+  },
+  {
+    group: "Milligrammes (mg) - Faibles doses",
+    items: [
+      "0.25 mg",
+      "0.5 mg",
+      "1 mg",
+      "2 mg",
+      "2.5 mg",
+      "5 mg",
+      "10 mg",
+      "15 mg",
+      "20 mg",
+      "25 mg",
+      "30 mg",
+      "40 mg",
+      "50 mg",
+      "60 mg",
+      "75 mg",
+      "80 mg",
+    ],
+  },
+  {
+    group: "Grammes (g)",
+    items: [
+      "1 g",
+      "1.5 g",
+      "2 g",
+      "3 g",
+      "4 g",
+      "5 g",
+    ],
+  },
+  {
+    group: "Microgrammes (µg / mcg)",
+    items: [
+      "25 µg",
+      "50 µg",
+      "75 µg",
+      "100 µg",
+      "125 µg",
+      "150 µg",
+      "200 µg",
+      "250 µg",
+      "500 µg",
+    ],
+  },
+  {
+    group: "Formes liquides, sirops & suspensions",
+    items: [
+      "100 mg/5ml",
+      "125 mg/5ml",
+      "150 mg/5ml",
+      "200 mg/5ml",
+      "250 mg/5ml",
+      "500 mg/5ml",
+      "1 mg/ml",
+      "2 mg/ml",
+      "5 mg/ml",
+      "10 mg/ml",
+      "20 mg/ml",
+      "50 mg/ml",
+      "100 mg/ml",
+    ],
+  },
+  {
+    group: "Pourcentages (%) - Pommades, Collyres & Solutés",
+    items: [
+      "0.05%",
+      "0.1%",
+      "0.2%",
+      "0.5%",
+      "0.9%",
+      "1%",
+      "2%",
+      "3%",
+      "5%",
+      "10%",
+      "20%",
+      "30%",
+      "50%",
+    ],
+  },
+  {
+    group: "Unités Internationales (UI)",
+    items: [
+      "100 UI",
+      "200 UI",
+      "400 UI",
+      "500 UI",
+      "800 UI",
+      "1 000 UI",
+      "2 000 UI",
+      "5 000 UI",
+      "10 000 UI",
+      "20 000 UI",
+      "50 000 UI",
+      "100 000 UI",
+      "500 000 UI",
+      "1 000 000 UI",
+      "2 400 000 UI",
+    ],
+  },
+  {
+    group: "Volumes / Solutions injectables & perfusions (ml)",
+    items: [
+      "0.5 ml",
+      "1 ml",
+      "2 ml",
+      "3 ml",
+      "5 ml",
+      "10 ml",
+      "20 ml",
+      "50 ml",
+      "100 ml",
+      "250 ml",
+      "500 ml",
+      "1 000 ml",
+    ],
+  },
+  {
+    group: "Autre",
+    items: [
+      "Autre",
+    ],
+  },
+]
+
+export const ALL_DOSAGES = DOSAGE_GROUPS.flatMap((g) => g.items)
+
 // Composant DCI + Dosage dynamique par produit
 function DciDosageList({ value, onChange }: { value: {dci: string, dosage: string}[], onChange: (v: {dci: string, dosage: string}[]) => void }) {
   const addRow = () => onChange([...value, { dci: '', dosage: '' }])
   const removeRow = (i: number) => onChange(value.filter((_, idx) => idx !== i))
   const updateRow = (i: number, field: 'dci' | 'dosage', val: string) => {
-    const updated = value.map((row, idx) => idx === i ? { ...row, [field]: val.toUpperCase() } : row)
+    const updated = value.map((row, idx) => idx === i ? { ...row, [field]: field === 'dci' ? val.toUpperCase() : val } : row)
     onChange(updated)
   }
+
+  const normalizeDosage = (str: string) => (str || '').replace(/[\s\u00A0\u202F]+/g, '').toLowerCase()
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-foreground/80">DCI / Dosage</span>
+        <span className="text-xs font-semibold text-foreground/80">DCI & Dosage</span>
         <Button type="button" size="sm" variant="outline" onClick={addRow} className="h-6 px-2 text-xs gap-1">
-          <Plus className="h-3 w-3" /> DCI
+          <Plus className="h-3 w-3" /> Ajouter un principe actif (DCI)
         </Button>
       </div>
-      {value.map((row, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <UppercaseInput
-            placeholder=""
-            value={row.dci}
-            onChange={(e) => updateRow(i, 'dci', e.target.value)}
-            className="flex-1 text-xs h-9"
-          />
-          <UppercaseInput
-            placeholder=""
-            value={row.dosage}
-            onChange={(e) => updateRow(i, 'dosage', e.target.value)}
-            className="w-28 text-xs h-9"
-          />
-          {value.length > 1 && (
-            <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0">
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-      ))}
+      {value.map((row, i) => {
+        const currentDosage = row.dosage || ""
+        const normalizedCurrent = normalizeDosage(currentDosage)
+        const matchedDosage = ALL_DOSAGES.find(
+          (d) => normalizeDosage(d) === normalizedCurrent
+        )
+        const isOther =
+          currentDosage === "Autre" ||
+          (currentDosage !== "" && !matchedDosage)
+        const selectValue = matchedDosage || (isOther ? "Autre" : "")
+
+        return (
+          <div key={i} className="p-2.5 rounded-lg bg-muted/20 border border-border/50 space-y-2">
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 min-w-0">
+                <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
+                  DCI (Principe actif) {value.length > 1 ? `#${i + 1}` : ""}
+                </label>
+                <UppercaseInput
+                  placeholder="Ex: PARACÉTAMOL"
+                  value={row.dci}
+                  onChange={(e) => updateRow(i, 'dci', e.target.value)}
+                  className="text-xs h-9 bg-background w-full"
+                />
+              </div>
+
+              <div className="w-44 sm:w-52 shrink-0">
+                <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
+                  Dosage
+                </label>
+                <Select
+                  value={selectValue}
+                  onValueChange={(val) => {
+                    if (val === "Autre") {
+                      updateRow(i, 'dosage', 'Autre')
+                    } else {
+                      updateRow(i, 'dosage', val || '')
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-background w-full">
+                    <SelectValue placeholder="Sélectionner..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {DOSAGE_GROUPS.map((grp) => (
+                      <SelectGroup key={grp.group}>
+                        <SelectLabel className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider py-1">
+                          {grp.group}
+                        </SelectLabel>
+                        {grp.items.map((dos) => (
+                          <SelectItem key={dos} value={dos} className="text-xs">
+                            {dos === "Autre" ? "Autre (préciser...)" : dos}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {value.length > 1 && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => removeRow(i)}
+                  className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0"
+                  title="Supprimer cette ligne DCI / Dosage"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+
+            {isOther && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 pt-1.5 border-t border-border/30 animate-in fade-in slide-in-from-top-1 duration-200">
+                <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+                  Préciser le dosage :
+                </span>
+                <UppercaseInput
+                  className="h-8 text-xs bg-background flex-1 sm:max-w-xs"
+                  placeholder="Ex: 80/480 MG, 1.2 MUI, 300 MG / 150 MG..."
+                  autoFocus={currentDosage === "Autre"}
+                  value={currentDosage === "Autre" ? "" : currentDosage}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    updateRow(i, 'dosage', val.trim() === "" ? "Autre" : val)
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
