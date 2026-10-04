@@ -530,24 +530,30 @@ export default function UsersAdminPage() {
                 <Input value={fonction} onChange={e => setFonction(e.target.value)} placeholder="" className="h-9 text-xs" />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground/80">Service / Direction *</label>
+                <Select value={deptId} onValueChange={(val) => setDeptId(val || "")}>
+                  <SelectTrigger
+                    className="w-full h-auto min-h-9 py-2 text-xs text-left whitespace-normal *:data-[slot=select-value]:line-clamp-none"
+                    title={departments.find(d => d.id === deptId)?.name || ""}
+                  >
+                    <SelectValue className="whitespace-normal break-words leading-snug">
+                      {(val: any) => departments.find(d => d.id === val)?.name || "Sélectionner un service"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[min(92vw,40rem)]">
+                    {departments.map(d => (
+                      <SelectItem key={d.id} value={d.id} className="text-xs py-1.5 [&_*]:whitespace-normal [&_*]:shrink leading-snug">{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground/80">Service / Direction *</label>
-                  <Select value={deptId} onValueChange={(val) => setDeptId(val || "")}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(d => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Rôle d'Accès *</label>
                   <Select value={roleName} onValueChange={(val) => setRoleName(val || "")}>
-                    <SelectTrigger className="h-9 text-xs">
+                    <SelectTrigger className="w-full h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
