@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -18,11 +19,16 @@ export async function login(formData: FormData) {
     return redirect('/?error=Identifiants invalides')
   }
 
+  const cookieStore = await cookies()
+  cookieStore.set('eged_user_logged', 'true', { path: '/', maxAge: 86400, sameSite: 'lax' })
+
   redirect('/dashboard')
 }
 
 export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
+  const cookieStore = await cookies()
+  cookieStore.delete('eged_user_logged')
   redirect('/')
 }

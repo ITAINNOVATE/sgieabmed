@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { 
   Plus, MoreVertical, Search, Shield, Building2, UserPlus, 
-  UserX, KeyRound, Unlock, RefreshCw, Trash, UserCheck, ShieldAlert 
+  UserX, KeyRound, Unlock, RefreshCw, Trash, UserCheck, ShieldAlert,
+  Copy, Check, ShieldCheck, AlertCircle, Key
 } from "lucide-react"
 import { 
   getUsers, getDepartments, getRoles, 
@@ -28,6 +29,26 @@ export default function UsersAdminPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [roles, setRoles] = useState<UserRole[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Credentials modal state (pour afficher le mot de passe initial généré)
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    fullName: string
+    username: string
+    email: string
+    role: string
+    tempPass: string
+    isReset?: boolean
+  } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const copyCredentials = (pass: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(pass)
+      setCopied(true)
+      toast.success("Mot de passe copié dans le presse-papiers !")
+      setTimeout(() => setCopied(false), 2500)
+    }
+  }
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState("")
@@ -125,6 +146,7 @@ export default function UsersAdminPage() {
         toast.success("Utilisateur mis à jour avec succès !")
         const data = await getUsers()
         setUsers(data)
+        setShowModal(false)
       } else {
         toast.error("Erreur lors de la modification de l'utilisateur.")
       }
@@ -142,15 +164,21 @@ export default function UsersAdminPage() {
         username
       })
       if (res.success && res.tempPass) {
-        alert(`Compte créé avec succès !\n\nNom d'utilisateur : ${username}\nMot de passe temporaire : ${res.tempPass}\n\nL'utilisateur devra changer son mot de passe lors de sa première connexion.`)
         const data = await getUsers()
         setUsers(data)
+        setShowModal(false)
+        setCreatedCredentials({
+          fullName: `${firstName} ${lastName}`,
+          username,
+          email,
+          role: roleName,
+          tempPass: res.tempPass
+        })
+        toast.success("Compte créé avec succès ! Mot de passe initial généré.")
       } else {
         toast.error(res.error || "Erreur lors de la création de l'utilisateur.")
       }
     }
-    
-    setShowModal(false)
   }
 
   const handleToggleStatus = async (id: string, newStatus: "Actif" | "Suspendu" | "Désactivé") => {
@@ -164,12 +192,20 @@ export default function UsersAdminPage() {
     }
   }
 
-  const handleResetPassword = async (id: string, email: string) => {
-    const resultMsg = await resetUserPassword(id, email)
-    if (resultMsg) {
-      alert(`Réinitialisation effectuée !\n\n${resultMsg}`)
+  const handleResetPassword = async (id: string, email: string, user: User) => {
+    const newPass = await resetUserPassword(id, email)
+    if (newPass) {
       const data = await getUsers()
       setUsers(data)
+      setCreatedCredentials({
+        fullName: `${user.first_name} ${user.last_name}`,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        tempPass: newPass,
+        isReset: true
+      })
+      toast.success("Nouveau mot de passe initial généré avec succès !")
     } else {
       toast.error("Erreur lors de la réinitialisation du mot de passe.")
     }
@@ -353,6 +389,11 @@ export default function UsersAdminPage() {
                             >
                               {user.status}
                             </Badge>
+                            {user.must_change_password && (
+                              <Badge className="bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 text-[9px] py-0 font-bold">
+                                1ère connexion en attente
+                              </Badge>
+                            )}
                             {isLocked && (
                               <Badge className="bg-red-500 text-white text-[9px] py-0">Verrouillé</Badge>
                             )}
@@ -361,7 +402,7 @@ export default function UsersAdminPage() {
 
                         {/* Last Login */}
                         <TableCell className="text-xs font-mono text-muted-foreground">
-                          {user.last_login !== "Jamais" ? new Date(user.last_login).toLocaleDateString("fr-FR") : "Jamais"}
+                          {user.last_login && user.last_login !== "Jamais" ? new Date(user.last_login).toLocaleDateString("fr-FR") : "Jamais"}
                         </TableCell>
 
                         {/* Action menu */}
@@ -393,7 +434,7 @@ export default function UsersAdminPage() {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.email)} className="gap-2 cursor-pointer text-xs">
+                              <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.email, user)} className="gap-2 cursor-pointer text-xs">
                                 <KeyRound className="h-3.5 w-3.5" /> Réinitialiser MDP
                               </DropdownMenuItem>
                               {isLocked && (
@@ -439,6 +480,18 @@ export default function UsersAdminPage() {
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               
+              {!editingUser && (
+                <div className="bg-blue-50/70 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/50 rounded-lg p-2.5 flex items-start gap-2.5 text-xs text-blue-950 dark:text-blue-200">
+                  <ShieldCheck className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold">Génération automatique du mot de passe initial :</span>
+                    <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-snug">
+                      Le système eGED générera automatiquement un mot de passe temporaire sécurisé à la création. L'utilisateur sera obligatoirement invité à définir son propre mot de passe personnel dès sa première connexion.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground/80">Prénom *</label>
@@ -527,6 +580,76 @@ export default function UsersAdminPage() {
                 <Button size="sm" onClick={handleSave} className="bg-[#0B5ED7] hover:bg-[#094bb3] text-white">Sauvegarder</Button>
               </div>
 
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal Notification Mot de passe initial généré */}
+      {createdCredentials && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md shadow-2xl border border-emerald-300 dark:border-emerald-800 bg-card overflow-hidden">
+            <div className="bg-[#1B5C2E] text-white p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-white/20">
+                <ShieldCheck className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black tracking-tight">
+                  {createdCredentials.isReset ? "Mot de passe initial réinitialisé !" : "Compte utilisateur créé avec succès !"}
+                </h3>
+                <p className="text-[11px] text-white/90">
+                  {createdCredentials.fullName} ({createdCredentials.role})
+                </p>
+              </div>
+            </div>
+            <CardContent className="p-5 space-y-4">
+              <div className="bg-muted/40 p-3 rounded-lg border border-border/70 space-y-2 text-xs">
+                <div className="flex justify-between items-center py-0.5 border-b border-border/40">
+                  <span className="text-muted-foreground font-semibold">Identifiant :</span>
+                  <span className="font-mono font-bold text-foreground">@{createdCredentials.username}</span>
+                </div>
+                <div className="flex justify-between items-center py-0.5 border-b border-border/40">
+                  <span className="text-muted-foreground font-semibold">Email :</span>
+                  <span className="font-medium text-foreground">{createdCredentials.email}</span>
+                </div>
+                <div className="py-1">
+                  <span className="text-muted-foreground font-semibold block mb-1">Mot de passe initial généré :</span>
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-background border border-emerald-400 dark:border-emerald-700">
+                    <span className="font-mono font-black text-sm tracking-wider text-[#1B5C2E] dark:text-emerald-400 select-all">
+                      {createdCredentials.tempPass}
+                    </span>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => copyCredentials(createdCredentials.tempPass)}
+                      className="h-7 text-xs font-bold gap-1 px-2.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 cursor-pointer"
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copied ? "Copié !" : "Copier"}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-3 rounded-lg flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                <Key className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold text-[11.5px]">Obligation de première connexion</p>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
+                    À sa toute première connexion avec ce mot de passe temporaire, l'agent sera automatiquement invité à définir son mot de passe personnel définitif.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <Button 
+                  size="sm" 
+                  onClick={() => setCreatedCredentials(null)} 
+                  className="bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold px-4 cursor-pointer"
+                >
+                  J'ai noté / Fermer
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

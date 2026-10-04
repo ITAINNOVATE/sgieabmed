@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { 
   Bell, Mail, Scan, ChevronDown, CheckCheck, Clock, ShieldAlert, 
   Package, Trash2, FileText, User, Settings, Lock, LogOut, ExternalLink, Plus
@@ -23,6 +23,7 @@ import { toast } from "sonner"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { logout } from "@/app/actions/auth"
+import { getCurrentUser, setCurrentUser, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
 
 const QRCodeScannerDialog = dynamic(
   () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
@@ -30,6 +31,7 @@ const QRCodeScannerDialog = dynamic(
 )
 
 export function HeaderActions() {
+  const [currentUser, setCurrentUserLocal] = useState<AdminUser | null>(null)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(6)
@@ -37,6 +39,15 @@ export function HeaderActions() {
   const [phone, setPhone] = useState("+229 97 00 01 02")
   const [email, setEmail] = useState("marie.adande@abmed.bj")
   const [isEditing, setIsEditing] = useState(false)
+
+  useEffect(() => {
+    const u = getCurrentUser()
+    if (u) {
+      setCurrentUserLocal(u)
+      if (u.phone) setPhone(u.phone)
+      if (u.email) setEmail(u.email)
+    }
+  }, [])
 
   const notifications = [
     {
@@ -316,13 +327,17 @@ export function HeaderActions() {
           <Button variant="ghost" className="h-auto p-1.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 rounded-xl transition-colors text-white focus:outline-none focus-visible:ring-0">
             <Avatar className="h-9 w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs shrink-0">
               <AvatarImage src="/avatar.png" alt="Profile" />
-              <AvatarFallback className="bg-white/20 text-white font-bold text-xs">MA</AvatarFallback>
+              <AvatarFallback className="bg-white/20 text-white font-bold text-xs">
+                {currentUser ? `${currentUser.first_name[0] || ''}${currentUser.last_name[0] || ''}` : "MA"}
+              </AvatarFallback>
             </Avatar>
             <div className="flex flex-col text-left">
               <span className="text-xs font-bold leading-tight text-white group-hover:text-white/90 transition-colors">
-                Marie ADANDE
+                {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Marie ADANDE"}
               </span>
-              <span className="text-[11px] text-white/80 font-medium">Administrateur</span>
+              <span className="text-[11px] text-white/80 font-medium">
+                {currentUser ? currentUser.role : "Administrateur"}
+              </span>
             </div>
             <ChevronDown className="h-4 w-4 text-white shrink-0" />
           </Button>
@@ -343,7 +358,12 @@ export function HeaderActions() {
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <form action={logout}>
+          <form action={logout} onSubmit={() => {
+            setCurrentUser(null)
+            if (typeof document !== "undefined") {
+              document.cookie = "eged_user_logged=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+            }
+          }}>
             <button type="submit" className="w-full">
               <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer text-xs">
                 <LogOut className="mr-2 h-4 w-4" />

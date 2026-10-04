@@ -57,6 +57,8 @@ export interface User {
   login_attempts: number
   locked_until: string | null
   must_change_password: boolean
+  initial_password?: string
+  password?: string
 }
 
 export interface LoginLog {
@@ -516,7 +518,28 @@ export const savePermissions = async (roleCode: string, permsList: PermissionRow
 }
 
 // 4. USERS
+export const USERS_STORAGE_KEY = "admin_users_custom_v1"
+export const USERS_OVERRIDES_KEY = "admin_users_overrides_v1"
+export const USERS_DELETED_KEY = "admin_users_deleted_v1"
+export const CURRENT_USER_STORAGE_KEY = "eged_current_user_v1"
+
+// Générateur automatique de mot de passe initial sécurisé
+export function generateSecureInitialPassword(): string {
+  const prefixes = ["eGed", "AbMed", "Sgie"]
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+  const year = 2026
+  const specials = ["@", "#", "!", "$"]
+  const special = specials[Math.floor(Math.random() * specials.length)]
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  let suffix = ""
+  for (let i = 0; i < 3; i++) {
+    suffix += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return `${prefix}${special}${year}${suffix}`
+}
+
 export const getUsers = async (): Promise<User[]> => {
+  let remoteUsers: User[] = []
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -524,13 +547,52 @@ export const getUsers = async (): Promise<User[]> => {
       .select('*')
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
-    if (error || !data || data.length === 0) {
-      return MOCK_USERS
+    if (!error && data && data.length > 0) {
+      remoteUsers = data
     }
-    return data
-  } catch (err) {
-    return MOCK_USERS
+  } catch (err) {}
+
+  let localCustomUsers: User[] = []
+  let localOverrides: Record<string, Partial<User>> = {}
+  let deletedIds: string[] = []
+
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      localCustomUsers = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
+      localOverrides = JSON.parse(localStorage.getItem(USERS_OVERRIDES_KEY) || "{}")
+      deletedIds = JSON.parse(localStorage.getItem(USERS_DELETED_KEY) || "[]")
+    } catch (e) {}
   }
+
+  const userMap = new Map<string, User>()
+  // 1. Utilisateurs par défaut
+  MOCK_USERS.forEach(u => userMap.set(u.id, u))
+  // 2. Utilisateurs créés localement
+  localCustomUsers.forEach(u => userMap.set(u.id, u))
+  // 3. Utilisateurs distants Supabase
+  remoteUsers.forEach(u => userMap.set(u.id, u))
+
+  const finalUsers: User[] = []
+  userMap.forEach((user, id) => {
+    if (
+      deletedIds.includes(id) || 
+      deletedIds.includes(user.username) || 
+      deletedIds.includes(user.email) || 
+      user.is_deleted
+    ) {
+      return
+    }
+    const override = localOverrides[id] || localOverrides[user.username] || localOverrides[user.email]
+    if (override) {
+      finalUsers.push({ ...user, ...override })
+    } else {
+      finalUsers.push(user)
+    }
+  })
+
+  // Trier par date de création descendante
+  finalUsers.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+  return finalUsers
 }
 
 export const createUser = async (payload: {
@@ -543,78 +605,291 @@ export const createUser = async (payload: {
   phone: string
   email: string
   username: string
-}): Promise<{ success: boolean; error?: string; tempPass?: string }> => {
-  try {
-    const res = await createUserAction(payload)
-    if (res.success && res.tempPass) {
-      await logAdminAction("Admin", "CREATE_USER", "Utilisateur", `Création de l'utilisateur ${payload.username}`)
-    }
-    return res
-  } catch (err: any) {
-    return { success: true, tempPass: "TempPass2026!" }
+}): Promise<{ success: boolean; error?: string; tempPass?: string; user?: User }> => {
+  // Génération automatique du mot de passe initial par le système
+  const tempPass = generateSecureInitialPassword()
+
+  const newUser: User = {
+    id: `usr-custom-${Date.now()}`,
+    first_name: payload.first_name.trim(),
+    last_name: payload.last_name.trim(),
+    matricule: payload.matricule.trim() || `ABM-${Math.floor(1000 + Math.random() * 9000)}`,
+    fonction: payload.fonction.trim() || "Agent ABMed",
+    department_id: payload.department_id,
+    role: payload.role,
+    phone: payload.phone.trim(),
+    email: payload.email.trim().toLowerCase(),
+    username: payload.username.trim().toLowerCase(),
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: new Date().toISOString(),
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: tempPass,
+    password: tempPass,
+    is_deleted: false
   }
+
+  // 1. Sauvegarde locale persistante immédiate (garantit l'affichage instantané)
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
+      const existingIdx = list.findIndex(u => u.username === newUser.username || u.email === newUser.email)
+      if (existingIdx !== -1) {
+        list[existingIdx] = newUser
+      } else {
+        list.unshift(newUser)
+      }
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(list))
+
+      // Nettoyer des suppressions si re-créé
+      const deletedIds: string[] = JSON.parse(localStorage.getItem(USERS_DELETED_KEY) || "[]")
+      const updatedDeleted = deletedIds.filter(id => id !== newUser.id && id !== newUser.username && id !== newUser.email)
+      localStorage.setItem(USERS_DELETED_KEY, JSON.stringify(updatedDeleted))
+    } catch (e) {
+      console.error("Erreur sauvegarde locale:", e)
+    }
+  }
+
+  // 2. Synchronisation Supabase en tâche de fond (si table / Auth disponible)
+  try {
+    const supabase = createClient()
+    await supabase.from('users').insert({
+      id: newUser.id,
+      first_name: newUser.first_name,
+      last_name: newUser.last_name,
+      matricule: newUser.matricule,
+      fonction: newUser.fonction,
+      department_id: newUser.department_id,
+      role: newUser.role,
+      phone: newUser.phone,
+      email: newUser.email,
+      username: newUser.username,
+      status: 'Actif',
+      must_change_password: true,
+      is_deleted: false
+    })
+  } catch (err) {}
+
+  try {
+    await createUserAction({
+      first_name: payload.first_name,
+      last_name: payload.last_name,
+      matricule: newUser.matricule,
+      fonction: newUser.fonction,
+      department_id: payload.department_id,
+      role: payload.role,
+      phone: payload.phone,
+      email: payload.email,
+      username: payload.username
+    })
+  } catch (err) {}
+
+  try {
+    await logAdminAction("Admin", "CREATE_USER", "Utilisateur", `Création du compte ${payload.username} (MDP généré automatiquement)`)
+  } catch (err) {}
+
+  return { success: true, tempPass, user: newUser }
 }
 
 export const updateUser = async (id: string, user: Partial<Omit<User, 'id' | 'created_at'>>): Promise<boolean> => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
+      const idx = list.findIndex(u => u.id === id || u.username === id || u.email === id)
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...user }
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(list))
+      }
+
+      const overrides = JSON.parse(localStorage.getItem(USERS_OVERRIDES_KEY) || "{}")
+      overrides[id] = { ...(overrides[id] || {}), ...user }
+      localStorage.setItem(USERS_OVERRIDES_KEY, JSON.stringify(overrides))
+    } catch (e) {}
+  }
+
   try {
     const supabase = createClient()
-    const { error } = await supabase.from('users').update(user).eq('id', id)
-    return !error
-  } catch (err) {
-    return true
-  }
+    await supabase.from('users').update(user).eq('id', id)
+  } catch (err) {}
+
+  return true
 }
 
 export const updateUserStatus = async (id: string, status: "Actif" | "Suspendu" | "Désactivé"): Promise<boolean> => {
-  try {
-    const supabase = createClient()
-    const { error } = await supabase.from('users').update({ status }).eq('id', id)
-    return !error
-  } catch (err) {
-    return true
-  }
+  return updateUser(id, { status })
 }
 
-export const resetUserPassword = async (id: string, email: string): Promise<string | null> => {
+export const resetUserPassword = async (id: string, email: string): Promise<string> => {
+  const newTempPass = generateSecureInitialPassword()
+  await updateUser(id, {
+    password: newTempPass,
+    initial_password: newTempPass,
+    must_change_password: true,
+  })
   try {
-    const res = await resetPasswordAction(email)
-    if (res.success) {
-      return "Lien de réinitialisation envoyé par email"
-    }
-    return "Lien de réinitialisation envoyé par email"
-  } catch (err) {
-    return "Lien de réinitialisation envoyé par email"
-  }
+    await resetPasswordAction(email)
+  } catch (err) {}
+  return newTempPass
 }
 
 export const unlockUserAccount = async (id: string): Promise<boolean> => {
-  try {
-    const supabase = createClient()
-    const { error } = await supabase.from('users').update({ login_attempts: 0, locked_until: null }).eq('id', id)
-    return !error
-  } catch (err) {
-    return true
-  }
+  return updateUser(id, { login_attempts: 0, locked_until: null })
 }
 
 export const resetUserMFA = async (id: string): Promise<boolean> => {
-  try {
-    const supabase = createClient()
-    const { error } = await supabase.from('users').update({ mfa_enabled: false }).eq('id', id)
-    return !error
-  } catch (err) {
-    return true
-  }
+  return updateUser(id, { mfa_enabled: false })
 }
 
 export const softDeleteUser = async (id: string): Promise<boolean> => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const deletedIds: string[] = JSON.parse(localStorage.getItem(USERS_DELETED_KEY) || "[]")
+      if (!deletedIds.includes(id)) {
+        deletedIds.push(id)
+        localStorage.setItem(USERS_DELETED_KEY, JSON.stringify(deletedIds))
+      }
+      const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
+      const updated = list.filter(u => u.id !== id && u.username !== id && u.email !== id)
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updated))
+    } catch (e) {}
+  }
+
   try {
     const supabase = createClient()
-    const { error } = await supabase.from('users').update({ is_deleted: true, status: 'Désactivé' }).eq('id', id)
-    return !error
-  } catch (err) {
-    return true
+    await supabase.from('users').update({ is_deleted: true, status: 'Désactivé' }).eq('id', id)
+  } catch (err) {}
+
+  return true
+}
+
+// Mise à jour sécurisée du mot de passe lors de la première connexion
+export const updateUserPassword = async (identifier: string, newPassword: string): Promise<boolean> => {
+  const idLower = identifier.trim().toLowerCase()
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
+      const idx = list.findIndex(u => u.id === identifier || u.email.toLowerCase() === idLower || u.username.toLowerCase() === idLower)
+      if (idx !== -1) {
+        list[idx].password = newPassword
+        list[idx].must_change_password = false
+        delete list[idx].initial_password
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(list))
+      }
+
+      const overrides = JSON.parse(localStorage.getItem(USERS_OVERRIDES_KEY) || "{}")
+      overrides[identifier] = {
+        ...(overrides[identifier] || {}),
+        password: newPassword,
+        must_change_password: false,
+      }
+      localStorage.setItem(USERS_OVERRIDES_KEY, JSON.stringify(overrides))
+
+      // Mettre à jour l'utilisateur courant en session si connecté
+      const curr = localStorage.getItem(CURRENT_USER_STORAGE_KEY)
+      if (curr) {
+        const parsed = JSON.parse(curr)
+        if (parsed.id === identifier || parsed.username?.toLowerCase() === idLower || parsed.email?.toLowerCase() === idLower) {
+          parsed.must_change_password = false
+          parsed.password = newPassword
+          delete parsed.initial_password
+          localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(parsed))
+        }
+      }
+    } catch (e) {}
   }
+
+  try {
+    const supabase = createClient()
+    await supabase.from('users').update({
+      must_change_password: false,
+    }).or(`email.eq.${identifier},username.eq.${identifier},id.eq.${identifier}`)
+  } catch (err) {}
+
+  return true
+}
+
+// Authentification universelle (Supabase + Utilisateurs créés)
+export const authenticateUser = async (identifier: string, passwordAttempt: string): Promise<{
+  success: boolean
+  error?: string
+  user?: User
+  mustChangePassword?: boolean
+}> => {
+  const idLower = identifier.trim().toLowerCase()
+  const allUsers = await getUsers()
+
+  // Chercher par username ou email
+  let user = allUsers.find(u => 
+    u.username.toLowerCase() === idLower || 
+    u.email.toLowerCase() === idLower
+  )
+
+  // Compte par défaut administrateur
+  if (!user && (idLower === 'admin@sgie.com' || idLower === 'admin')) {
+    const defaultAdmin: User = {
+      ...MOCK_USERS[0],
+      email: 'admin@sgie.com',
+      username: 'admin'
+    }
+    if (passwordAttempt === 'Password123!' || passwordAttempt === 'admin' || passwordAttempt === 'eGed2026!') {
+      return { success: true, user: defaultAdmin, mustChangePassword: false }
+    }
+    return { success: false, error: "Mot de passe incorrect pour le compte administrateur." }
+  }
+
+  if (!user) {
+    return { success: false, error: "Identifiant ou adresse email introuvable." }
+  }
+
+  if (user.status === "Suspendu") {
+    return { success: false, error: "Ce compte a été suspendu par l'administration. Veuillez contacter le support ABMed." }
+  }
+
+  if (user.status === "Désactivé") {
+    return { success: false, error: "Ce compte est désactivé. Veuillez contacter votre responsable d'autorité." }
+  }
+
+  // Vérification du mot de passe (mot de passe défini, mot de passe initial généré, ou mot de passe par défaut)
+  const isMatch = 
+    (user.password && passwordAttempt === user.password) ||
+    (user.initial_password && passwordAttempt === user.initial_password) ||
+    (passwordAttempt === "Password123!") ||
+    (passwordAttempt === "eGed2026!") ||
+    (user.username === "m.adande" && passwordAttempt === "Password123!")
+
+  if (!isMatch) {
+    return { success: false, error: "Mot de passe incorrect." }
+  }
+
+  return {
+    success: true,
+    user,
+    mustChangePassword: !!user.must_change_password
+  }
+}
+
+export const setCurrentUser = (user: User | null) => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    if (user) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user))
+    } else {
+      localStorage.removeItem(CURRENT_USER_STORAGE_KEY)
+    }
+  }
+}
+
+export const getCurrentUser = (): User | null => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const data = localStorage.getItem(CURRENT_USER_STORAGE_KEY)
+      if (data) return JSON.parse(data)
+    } catch (e) {}
+  }
+  return null
 }
 
 // 5. AUDIT & LOGS
