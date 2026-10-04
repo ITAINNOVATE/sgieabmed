@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 
 import { 
@@ -120,6 +120,77 @@ const UppercaseTextarea = React.forwardRef<HTMLTextAreaElement, React.ComponentP
 ))
 UppercaseTextarea.displayName = 'UppercaseTextarea'
 
+export const GALENIC_FORM_GROUPS = [
+  {
+    group: "Formes orales sèches / solides",
+    items: [
+      "Comprimé",
+      "Comprimé pelliculé",
+      "Comprimé effervescent",
+      "Comprimé enrobé",
+      "Comprimé sécable",
+      "Comprimé à croquer",
+      "Comprimé orodispersible",
+      "Comprimé à libération prolongée",
+      "Gélule",
+      "Capsule",
+      "Sachet",
+      "Granulés",
+      "Poudre orale",
+    ],
+  },
+  {
+    group: "Formes orales liquides",
+    items: [
+      "Sirop",
+      "Solution buvable",
+      "Suspension buvable",
+      "Gouttes buvables",
+      "Ampoule buvable",
+      "Émulsion buvable",
+    ],
+  },
+  {
+    group: "Formes injectables & perfusions",
+    items: [
+      "Solution injectable",
+      "Suspension injectable",
+      "Poudre pour préparation injectable",
+      "Solution pour perfusion",
+    ],
+  },
+  {
+    group: "Formes cutanées, locales & externes",
+    items: [
+      "Pommade",
+      "Crème",
+      "Gel",
+      "Lotion",
+      "Collyre",
+      "Gouttes auriculaires / nasales",
+      "Spray / Aérosol",
+      "Inhalateur",
+      "Bain de bouche",
+      "Patch transdermique",
+    ],
+  },
+  {
+    group: "Formes rectales & vaginales",
+    items: [
+      "Suppositoire",
+      "Ovule",
+    ],
+  },
+  {
+    group: "Autre",
+    items: [
+      "Autre",
+    ],
+  },
+]
+
+export const ALL_GALENIC_FORMS = GALENIC_FORM_GROUPS.flatMap((g) => g.items)
+
 // Composant DCI + Dosage dynamique par produit
 function DciDosageList({ value, onChange }: { value: {dci: string, dosage: string}[], onChange: (v: {dci: string, dosage: string}[]) => void }) {
   const addRow = () => onChange([...value, { dci: '', dosage: '' }])
@@ -213,7 +284,7 @@ export default function NewReceptionPage() {
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
       inspector: "Marie ADANDE",
       status: "En attente",
-      samples: [{ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 }],
+      samples: [{ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 }],
       check_packaging: false,
       check_boxes: false,
       check_seals: false,
@@ -308,7 +379,7 @@ export default function NewReceptionPage() {
             validation_date: sourceData.validation_date || "",
             samples: sourceData.samples && sourceData.samples.length > 0
               ? sourceData.samples
-              : [{ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 }],
+              : [{ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 }],
           })
 
           if (savedDciLists) {
@@ -794,7 +865,7 @@ export default function NewReceptionPage() {
                           <FormItem>
                             <FormLabel className="text-xs font-semibold text-foreground/80">Catégorie de produit</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Catégorie de produit" /></SelectTrigger></FormControl>
+                              <FormControl><SelectTrigger className="h-9 text-xs bg-background w-full"><SelectValue placeholder="Catégorie de produit" /></SelectTrigger></FormControl>
                               <SelectContent>
                                 <SelectItem value="Médicaments conventionnels">Médicaments conventionnels</SelectItem>
                                 <SelectItem value="Vaccins et Sérums">Vaccins et Sérums</SelectItem>
@@ -806,9 +877,77 @@ export default function NewReceptionPage() {
                             </Select>
                           </FormItem>
                         )} />
-                        <FormField control={form.control} name={`samples.${index}.form`} render={({ field }) => (
-                          <FormItem><FormLabel className="text-xs font-semibold text-foreground/80">Forme galénique</FormLabel><FormControl><UppercaseInput className="h-9 text-xs" {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                        )} />
+                        <FormField
+                          control={form.control}
+                          name={`samples.${index}.form`}
+                          render={({ field }) => {
+                            const currentValue = field.value || ""
+                            const matchedForm = ALL_GALENIC_FORMS.find(
+                              (f) => f.toLowerCase() === currentValue.toLowerCase()
+                            )
+                            const isOther =
+                              currentValue === "Autre" ||
+                              (currentValue !== "" && !matchedForm)
+                            const selectValue = matchedForm || (isOther ? "Autre" : "")
+
+                            return (
+                              <FormItem>
+                                <FormLabel className="text-xs font-semibold text-foreground/80">
+                                  Forme galénique
+                                </FormLabel>
+                                <Select
+                                  value={selectValue}
+                                  onValueChange={(val) => {
+                                    if (val === "Autre") {
+                                      field.onChange("Autre")
+                                    } else {
+                                      field.onChange(val)
+                                    }
+                                  }}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger className="h-9 text-xs bg-background w-full">
+                                      <SelectValue placeholder="Sélectionner la forme galénique" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="max-h-72">
+                                    {GALENIC_FORM_GROUPS.map((grp) => (
+                                      <SelectGroup key={grp.group}>
+                                        <SelectLabel className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider py-1">
+                                          {grp.group}
+                                        </SelectLabel>
+                                        {grp.items.map((formOption) => (
+                                          <SelectItem
+                                            key={formOption}
+                                            value={formOption}
+                                            className="text-xs"
+                                          >
+                                            {formOption === "Autre" ? "Autre (préciser...)" : formOption}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectGroup>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                {isOther && (
+                                  <div className="mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <UppercaseInput
+                                      className="h-9 text-xs"
+                                      placeholder="Préciser la forme galénique..."
+                                      autoFocus={currentValue === "Autre"}
+                                      value={currentValue === "Autre" ? "" : currentValue}
+                                      onChange={(e) => {
+                                        const val = e.target.value
+                                        field.onChange(val.trim() === "" ? "Autre" : val)
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </FormItem>
+                            )
+                          }}
+                        />
                       </div>
 
                       <div className="grid sm:grid-cols-3 gap-3">
@@ -849,7 +988,7 @@ export default function NewReceptionPage() {
                 variant="outline"
                 className="mt-4 border-dashed border-2 w-full bg-muted/10 hover:bg-muted/30"
                 onClick={() => {
-                  append({ commercial_name: "", dci: "", category: "", batch: "", exp_date: "", qty: 1 })
+                  append({ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 })
                   setDciLists(prev => [...prev, [{ dci: '', dosage: '' }]])
                 }}
               >
