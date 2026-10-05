@@ -68,6 +68,90 @@ export default function MovementsPage() {
         localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]');
       } catch (e) {}
 
+      // Scanner automatiquement les réceptions enregistrées pour intégrer leurs mouvements d'entrée
+      try {
+        const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]');
+        const receptionsHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]');
+        
+        // Parcourir l'historique et les détails de brouillon
+        const allReceptions: any[] = [...receptionsHistory];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('reception_draft_details_')) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.formData && !allReceptions.some(r => r.rec_number === parsed.formData.rec_number)) {
+                allReceptions.push(parsed.formData);
+              }
+            }
+          }
+        }
+
+        let newEntriesGenerated = false;
+        allReceptions.forEach((rec: any) => {
+          if (!rec.rec_number || deletedIds.includes(rec.rec_number)) return;
+          
+          let samples = rec.samples || [];
+          if (samples.length === 0 || typeof samples[0]?.commercial_name !== 'string') {
+            const raw = localStorage.getItem('reception_draft_details_' + rec.rec_number);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed.formData?.samples) {
+                  samples = parsed.formData.samples;
+                }
+              } catch (e) {}
+            }
+          }
+
+          samples.forEach((sample: any, idx: number) => {
+            if (!sample.commercial_name || sample.commercial_name.trim() === '') return;
+            const sampleNum = `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`;
+            const mvtId = `mvt-${rec.rec_number}-${idx}`;
+            
+            // Vérifier si un mouvement existe déjà pour cet échantillon / réception
+            const alreadyExists = localMovements.some((m: any) => 
+              m.id === mvtId || 
+              m.sample_number === sampleNum || 
+              (m.reference_document === rec.rec_number && m.commercial_name === sample.commercial_name.toUpperCase())
+            );
+
+            if (!alreadyExists) {
+              const isFinalized = rec.status === "Validée" || rec.status === "Finalisé";
+              localMovements.unshift({
+                id: mvtId,
+                mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+                sample_id: `sample-${rec.rec_number}-${idx}`,
+                sample_number: sampleNum,
+                commercial_name: sample.commercial_name.toUpperCase(),
+                batch_number: (sample.batch || sample.batch_number || 'LOT-TEMP').toUpperCase(),
+                movement_type: "Entrée",
+                quantity: Number(sample.qty || sample.quantity) || 1,
+                source_location: rec.supplier || "Fournisseur / Demandeur",
+                destination_location: sample.location || "Zone de Quarantaine / Réception",
+                reason: `Réception d'échantillons - Réf: ${rec.rec_number}`,
+                observations: `Réception enregistrée par ${rec.inspector || 'Marie ADANDE'}`,
+                movement_date: rec.date_reception ? new Date(rec.date_reception).toISOString() : new Date().toISOString(),
+                operator: rec.inspector || "MARIE ADANDE",
+                status: isFinalized ? "Validé" : "En attente de validation",
+                new_quantity: Number(sample.qty || sample.quantity) || 1,
+                new_status: isFinalized ? "Disponible" : "À localiser",
+                new_location: sample.location || "Zone de Quarantaine / Réception",
+                reference_document: rec.rec_number,
+              });
+              newEntriesGenerated = true;
+            }
+          });
+        });
+
+        if (newEntriesGenerated) {
+          localStorage.setItem('local_movements_history', JSON.stringify(localMovements));
+        }
+      } catch (errScan) {
+        console.warn("Erreur auto-génération mouvements réceptions:", errScan);
+      }
+
       try {
         const all = [...localMovements, ...remoteMovements];
         if (all.length > 0) {

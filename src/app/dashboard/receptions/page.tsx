@@ -87,6 +87,16 @@ function ReceptionsContent() {
           }
           localStorage.setItem('reception_draft_details_' + rec.rec_number, JSON.stringify(parsed))
         }
+
+        // Mettre à jour les mouvements associés dans l'historique
+        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+        const updatedMovements = localMovements.map((m: any) => {
+          if (m.id?.includes(rec.rec_number) || m.reference_document === rec.rec_number || m.sample_number?.includes(rec.rec_number.replace('REC-', ''))) {
+            return { ...m, status: 'Validé', new_status: 'Disponible' }
+          }
+          return m
+        })
+        localStorage.setItem('local_movements_history', JSON.stringify(updatedMovements))
       } catch (e) {}
 
       setReceptions(prev => prev.map(item => {
@@ -312,8 +322,8 @@ function ReceptionsContent() {
       (rec.inspector && rec.inspector.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const isFinalized = rec.status === "Validée" || rec.status === "Finalisé" || rec.status === "Finalisée"
-    const isPendingValidation = rec.status === "En attente de validation" || rec.status === "Soumise" || rec.status === "En attente"
-    const isInProgress = !isFinalized && !isPendingValidation
+    const isPendingValidation = !isFinalized
+    const isInProgress = rec.status === "En cours" || rec.status === "Brouillon"
 
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "finalise" && isFinalized) ||
@@ -359,7 +369,7 @@ function ReceptionsContent() {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Réceptions en instance (À valider)</p>
               <h3 className="text-xl font-black text-amber-600">
-                {receptions.filter(r => r.status === "En attente de validation" || r.status === "Soumise" || r.status === "En attente").length}
+                {receptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length}
               </h3>
             </div>
           </CardContent>
@@ -413,7 +423,7 @@ function ReceptionsContent() {
                   }`}
                   onClick={() => handleFilterClick("en_attente")}
                 >
-                  En instance ({receptions.filter(r => r.status === "En attente de validation" || r.status === "Soumise" || r.status === "En attente").length})
+                  En instance ({receptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length})
                 </Button>
                 <Button
                   type="button"
@@ -434,7 +444,7 @@ function ReceptionsContent() {
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher..."
-                  className="pl-8 bg-background h-7 text-xs"
+                  className="pl-8 bg-background h-8 text-xs"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -463,18 +473,12 @@ function ReceptionsContent() {
                 ) : (
                   filteredReceptions.map((rec) => {
                     const isFinalized = rec.status === "Validée" || rec.status === "Finalisé" || rec.status === "Finalisée"
-                    const isPendingValidation = rec.status === "En attente de validation" || rec.status === "Soumise" || rec.status === "En attente"
+                    const isPendingValidation = !isFinalized
 
-                    let statusLabel = "En cours"
-                    let statusBadgeClass = "bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
-
-                    if (isFinalized) {
-                      statusLabel = "Finalisé"
-                      statusBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
-                    } else if (isPendingValidation) {
-                      statusLabel = "En attente de validation"
-                      statusBadgeClass = "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
-                    }
+                    let statusLabel = isFinalized ? "Finalisé" : "En attente de validation"
+                    let statusBadgeClass = isFinalized
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                      : "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
 
                     return (
                       <TableRow key={rec.id} className="text-xs hover:bg-muted/30">

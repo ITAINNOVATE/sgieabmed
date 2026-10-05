@@ -738,18 +738,68 @@ export default function NewReceptionPage() {
         console.warn("Erreur insertion échantillons:", sErr)
       }
     }
+
+    // ─── Génération automatique des mouvements d'entrée de stock ──────────────
+    if (validSamples.length > 0) {
+      try {
+        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+        const newMovements = validSamples.map((sample, idx) => {
+          const sampleNum = `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`
+          return {
+            id: `mvt-${values.rec_number}-${idx}`,
+            mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+            sample_id: `sample-${values.rec_number}-${idx}`,
+            sample_number: sampleNum,
+            commercial_name: (sample.commercial_name || '').toUpperCase(),
+            batch_number: (sample.batch || 'LOT-TEMP').toUpperCase(),
+            movement_type: "Entrée",
+            quantity: Number(sample.qty) || 1,
+            source_location: values.supplier || "Fournisseur / Demandeur",
+            destination_location: "Zone de Réception / Quarantaine",
+            reason: `Réception d'échantillons - Réf: ${values.rec_number}`,
+            observations: values.global_comments || `Réception enregistrée par ${values.inspector || 'Marie ADANDE'}`,
+            movement_date: values.date_reception ? new Date(values.date_reception).toISOString() : new Date().toISOString(),
+            operator: values.inspector || "MARIE ADANDE",
+            status: status === "Validée" ? "Validé" : "En attente de validation",
+            new_quantity: Number(sample.qty) || 1,
+            new_status: status === "Validée" ? "Disponible" : "À localiser",
+            new_location: "Zone de Réception / Quarantaine",
+          }
+        })
+
+        // Éviter les doublons pour cette même réception
+        const filteredMovements = localMovements.filter((m: any) => !m.id?.startsWith(`mvt-${values.rec_number}-`))
+        const updatedMovements = [...newMovements, ...filteredMovements]
+        localStorage.setItem('local_movements_history', JSON.stringify(updatedMovements))
+
+        // Tentative d'insertion Supabase dans table movements
+        for (const mvt of newMovements) {
+          try {
+            await supabase.from('movements').insert({
+              mvt_number: mvt.mvt_number,
+              movement_date: mvt.movement_date,
+              movement_type: 'Entrée',
+              quantity: mvt.quantity,
+              reason: mvt.reason,
+            })
+          } catch (mErr) {}
+        }
+      } catch (errMvt) {
+        console.warn("Erreur génération mouvements entrée:", errMvt)
+      }
+    }
   }
 
-  // ─── Sauvegarder en cours (Brouillon) ─────────────────────────────────────
+  // ─── Sauvegarder (En instance de validation) ──────────────────────────────
   const onDraft = async () => {
     setIsDrafting(true)
     const toastId = toast.loading("Sauvegarde en cours...")
     try {
-      await saveReceptionToSupabase("En cours")
+      await saveReceptionToSupabase("En attente de validation")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception sauvegardée en cours avec succès !", { id: toastId, duration: 3000 })
-      router.push("/dashboard/receptions")
-      setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
+      toast.success("Réception enregistrée avec succès ! Elle est visible dans les réceptions en instance et les mouvements.", { id: toastId, duration: 3500 })
+      router.push("/dashboard/receptions?status=en_attente")
+      setTimeout(() => { window.location.href = "/dashboard/receptions?status=en_attente" }, 300)
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur : ${err.message || "Impossible de sauvegarder la réception."}`, { id: toastId })
