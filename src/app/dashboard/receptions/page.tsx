@@ -129,12 +129,15 @@ function ReceptionsContent() {
 
   const fetchData = async () => {
     let deletedIds: string[] = []
+    let syncedIds: string[] = []
     try {
       deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+      syncedIds = JSON.parse(localStorage.getItem('reception_synced_cloud_ids') || '[]')
     } catch (e) {}
 
-    // 1. Données distantes Supabase
+    // 1. Données distantes Supabase (Source de vérité Cloud)
     let remoteData: any[] = []
+    let remoteFetchSuccess = false
     try {
       const { data, error } = await supabase
         .from('receptions')
@@ -142,12 +145,25 @@ function ReceptionsContent() {
         .order('created_at', { ascending: false })
       if (error) {
         console.warn("Erreur Supabase select réceptions:", error.message)
-      }
-      if (data && data.length > 0) {
+      } else if (Array.isArray(data)) {
+        remoteFetchSuccess = true
         remoteData = data.map((item: any) => ({
           ...item,
-          samples: [{ count: (Array.isArray(item.samples_data) ? item.samples_data.length : 1) }]
+          samples: [{ count: (Array.isArray(item.samples_data) && item.samples_data.length > 0 ? item.samples_data.length : 1) }]
         }))
+        // Marquer tous les éléments présents sur le Cloud comme synchronisés
+        let syncedUpdated = false
+        remoteData.forEach((r: any) => {
+          if (r.rec_number && !syncedIds.includes(r.rec_number)) {
+            syncedIds.push(r.rec_number)
+            syncedUpdated = true
+          }
+        })
+        if (syncedUpdated) {
+          try {
+            localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
+          } catch (e) {}
+        }
       }
     } catch (err) {
       console.warn("Erreur chargement distant réceptions:", err)
@@ -187,58 +203,89 @@ function ReceptionsContent() {
       }
     } catch (e) {}
 
-    // 4. Récupérer tout brouillon auto-sauvegardé en mémoire
-    try {
-      const autoSaved = localStorage.getItem('reception_form_autosave')
-      if (autoSaved) {
-        const parsed = JSON.parse(autoSaved)
-        if (parsed.formData && parsed.formData.rec_number && !deletedIds.includes(parsed.formData.rec_number)) {
-          const recovered = {
-            id: parsed.formData.rec_number,
-            rec_number: parsed.formData.rec_number,
-            date_reception: parsed.formData.date_reception || new Date().toISOString().split('T')[0],
-            supplier: parsed.formData.supplier || "SANINOVA",
-            status: "En cours",
-            inspector: parsed.formData.inspector || "Marie ADANDE",
-            created_at: new Date().toISOString(),
-            samples: [{ count: (parsed.formData.samples || []).length || 1 }],
-          }
-          localData.push(recovered)
+    // 4. Si un élément local avait déjà été synchronisé sur le Cloud mais n'est plus sur le Cloud,
+    // c'est qu'il a été supprimé depuis un autre navigateur/ordinateur : on le purge localement.
+    if (remoteFetchSuccess) {
+      const remoteRecNumbers = new Set(remoteData.map((r: any) => r.rec_number))
+      let purgedAny = false
+      localData = localData.filter((item: any) => {
+        if (item.rec_number && syncedIds.includes(item.rec_number) && !remoteRecNumbers.has(item.rec_number)) {
+          if (!deletedIds.includes(item.rec_number)) deletedIds.push(item.rec_number)
+          try {
+            localStorage.removeItem('reception_draft_details_' + item.rec_number)
+          } catch (e) {}
+          purgedAny = true
+          return false
         }
-      }
-    } catch (e) {}
-
-    // 5. Synchronisation montante automatique vers Supabase Cloud
-    for (const item of localData) {
-      if (!deletedIds.includes(item.rec_number) && !remoteData.some((r: any) => r.rec_number === item.rec_number)) {
+        return true
+      })
+      if (purgedAny) {
         try {
-          let samplesData = item.samples || []
-          const raw = localStorage.getItem('reception_draft_details_' + item.rec_number)
-          let payloadToInsert: any = {
-            rec_number: item.rec_number,
-            date_reception: item.date_reception || new Date().toISOString().split('T')[0],
-            supplier: item.supplier || "DEMANDEUR NON PRÉCISÉ",
-            status: item.status || "En attente de validation",
-            inspector: item.inspector || "Marie ADANDE",
-            samples_data: samplesData,
-          }
+          localStorage.setItem('reception_deleted_ids', JSON.stringify(deletedIds))
+          localStorage.setItem('reception_history_records', JSON.stringify(localData))
+        } catch (e) {}
+      }
+    }
+
+    // 5. Synchronisation montante automatique vers Supabase Cloud (uniquement colonnes SQL valides)
+    for (const item of localData) {
+      const remoteItem = remoteData.find((r: any) => r.rec_number === item.rec_number)
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('reception_draft_details_' + item.rec_number) : null
+      const needsRichSync = raw && remoteItem && (!Array.isArray(remoteItem.samples_data) || remoteItem.samples_data.length === 0 || remoteItem.samples_data[0]?.commercial_name?.startsWith('ÉCHANTILLON '))
+
+      if (!deletedIds.includes(item.rec_number) && (!remoteItem || needsRichSync)) {
+        try {
+          let fd: any = {}
+          let validSamples: any[] = []
           if (raw) {
             try {
               const parsed = JSON.parse(raw)
-              if (parsed.formData) {
-                payloadToInsert = {
-                  ...payloadToInsert,
-                  ...parsed.formData,
-                  samples_data: parsed.formData.samples || samplesData,
-                  status: item.status || parsed.status || "En attente de validation",
-                }
+              fd = parsed.formData || {}
+              if (Array.isArray(fd.samples)) {
+                validSamples = fd.samples.filter((s: any) => s.commercial_name && s.commercial_name.trim() !== '')
               }
             } catch (e) {}
           }
-          await supabase.from('receptions').upsert(payloadToInsert, { onConflict: 'rec_number' })
 
-          if (Array.isArray(payloadToInsert.samples_data) && payloadToInsert.samples_data.length > 0) {
-            const validSamples = payloadToInsert.samples_data.filter((s: any) => s.commercial_name && s.commercial_name.trim() !== '')
+          const payloadToInsert: any = {
+            rec_number: item.rec_number,
+            date_reception: fd.date_reception || item.date_reception || new Date().toISOString().split('T')[0],
+            time_reception: fd.time_reception || '08:00',
+            ref_document: fd.ref_document || null,
+            type_reception: fd.type_reception || null,
+            inspector: fd.inspector || item.inspector || "Marie ADANDE",
+            status: remoteItem?.status === 'Validée' ? 'Validée' : (item.status || fd.status || "En attente de validation"),
+            supplier: fd.supplier || item.supplier || "DEMANDEUR NON PRÉCISÉ",
+            manufacturer: fd.manufacturer || null,
+            country: fd.country || null,
+            city: fd.city || null,
+            contact_person: fd.contact_person || null,
+            phone: fd.phone || null,
+            check_packaging: !!fd.check_packaging,
+            check_boxes: !!fd.check_boxes,
+            check_seals: !!fd.check_seals,
+            check_qty: !!fd.check_qty,
+            check_docs: !!fd.check_docs,
+            check_damage: !!fd.check_damage,
+            check_conform: !!fd.check_conform,
+            anomalies: fd.anomalies || null,
+            measures: fd.measures || null,
+            validator_name: fd.validator_name || null,
+            validation_date: fd.validation_date && fd.validation_date.trim() !== '' ? fd.validation_date : null,
+            samples_data: validSamples.length > 0 ? validSamples : (remoteItem?.samples_data || [{ commercial_name: `ÉCHANTILLON ${item.supplier || ''}`.trim(), qty: 1 }]),
+          }
+
+          const { error: upsertErr } = await supabase.from('receptions').upsert(payloadToInsert, { onConflict: 'rec_number' })
+          if (!upsertErr) {
+            if (!syncedIds.includes(item.rec_number)) {
+              syncedIds.push(item.rec_number)
+              localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
+            }
+          } else {
+            console.warn("Erreur upsert réception vers Supabase:", upsertErr.message)
+          }
+
+          if (validSamples.length > 0) {
             for (let idx = 0; idx < validSamples.length; idx++) {
               const s = validSamples[idx]
               await supabase.from('samples').upsert({
@@ -248,10 +295,12 @@ function ReceptionsContent() {
                 dci: s.dci || null,
                 dosage: s.dosage || null,
                 batch_number: s.batch || 'LOT-TEMP',
-                quantity: s.qty || 1,
-                status: item.status === 'Validée' ? 'Disponible' : 'À localiser',
-                expiry_date: s.exp_date || null,
+                quantity: Number(s.qty) || 1,
+                status: payloadToInsert.status === 'Validée' ? 'Disponible' : 'À localiser',
+                expiry_date: s.exp_date && s.exp_date.trim() !== '' ? s.exp_date : null,
                 current_location: s.location || 'Zone de Réception / Quarantaine',
+                manufacturer_name: fd.manufacturer || null,
+                supplier_name: fd.supplier || item.supplier || null,
               }, { onConflict: 'sample_number' })
             }
           }
@@ -261,7 +310,7 @@ function ReceptionsContent() {
       }
     }
 
-    // Fusionner les enregistrements sans doublons par rec_number
+    // Fusionner les enregistrements sans doublons par rec_number (Priorité aux statuts Cloud)
     const mergedMap = new Map<string, any>()
     remoteData.forEach(item => {
       if (!deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
@@ -272,13 +321,12 @@ function ReceptionsContent() {
       if (item.rec_number && !deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
         const existing = mergedMap.get(item.rec_number)
         if (existing) {
-          // Si le statut local est plus récent ou prioritaire
-          const finalStatus = (item.status === "En attente de validation" || item.status === "Validée")
-            ? item.status
+          const finalStatus = (existing.status === "Validée" || item.status === "Validée")
+            ? "Validée"
             : (existing.status || item.status)
           mergedMap.set(item.rec_number, {
-            ...existing,
             ...item,
+            ...existing,
             status: finalStatus,
           })
         } else {

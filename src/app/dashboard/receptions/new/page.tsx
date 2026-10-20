@@ -556,24 +556,28 @@ export default function NewReceptionPage() {
           
           if (data) {
             sourceData = data
-            // Charger les échantillons Supabase associés
-            const { data: sData } = await supabase
-              .from('samples')
-              .select('*')
-              .eq('reception_ref', data.rec_number)
-            
-            if (sData && sData.length > 0) {
-              sourceData.samples = sData.map(s => ({
-                commercial_name: s.commercial_name || "",
-                dci: s.dci || "",
-                form: s.form || "",
-                dosage: s.dosage || "",
-                batch: s.batch_number || "",
-                exp_date: s.expiry_date || "",
-                qty: s.quantity || 1,
-                unit: s.unit || "",
-                category: s.category || "",
-              }))
+            if (Array.isArray(data.samples_data) && data.samples_data.length > 0 && data.samples_data[0]?.commercial_name) {
+              sourceData.samples = data.samples_data
+            } else {
+              // Charger les échantillons Supabase associés
+              const { data: sData } = await supabase
+                .from('samples')
+                .select('*')
+                .eq('reception_ref', data.rec_number)
+              
+              if (sData && sData.length > 0) {
+                sourceData.samples = sData.map(s => ({
+                  commercial_name: s.commercial_name || "",
+                  dci: s.dci || "",
+                  form: s.form || "",
+                  dosage: s.dosage || "",
+                  batch: s.batch_number || "",
+                  exp_date: s.expiry_date || "",
+                  qty: s.quantity || 1,
+                  unit: s.unit || "",
+                  category: s.category || "",
+                }))
+              }
             }
           }
         }
@@ -721,19 +725,19 @@ export default function NewReceptionPage() {
     if (validSamples.length > 0) {
       try {
         await supabase.from('samples').delete().eq('reception_ref', values.rec_number)
-        const samplesToInsert = validSamples.map(sample => ({
-          sample_number: `ECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        const samplesToInsert = validSamples.map((sample, idx) => ({
+          sample_number: `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`,
           reception_ref: values.rec_number,
           commercial_name: sample.commercial_name,
           dci: sample.dci || null,
-          form: sample.form || null,
           dosage: sample.dosage || null,
-          batch_number: sample.batch || null,
+          batch_number: sample.batch || 'LOT-TEMP',
           expiry_date: sample.exp_date || null,
-          quantity: sample.qty || 1,
-          unit: sample.unit || null,
-          category: sample.category || null,
-          status: 'À localiser'
+          quantity: Number(sample.qty) || 1,
+          status: status === 'Validée' ? 'Disponible' : 'À localiser',
+          current_location: 'Zone de Réception / Quarantaine',
+          manufacturer_name: values.manufacturer || null,
+          supplier_name: values.supplier || null,
         }))
         await supabase.from('samples').insert(samplesToInsert)
       } catch (sErr) {
