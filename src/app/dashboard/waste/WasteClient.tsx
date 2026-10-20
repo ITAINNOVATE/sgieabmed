@@ -62,6 +62,43 @@ export default function WasteClient({
       }
     } catch (e) {}
 
+    // Auto-synchronisation des lots locaux vers Supabase Cloud
+    for (const lb of localBatches) {
+      if (!remoteBatches.some((rb: any) => rb.batch_number === lb.batch_number)) {
+        try {
+          const supabase = createClient()
+          await supabase.from('waste_batches').upsert({
+            batch_number: lb.batch_number,
+            reception_number: lb.reception_number || null,
+            reception_date: lb.reception_date || null,
+            reception_time: lb.reception_time || null,
+            delivery_slip_ref: lb.delivery_slip_ref || null,
+            recipient_agent: lb.recipient_agent || 'Marie ADANDE',
+            source_structure: lb.source_structure || 'Structure Déposante',
+            source_type: lb.source_type || 'Officine',
+            city: lb.city || 'Cotonou',
+            depositor_name: lb.depositor_name || '',
+            depositor_phone: lb.depositor_phone || '',
+            depositor_id_card: lb.depositor_id_card || '',
+            waste_type: lb.waste_type || 'Déchets pharmaceutiques',
+            commercial_name: lb.commercial_name || '',
+            original_batch: lb.original_batch || '',
+            sample_id: lb.sample_id || null,
+            quantity: Number(lb.quantity) || 1,
+            unit: lb.unit || 'Kg',
+            packaging: lb.packaging || 'Carton',
+            packaging_condition: lb.packaging_condition || 'Conforme',
+            destruction_motive: lb.destruction_motive || 'Péremption',
+            current_location: lb.current_location || 'Zone de Quarantaine - Déchets',
+            status: lb.status || 'Déclaré',
+            observations: lb.observations || '',
+          }, { onConflict: 'batch_number' })
+        } catch (e) {
+          console.warn("Échec auto-sync waste_batch vers Supabase:", e)
+        }
+      }
+    }
+
     const batchMap = new Map<string, any>()
     // Priorité aux données Supabase pour la conformité inter-postes
     localBatches.forEach((b: any) => {

@@ -47,6 +47,29 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
       }
     } catch (e) {}
 
+    // Auto-synchronisation des plans locaux vers Supabase Cloud
+    for (const lp of localPlans) {
+      if (!remotePlans.some((rp: any) => rp.plan_number === lp.plan_number)) {
+        try {
+          const supabase = createClient()
+          await supabase.from('destruction_plans').upsert({
+            plan_number: lp.plan_number,
+            planned_date: lp.planned_date,
+            execution_date: lp.execution_date || null,
+            destruction_method: lp.destruction_method || 'Incinération',
+            destruction_site: lp.destruction_site || 'Centre Agréé',
+            supervisor_name: lp.supervisor_name || 'Marie ADANDE',
+            observations: lp.observations || '',
+            certificate_number: lp.certificate_number || null,
+            status: lp.status || 'En préparation',
+            items_data: lp.items || lp.items_data || [],
+          }, { onConflict: 'plan_number' })
+        } catch (e) {
+          console.warn("Échec auto-sync destruction_plan vers Supabase:", e)
+        }
+      }
+    }
+
     const planMap = new Map<string, any>()
     localPlans.forEach((p: any) => {
       const key = p.plan_number || p.id

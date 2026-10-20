@@ -29,9 +29,10 @@ function ReceptionsContent() {
     if (!confirm(`Voulez-vous vraiment supprimer la réception ${rec.rec_number} ?`)) return
 
     try {
-      // 1. Supprimer de Supabase si présent
+      // 1. Supprimer de Supabase
       await supabase.from('receptions').delete().or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
       await supabase.from('samples').delete().eq('reception_ref', rec.rec_number)
+      await supabase.from('movements').delete().eq('reference_document', rec.rec_number)
 
       // 2. Mémoriser la suppression dans localStorage
       try {
@@ -66,6 +67,9 @@ function ReceptionsContent() {
         validator_name: validatorName,
         validation_date: validationDate,
       }).or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
+
+      await supabase.from('samples').update({ status: 'Disponible' }).eq('reception_ref', rec.rec_number)
+      await supabase.from('movements').update({ status: 'Validé' }).eq('reference_document', rec.rec_number)
 
       try {
         const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
@@ -204,8 +208,58 @@ function ReceptionsContent() {
       }
     } catch (e) {}
 
-    // Enregistrements par défaut (base vierge pour tests réels)
-    const defaultRecords: any[] = []
+    // 5. Synchronisation montante automatique vers Supabase Cloud
+    for (const item of localData) {
+      if (!deletedIds.includes(item.rec_number) && !remoteData.some((r: any) => r.rec_number === item.rec_number)) {
+        try {
+          let samplesData = item.samples || []
+          const raw = localStorage.getItem('reception_draft_details_' + item.rec_number)
+          let payloadToInsert: any = {
+            rec_number: item.rec_number,
+            date_reception: item.date_reception || new Date().toISOString().split('T')[0],
+            supplier: item.supplier || "DEMANDEUR NON PRÉCISÉ",
+            status: item.status || "En attente de validation",
+            inspector: item.inspector || "Marie ADANDE",
+            samples_data: samplesData,
+          }
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw)
+              if (parsed.formData) {
+                payloadToInsert = {
+                  ...payloadToInsert,
+                  ...parsed.formData,
+                  samples_data: parsed.formData.samples || samplesData,
+                  status: item.status || parsed.status || "En attente de validation",
+                }
+              }
+            } catch (e) {}
+          }
+          await supabase.from('receptions').upsert(payloadToInsert, { onConflict: 'rec_number' })
+
+          if (Array.isArray(payloadToInsert.samples_data) && payloadToInsert.samples_data.length > 0) {
+            const validSamples = payloadToInsert.samples_data.filter((s: any) => s.commercial_name && s.commercial_name.trim() !== '')
+            for (let idx = 0; idx < validSamples.length; idx++) {
+              const s = validSamples[idx]
+              await supabase.from('samples').upsert({
+                sample_number: s.sample_number || `ECH-${item.rec_number.replace('REC-', '')}-${idx + 1}`,
+                reception_ref: item.rec_number,
+                commercial_name: s.commercial_name,
+                dci: s.dci || null,
+                dosage: s.dosage || null,
+                batch_number: s.batch || 'LOT-TEMP',
+                quantity: s.qty || 1,
+                status: item.status === 'Validée' ? 'Disponible' : 'À localiser',
+                expiry_date: s.exp_date || null,
+                current_location: s.location || 'Zone de Réception / Quarantaine',
+              }, { onConflict: 'sample_number' })
+            }
+          }
+        } catch (syncErr) {
+          console.warn("Échec auto-migration réception vers Supabase:", syncErr)
+        }
+      }
+    }
 
     // Fusionner les enregistrements sans doublons par rec_number
     const mergedMap = new Map<string, any>()
