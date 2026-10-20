@@ -206,57 +206,11 @@ function ReceptionsContent() {
       }
     } catch (e) {}
 
-    // Exemples de secours
-    const defaultRecords = [
-      {
-        id: "rec-default-4",
-        rec_number: "REC-2026-4420",
-        date_reception: "2026-08-13",
-        supplier: "PHARMA AFRIQUE",
-        status: "En attente de validation",
-        inspector: "Marie ADANDE",
-        created_at: "2026-08-13T11:00:00Z",
-        samples: [{ count: 3 }],
-      },
-      {
-        id: "rec-default-1",
-        rec_number: "REC-2026-3901",
-        date_reception: "2026-08-12",
-        supplier: "SANINOVA",
-        status: "En cours",
-        inspector: "Marie ADANDE",
-        created_at: "2026-08-12T19:23:00Z",
-        samples: [{ count: 2 }],
-      },
-      {
-        id: "rec-default-2",
-        rec_number: "REC-2026-1042",
-        date_reception: "2026-08-11",
-        supplier: "LABOREX BÉNIN",
-        status: "Validée",
-        inspector: "Marie ADANDE",
-        created_at: "2026-08-11T14:30:00Z",
-        samples: [{ count: 5 }],
-      },
-      {
-        id: "rec-default-3",
-        rec_number: "REC-2026-0815",
-        date_reception: "2026-08-10",
-        supplier: "UBIPHARMA",
-        status: "Validée",
-        inspector: "Dr. Kadia BARRY",
-        created_at: "2026-08-10T09:15:00Z",
-        samples: [{ count: 3 }],
-      }
-    ]
+    // Enregistrements par défaut (base vierge pour tests réels)
+    const defaultRecords: any[] = []
 
     // Fusionner les enregistrements sans doublons par rec_number
     const mergedMap = new Map<string, any>()
-    defaultRecords.forEach(item => {
-      if (!deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
-        mergedMap.set(item.rec_number, item)
-      }
-    })
     remoteData.forEach(item => {
       if (!deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
         mergedMap.set(item.rec_number, item)

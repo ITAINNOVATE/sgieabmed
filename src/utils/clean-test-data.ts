@@ -11,6 +11,9 @@ export async function clearAllTestData(): Promise<boolean> {
       localStorage.removeItem('local_sample_overrides')
       localStorage.removeItem('reception_history_records')
       localStorage.removeItem('reception_form_autosave')
+      localStorage.removeItem('waste_batches_custom_v1')
+      localStorage.removeItem('destruction_plans_custom_v1')
+      localStorage.removeItem('reception_deleted_ids')
 
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
@@ -19,6 +22,8 @@ export async function clearAllTestData(): Promise<boolean> {
           key.startsWith('reception_') || 
           key.startsWith('local_') || 
           key.startsWith('sample_') ||
+          key.startsWith('waste_') ||
+          key.startsWith('destruction_') ||
           key.includes('draft')
         )) {
           keysToRemove.push(key)
@@ -30,13 +35,22 @@ export async function clearAllTestData(): Promise<boolean> {
       localStorage.setItem('all_data_wiped', 'true')
     }
 
-    // 2. Suppression des données et utilisateurs non-admin dans Supabase
+    // 2. Suppression des données de test dans Supabase (en conservant l'admin)
     try {
       const supabase = createClient()
+      await supabase.from('destruction_items').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('destruction_validations').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('destruction_plans').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('waste_batches').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('inventory_items').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('inventories').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       await supabase.from('movements').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       await supabase.from('samples').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       await supabase.from('receptions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-      await supabase.from('users').delete().neq('username', 'm.adande').neq('email', 'marie.adande@abmed.bj')
+      await supabase.from('users').delete()
+        .neq('username', 'm.adande')
+        .neq('email', 'marie.adande@abmed.bj')
+        .neq('email', 'admin@sgie.com')
     } catch (e) {
       console.warn("Supabase total cleanup notice:", e)
     }

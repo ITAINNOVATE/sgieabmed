@@ -21,13 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 
-const MOCK_WASTE_BATCHES = [
-  { id: '1', batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', quantity: 150, unit: 'Kg', current_location: 'Local Déchets A1', status: 'En attente de destruction', created_at: '2026-01-20T10:00:00.000Z' },
-  { id: '2', batch_number: 'DEC-2026-88120', waste_type: 'Produits chimiques dangereux', quantity: 45, unit: 'L', current_location: 'Zone Quarantaine C2', status: 'Déclaré', created_at: '2026-02-12T14:30:00.000Z' },
-  { id: '3', batch_number: 'DEC-2026-11409', waste_type: 'Déchets infectieux (DASRI)', quantity: 230, unit: 'Kg', current_location: 'Local DASRI B', status: 'Validé', created_at: '2026-03-05T09:15:00.000Z' },
-  { id: '4', batch_number: 'DEC-2026-99201', waste_type: 'Flacons cassés', quantity: 12, unit: 'Kg', current_location: 'Local Déchets A2', status: 'En contrôle', created_at: '2026-03-18T16:00:00.000Z' },
-  { id: '5', batch_number: 'DEC-2026-44021', waste_type: 'Emballages souillés', quantity: 80, unit: 'Kg', current_location: 'Local Déchets A1', status: 'Détruit', created_at: '2026-03-25T11:20:00.000Z' },
-]
+const MOCK_WASTE_BATCHES: any[] = []
 
 const WASTE_CATEGORIES_COLORS = ['#E53935', '#FB8C00', '#1E88E5', '#43A047']
 const WASTE_STATUS_COLORS = ['#1E88E5', '#FB8C00', '#43A047', '#D81B60', '#E53935']
@@ -40,7 +34,7 @@ export default function WasteClient({
   destructions?: any[] 
 }) {
   const [batches, setBatches] = useState<any[]>(() => {
-    return initialBatches && initialBatches.length > 0 ? initialBatches : MOCK_WASTE_BATCHES
+    return initialBatches && initialBatches.length > 0 ? initialBatches : []
   })
 
   useEffect(() => {

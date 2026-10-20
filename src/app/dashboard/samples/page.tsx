@@ -164,68 +164,7 @@ export const columns: ColumnDef<Sample>[] = [
   },
 ]
 
-const DEFAULT_SAMPLES: Sample[] = [
-  {
-    id: 'sample-1',
-    sample_number: 'ECH-2026-8832',
-    reception_ref: 'REC-2026-001',
-    commercial_name: 'AMOXICILLINE 500MG',
-    dci: 'AMOXICILLINE',
-    batch_number: 'LOT-8832',
-    quantity: 150,
-    status: 'Disponible',
-    expiry_date: '2028-11-30',
-    current_location: 'MAG-A1-E3',
-  },
-  {
-    id: 'sample-2',
-    sample_number: 'ECH-2026-1192',
-    reception_ref: 'REC-2026-002',
-    commercial_name: 'PARACÉTAMOL 1G',
-    dci: 'PARACÉTAMOL',
-    batch_number: 'LOT-1192',
-    quantity: 50,
-    status: 'Disponible',
-    expiry_date: '2027-08-15',
-    current_location: 'MAG-A2-E1',
-  },
-  {
-    id: 'sample-3',
-    sample_number: 'ECH-2026-9920',
-    reception_ref: 'REC-2026-003',
-    commercial_name: 'IBUPROFÈNE 400MG',
-    dci: 'IBUPROFÈNE',
-    batch_number: 'LOT-9920',
-    quantity: 20,
-    status: 'En quarantaine',
-    expiry_date: '2027-05-20',
-    current_location: 'QUAR-01',
-  },
-  {
-    id: 'sample-4',
-    sample_number: 'ECH-2026-7331',
-    reception_ref: 'REC-2026-004',
-    commercial_name: 'CÉFOTAXIME 1G',
-    dci: 'CÉFOTAXIME',
-    batch_number: 'LOT-7331',
-    quantity: 10,
-    status: 'Disponible',
-    expiry_date: '2028-03-10',
-    current_location: 'MAG-A3-E2',
-  },
-  {
-    id: 'sample-5',
-    sample_number: 'ECH-2026-4410',
-    reception_ref: 'REC-2026-005',
-    commercial_name: 'ARTEMETHER + LUMEFANTRINE 80/480MG',
-    dci: 'ARTEMETHER / LUMEFANTRINE',
-    batch_number: 'LOT-4410',
-    quantity: 200,
-    status: 'Disponible',
-    expiry_date: '2029-01-31',
-    current_location: 'MAG-B1-E4',
-  },
-]
+const DEFAULT_SAMPLES: Sample[] = []
 
 export default function SamplesDataTable() {
   const [sorting, setSorting] = useState<SortingState>([])

@@ -52,31 +52,7 @@ interface Inventory {
   items: InventoryItem[];
 }
 
-const MOCK_INVENTORIES: Inventory[] = [
-  {
-    id: '1',
-    name: 'Inventaire Global 2026',
-    inventory_type: 'Annuel',
-    status: 'En cours',
-    created_at: '2026-01-15T08:00:00.000Z',
-    completed_at: null,
-    items: [
-      { id: '1', system_quantity: 500, physical_quantity: 498, discrepancy_reason: null, sample: { commercial_name: 'Amoxicilline 500mg', batch_number: 'LOT-992A', sample_number: 'ECH-001' } },
-      { id: '2', system_quantity: 200, physical_quantity: 200, discrepancy_reason: null, sample: { commercial_name: 'Ibuprofène 400mg', batch_number: 'LOT-112B', sample_number: 'ECH-002' } },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Inventaire Trimestriel Q1',
-    inventory_type: 'Trimestriel',
-    status: 'Validé',
-    created_at: '2026-03-01T09:00:00.000Z',
-    completed_at: '2026-03-15T14:30:00.000Z',
-    items: [
-      { id: '4', system_quantity: 300, physical_quantity: 300, discrepancy_reason: null, sample: { commercial_name: 'Paracétamol 1g', batch_number: 'LOT-441D', sample_number: 'ECH-004' } },
-    ],
-  },
-];
+const MOCK_INVENTORIES: Inventory[] = [];
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';

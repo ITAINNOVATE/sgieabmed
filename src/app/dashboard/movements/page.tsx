@@ -15,13 +15,7 @@ import { clearAllTestData } from "@/utils/clean-test-data"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText, Trash2, Eye } from "lucide-react"
 
-const MOCK_MOVEMENTS = [
-  { id: '1', mvt_number: 'MVT-2026-001', movement_date: '2026-01-15T10:00:00.000Z', movement_type: 'Entrée', quantity: 150, commercial_name: 'AMOXICILLINE 500MG', batch_number: 'LOT-8832', operator: 'JEAN DUPONT' },
-  { id: '2', mvt_number: 'MVT-2026-002', movement_date: '2026-02-02T14:30:00.000Z', movement_type: 'Transfert', quantity: 50, commercial_name: 'PARACÉTAMOL 1G', batch_number: 'LOT-1192', operator: 'MARIE ADANDE' },
-  { id: '3', mvt_number: 'MVT-2026-003', movement_date: '2026-02-18T09:15:00.000Z', movement_type: 'Mise en quarantaine', quantity: 20, commercial_name: 'IBUPROFÈNE 400MG', batch_number: 'LOT-9920', operator: 'CHANTAL HOUENOU' },
-  { id: '4', mvt_number: 'MVT-2026-004', movement_date: '2026-03-05T11:00:00.000Z', movement_type: 'Sortie', quantity: 10, commercial_name: 'CÉFOTAXIME 1G', batch_number: 'LOT-7331', operator: 'PAUL AGOSSA' },
-  { id: '5', mvt_number: 'MVT-2026-005', movement_date: '2026-03-22T15:45:00.000Z', movement_type: 'Libération de quarantaine', quantity: 20, commercial_name: 'IBUPROFÈNE 400MG', batch_number: 'LOT-9920', operator: 'DR. KADIA BARRY' },
-]
+const MOCK_MOVEMENTS: any[] = []
 
 export default function MovementsPage() {
   const [movements, setMovements] = useState<any[]>([])

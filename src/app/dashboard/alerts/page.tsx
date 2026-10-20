@@ -86,50 +86,62 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 }
 
 export default async function AlertsPage() {
-  const supabase = await createClient()
+  let alerts: AlertItem[] = []
+  
+  try {
+    const supabase = await createClient()
+    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const nowIso = new Date().toISOString()
 
-  const alerts: AlertItem[] = [
-    {
-      id: 'a1',
-      severity: 'critique',
-      icon: CalendarX,
-      title: 'Lot d\'échantillons expiré (Amoxicilline)',
-      description: 'Le lot N°LOT-8832 a dépassé sa date de péremption et doit être isolé.',
-      time: 'Il y a 10 min',
-      badgeLabel: 'Péremption',
-      href: '/dashboard/samples'
-    },
-    {
-      id: 'a2',
-      severity: 'avertissement',
-      icon: CalendarClock,
-      title: 'Expiration proche (30 jours)',
-      description: '23 lots d\'échantillons en stock arrivent à péremption d\'ici la fin du mois.',
-      time: 'Il y a 1h',
-      badgeLabel: 'J-30',
-      href: '/dashboard/samples'
-    },
-    {
-      id: 'a3',
-      severity: 'critique',
-      icon: Trash2,
-      title: 'Capacité local déchet à 78%',
-      description: 'Le local de stockage temporaire des déchets atteint le seuil d\'alerte PSQIF.',
-      time: 'Il y a 2h',
-      badgeLabel: 'Capacité 78%',
-      href: '/dashboard/waste'
-    },
-    {
-      id: 'a4',
-      severity: 'info',
-      icon: ShieldAlert,
-      title: 'Contrôle qualité de réception',
-      description: 'Rapprochement d\'inventaire validé par la direction ABMed.',
-      time: 'Hier',
-      badgeLabel: 'Validation',
-      href: '/dashboard/receptions'
+    const [{ data: expiredSamples }, { data: expiringSamples }, { data: quarantineSamples }] = await Promise.all([
+      supabase.from('samples').select('*').lt('expiry_date', nowIso).limit(10),
+      supabase.from('samples').select('*').gte('expiry_date', nowIso).lte('expiry_date', thirtyDaysLater).limit(10),
+      supabase.from('samples').select('*').eq('status', 'En quarantaine').limit(10),
+    ])
+
+    if (expiredSamples && expiredSamples.length > 0) {
+      expiredSamples.forEach(s => {
+        alerts.push({
+          id: `exp-${s.id}`,
+          severity: 'critique',
+          icon: CalendarX,
+          title: `Échantillon périmé : ${s.commercial_name}`,
+          description: `Le lot N°${s.batch_number || 'N/A'} est périmé depuis le ${s.expiry_date} et doit être isolé.`,
+          time: 'Aujourd\'hui',
+          badgeLabel: 'Péremption',
+          href: '/dashboard/samples'
+        })
+      })
     }
-  ]
+
+    if (expiringSamples && expiringSamples.length > 0) {
+      alerts.push({
+        id: 'expiring-soon',
+        severity: 'avertissement',
+        icon: CalendarClock,
+        title: `${expiringSamples.length} lot(s) arrivent à péremption sous 30 jours`,
+        description: 'Veuillez planifier leur réévaluation ou mise en destruction prochaine.',
+        time: 'Aujourd\'hui',
+        badgeLabel: 'J-30',
+        href: '/dashboard/samples'
+      })
+    }
+
+    if (quarantineSamples && quarantineSamples.length > 0) {
+      alerts.push({
+        id: 'quarantine-active',
+        severity: 'critique',
+        icon: ShieldAlert,
+        title: `${quarantineSamples.length} lot(s) placés en quarantaine`,
+        description: 'En attente de libération ou décision du responsable qualité.',
+        time: 'En cours',
+        badgeLabel: 'Quarantaine',
+        href: '/dashboard/samples'
+      })
+    }
+  } catch (err) {
+    console.warn("Erreur chargement alertes:", err)
+  }
 
   const critiques = alerts.filter(a => a.severity === 'critique')
   const avertissements = alerts.filter(a => a.severity === 'avertissement')
@@ -194,9 +206,17 @@ export default async function AlertsPage() {
 
       {/* LISTE DES ALERTES (STATIQUE 1-ÉCRAN) */}
       <div className="space-y-2">
-        {alerts.map((alert) => (
-          <AlertCard key={alert.id} alert={alert} />
-        ))}
+        {alerts.length === 0 ? (
+          <Card className="shadow-2xs border border-border/70 rounded-xl bg-card p-6 text-center">
+            <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto mb-2 opacity-80" />
+            <h4 className="text-sm font-bold text-foreground">Aucune alerte active</h4>
+            <p className="text-xs text-muted-foreground mt-0.5">Tous les indicateurs et stocks sont conformes aux exigences réglementaires.</p>
+          </Card>
+        ) : (
+          alerts.map((alert) => (
+            <AlertCard key={alert.id} alert={alert} />
+          ))
+        )}
       </div>
 
     </div>

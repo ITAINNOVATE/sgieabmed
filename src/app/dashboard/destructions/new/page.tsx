@@ -70,16 +70,6 @@ export default function NewDestructionPlanPage() {
         console.error(e)
       }
 
-      // Si toujours vide, injecter les lots disponibles par défaut
-      if (combined.length === 0) {
-        combined = [
-          { id: '1', batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', quantity: 150, unit: 'Kg', current_location: 'Local Déchets A1', status: 'Validé', sample: { commercial_name: 'Amoxicilline 500mg Gélule' } },
-          { id: '2', batch_number: 'DEC-2026-88120', waste_type: 'Produits chimiques dangereux', quantity: 45, unit: 'L', current_location: 'Zone Quarantaine C2', status: 'Déclaré', sample: { commercial_name: 'Solvant Acétonitrile HPLC' } },
-          { id: '3', batch_number: 'DEC-2026-11409', waste_type: 'Déchets infectieux (DASRI)', quantity: 230, unit: 'Kg', current_location: 'Local DASRI B', status: 'Validé', sample: { commercial_name: 'Soluté Glucosé 5%' } },
-          { id: '4', batch_number: 'DEC-2026-99201', waste_type: 'Flacons cassés', quantity: 12, unit: 'Kg', current_location: 'Local Déchets A2', status: 'En contrôle', sample: { commercial_name: 'Ibuprofène 400mg' } },
-        ]
-      }
-
       setWasteBatches(combined)
     }
     fetchWasteBatches()

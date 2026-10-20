@@ -83,39 +83,48 @@ interface Props {
 
 const PIE_COLORS = ['#1B5C2E', '#22c55e', '#f59e0b', '#ef4444']
 
-const MOCK_REPORTS = [
-  { id: 1, name: 'Rapport mensuel Juin 2026', type: 'Stock', format: 'PDF' },
-  { id: 2, name: 'Rapport trimestriel Mouvements', type: 'Mouvements', format: 'Excel' },
-]
+const MOCK_REPORTS: any[] = []
 
 export default function ReportsClient({ samples, movements, wasteBatches, destructions }: Props) {
   const [reportType, setReportType] = useState('stock')
   const [period, setPeriod] = useState('month')
 
-  const totalStock = samples.length || 142
-  const pendingWaste = wasteBatches.filter(w => w.status !== 'Détruit' && w.status !== 'detruit').length || 12
-  const completedDestructions = destructions.filter(d => d.status === 'Exécuté' || d.status === 'execute').length || 23
+  const totalStock = samples.length
+  const pendingWaste = wasteBatches.filter(w => w.status !== 'Détruit' && w.status !== 'detruit').length
+  const completedDestructions = destructions.filter(d => d.status === 'Exécuté' || d.status === 'execute').length
   const quarantineCount = samples.filter(s => s.status === 'Quarantaine' || s.status === 'quarantaine' || s.status === 'En quarantaine').length
   const conformityRate = totalStock === 0 ? 100 : Math.round(((totalStock - quarantineCount) / totalStock) * 100)
 
   const movementsChartData = useMemo(() => {
+    const counts = {
+      'Entrée': movements.filter(m => m.movement_type === 'Entrée').length,
+      'Sortie': movements.filter(m => m.movement_type === 'Sortie').length,
+      'Transfert': movements.filter(m => m.movement_type === 'Transfert').length,
+      'Quarantaine': movements.filter(m => (m.movement_type || '').includes('quarantaine')).length,
+      'Destruction': movements.filter(m => (m.movement_type || '').includes('Destruction')).length,
+    }
     return [
-      { type: 'Entrée', count: 42 },
-      { type: 'Sortie', count: 28 },
-      { type: 'Transfert', count: 15 },
-      { type: 'Quarantaine', count: 8 },
-      { type: 'Destruction', count: 12 },
+      { type: 'Entrée', count: counts['Entrée'] },
+      { type: 'Sortie', count: counts['Sortie'] },
+      { type: 'Transfert', count: counts['Transfert'] },
+      { type: 'Quarantaine', count: counts['Quarantaine'] },
+      { type: 'Destruction', count: counts['Destruction'] },
     ]
-  }, [])
+  }, [movements])
 
   const sampleStatusData = useMemo(() => {
+    const inStock = samples.filter(s => s.status === 'Disponible' || !s.status).length
+    const quar = samples.filter(s => (s.status || '').toLowerCase().includes('quarantaine')).length
+    const analysis = samples.filter(s => (s.status || '').toLowerCase().includes('analyse')).length
+    const expired = samples.filter(s => (s.status || '').toLowerCase().includes('périmé') || (s.status || '').toLowerCase().includes('expire')).length
+
     return [
-      { name: 'En stock', value: 85 },
-      { name: 'Quarantaine', value: 12 },
-      { name: 'En analyse', value: 25 },
-      { name: 'Expiré', value: 8 },
+      { name: 'En stock', value: inStock },
+      { name: 'Quarantaine', value: quar },
+      { name: 'En analyse', value: analysis },
+      { name: 'Expiré', value: expired },
     ]
-  }, [])
+  }, [samples])
 
   const handleExport = (format: string) => {
     let exportData = [{ "Type": reportType, "Date": new Date().toLocaleDateString('fr-FR') }]

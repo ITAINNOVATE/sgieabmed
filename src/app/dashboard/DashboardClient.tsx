@@ -35,43 +35,68 @@ export default function DashboardClient({
 
   // ─── 1. CALCUL DES KPIs ÉCHANTILLONS SEULEMENT ──────────────────────────
   const activeSamples = samples.filter(s => s.status !== 'Détruit')
-  const totalSamples = activeSamples.reduce((acc, curr) => acc + (curr.quantity || 0), 0)
-  const quarantineCount = activeSamples.filter(s => s.status === 'En quarantaine').length || 230
-  const expiringCount = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000)).length || 23
-  const totalReceptions = receptions?.length || 18
+  const totalSamples = activeSamples.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
+  const quarantineCount = activeSamples.filter(s => s.status === 'En quarantaine').length
+  const expiringCount = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000)).length
+  const totalReceptions = receptions?.length || 0
 
   const KPIData = [
-    { title: "ÉCHANTILLONS EN STOCK", value: totalSamples || 2348, trend: "+12.5%", isUp: true, icon: Box, color: "text-[#2E7D32]", bg: "bg-[#2E7D32]/10", sparkline: [12, 14, 18, 15, 22, 28, 30] },
-    { title: "RÉCEPTIONS DU MOIS", value: totalReceptions, trend: "+8.3%", isUp: true, icon: Inbox, color: "text-[#1565C0]", bg: "bg-[#1565C0]/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
-    { title: "LOTS EN QUARANTAINE", value: quarantineCount, trend: "-2.1%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
-    { title: "EXPIRATIONS PROCHES (<30J)", value: expiringCount, trend: "+4.1%", isUp: false, icon: ShieldAlert, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [2, 4, 6, 8, 12, 18, 23] },
+    { title: "ÉCHANTILLONS EN STOCK", value: totalSamples, trend: "+0.0%", isUp: true, icon: Box, color: "text-[#2E7D32]", bg: "bg-[#2E7D32]/10", sparkline: [totalSamples, totalSamples] },
+    { title: "RÉCEPTIONS DU MOIS", value: totalReceptions, trend: "+0.0%", isUp: true, icon: Inbox, color: "text-[#1565C0]", bg: "bg-[#1565C0]/10", sparkline: [totalReceptions, totalReceptions] },
+    { title: "LOTS EN QUARANTAINE", value: quarantineCount, trend: "0.0%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [quarantineCount, quarantineCount] },
+    { title: "EXPIRATIONS PROCHES (<30J)", value: expiringCount, trend: "0.0%", isUp: false, icon: ShieldAlert, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [expiringCount, expiringCount] },
   ]
 
   // ─── 2. REPARTITION PAR STATUT ──────────────────────────────────────────
+  const availableCount = activeSamples.filter(s => s.status === 'Disponible' || !s.status).length
+  const inAnalysisCount = activeSamples.filter(s => s.status === 'En analyse').length
+  const expiredCount = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) < new Date()).length
+
   const samplesByStatus = [
-    { name: 'Disponibles', value: activeSamples.filter(s => s.status === 'Disponible' || !s.status).length || 1289 },
-    { name: 'En analyse', value: activeSamples.filter(s => s.status === 'En analyse').length || 586 },
+    { name: 'Disponibles', value: availableCount },
+    { name: 'En analyse', value: inAnalysisCount },
     { name: 'En quarantaine', value: quarantineCount },
-    { name: 'Périmés', value: activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) < new Date()).length || 243 },
+    { name: 'Périmés', value: expiredCount },
   ]
 
-  // ─── 3. REPARTITION PAR CATÉGORIE D'ÉCHANTILLONS ───────────────────────
-  const samplesByCategory = [
-    { name: 'Médicaments conventionnels', value: 1120 },
-    { name: 'Vaccins et Sérums', value: 450 },
-    { name: 'Médicaments à base de plantes', value: 320 },
-    { name: 'Compléments nutritionnels', value: 210 },
-    { name: 'Dispositifs médicaux', value: 180 },
-    { name: 'Produits cosmétiques', value: 68 },
-  ]
+  // ─── 3. REPARTITION PAR CATÉGORIE D'ÉCHANTILLONS (DYNAMIQUE) ───────────
+  const categoryCounts = activeSamples.reduce((acc: Record<string, number>, s) => {
+    const cat = s.category || 'Autres'
+    acc[cat] = (acc[cat] || 0) + (Number(s.quantity) || 1)
+    return acc
+  }, {})
 
-  // ─── 4. ALERTES ÉCHANTILLONS SEULEMENT ─────────────────────────────────
-  const sampleAlerts = [
-    { text: "23 échantillons périmeront dans 30 jours", date: "19/05/2025", type: "error" },
-    { text: "12 lots en cours de contrôle qualité au laboratoire", date: "19/05/2025", type: "warning" },
-    { text: "5 lots en quarantaine prolongée (> 14 jours)", date: "18/05/2025", type: "warning" },
-    { text: "Nouveau lot d'échantillons enregistré (Clamoxyl)", date: "18/05/2025", type: "info" },
-  ]
+  const samplesByCategory = Object.keys(categoryCounts).length > 0 
+    ? Object.entries(categoryCounts).map(([name, value]) => ({ name, value }))
+    : [
+        { name: 'Médicaments', value: 0 },
+        { name: 'Vaccins / Sérums', value: 0 },
+        { name: 'Dispositifs', value: 0 },
+      ]
+
+  // ─── 4. ALERTES ÉCHANTILLONS SEULEMENT (DYNAMIQUES) ───────────────────
+  const sampleAlerts: { text: string; date: string; type: "error" | "warning" | "info" }[] = []
+  if (expiringCount > 0) {
+    sampleAlerts.push({
+      text: `${expiringCount} échantillon(s) périmeront dans les 30 prochains jours`,
+      date: new Date().toLocaleDateString('fr-FR'),
+      type: "error"
+    })
+  }
+  if (quarantineCount > 0) {
+    sampleAlerts.push({
+      text: `${quarantineCount} lot(s) actuellement placés en quarantaine`,
+      date: new Date().toLocaleDateString('fr-FR'),
+      type: "warning"
+    })
+  }
+  if (sampleAlerts.length === 0) {
+    sampleAlerts.push({
+      text: "Aucune alerte active sur l'échantillothèque",
+      date: new Date().toLocaleDateString('fr-FR'),
+      type: "info"
+    })
+  }
 
   return (
     <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">

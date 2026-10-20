@@ -34,7 +34,10 @@ import {
   Play,
   Save,
   Clock,
+  AlertTriangle,
+  Trash2,
 } from 'lucide-react'
+import { clearAllTestData } from '@/utils/clean-test-data'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -669,6 +672,49 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
                 >
                   <Download className="h-4 w-4" />
                   Télécharger la dernière sauvegarde
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Reset / Data Wipe Section */}
+          <Card className="shadow-sm border-destructive/30 rounded-2xl bg-destructive/5">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Réinitialisation et passage aux tests réels
+              </CardTitle>
+              <CardDescription>
+                Supprime toutes les données de démonstration et compteurs de test (échantillons, réceptions, mouvements, lots de déchets, destructions, inventaires). Conserve l&apos;accès administrateur et la configuration système.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-background border border-destructive/20">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Remise à zéro des données de test</p>
+                  <p className="text-xs text-muted-foreground">
+                    Efface les données opérationnelles et réinitialise tous les indicateurs à 0 pour démarrer une phase de test réel vierge.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  className="gap-2 shrink-0 w-full sm:w-auto"
+                  onClick={async () => {
+                    if (window.confirm("Êtes-vous sûr de vouloir supprimer toutes les données de test ? Tous les compteurs opérationnels seront remis à zéro.")) {
+                      const ok = await clearAllTestData()
+                      if (ok) {
+                        toast.success("Toutes les données de test ont été réinitialisées avec succès")
+                        setTimeout(() => {
+                          window.location.reload()
+                        }, 1000)
+                      } else {
+                        toast.error("Erreur lors de la réinitialisation")
+                      }
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Réinitialiser à zéro
                 </Button>
               </div>
             </CardContent>

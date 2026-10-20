@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
   Trash2, Clock, Flame, ShieldAlert, AlertTriangle
@@ -13,34 +14,79 @@ const WASTE_CATEGORIES_COLORS = ['#E53935', '#FB8C00', '#1E88E5', '#43A047']
 const WASTE_STATUS_COLORS = ['#1E88E5', '#FB8C00', '#43A047', '#D81B60', '#E53935']
 
 export default function WasteAnalyticsPage() {
+  const [batches, setBatches] = useState<any[]>([])
+  const [plans, setPlans] = useState<any[]>([])
+
+  useEffect(() => {
+    try {
+      const storedBatches = localStorage.getItem('waste_batches_custom_v1')
+      if (storedBatches) {
+        setBatches(JSON.parse(storedBatches) || [])
+      }
+      const storedPlans = localStorage.getItem('destruction_plans_custom_v1')
+      if (storedPlans) {
+        setPlans(JSON.parse(storedPlans) || [])
+      }
+    } catch (e) {}
+  }, [])
+
+  const totalWasteWeight = batches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0)
+  const plannedDestructionsCount = plans.filter(p => p.status === 'En préparation' || p.status === 'Validation Qualité' || p.status === 'Validation Responsable').length
+  const completedDestructionsCount = plans.filter(p => p.status === 'Exécuté').length
+
   const KPIData = [
-    { title: "DÉCHETS EN STOCK", value: "1 124 kg", trend: "+5.2%", isUp: true, icon: Trash2, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [5, 8, 12, 10, 15, 18, 20] },
-    { title: "DESTRUCTIONS PLANIFIÉES", value: "7 Lots", trend: "-2.1%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [20, 18, 15, 16, 14, 12, 10] },
-    { title: "DESTRUCTIONS RÉALISÉES", value: "23 Planifiées", trend: "+18.4%", isUp: true, icon: Flame, color: "text-[#43A047]", bg: "bg-[#43A047]/10", sparkline: [2, 3, 5, 4, 8, 12, 15] },
-    { title: "CAPACITÉ STOCKAGE DÉCHETS", value: "78%", trend: "+12.0%", isUp: false, icon: ShieldAlert, color: "text-[#1E88E5]", bg: "bg-[#1E88E5]/10", sparkline: [40, 50, 58, 65, 70, 75, 78] },
+    { title: "DÉCHETS EN STOCK", value: `${totalWasteWeight} kg`, trend: "+0.0%", isUp: true, icon: Trash2, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [totalWasteWeight, totalWasteWeight] },
+    { title: "DESTRUCTIONS PLANIFIÉES", value: `${plannedDestructionsCount} Lot(s)`, trend: "0.0%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [plannedDestructionsCount, plannedDestructionsCount] },
+    { title: "DESTRUCTIONS RÉALISÉES", value: `${completedDestructionsCount} Réalisée(s)`, trend: "+0.0%", isUp: true, icon: Flame, color: "text-[#43A047]", bg: "bg-[#43A047]/10", sparkline: [completedDestructionsCount, completedDestructionsCount] },
+    { title: "CAPACITÉ STOCKAGE DÉCHETS", value: totalWasteWeight > 0 ? "12%" : "0%", trend: "0.0%", isUp: false, icon: ShieldAlert, color: "text-[#1E88E5]", bg: "bg-[#1E88E5]/10", sparkline: [0, 0] },
   ]
 
-  const wasteByCategory = [
-    { name: 'Cytotoxiques', value: 450 },
-    { name: 'Infectieux (DASRI)', value: 337 },
-    { name: 'Chimiques', value: 225 },
-    { name: 'Autres', value: 112 },
-  ]
+  const categoryMap = batches.reduce((acc: Record<string, number>, b) => {
+    const t = b.waste_type || 'Autres'
+    acc[t] = (acc[t] || 0) + (Number(b.quantity) || 1)
+    return acc
+  }, {})
 
-  const wasteByStatus = [
-    { name: 'Déclarés', value: 12 },
-    { name: 'En contrôle', value: 8 },
-    { name: 'Validés', value: 15 },
-    { name: 'En attente destruction', value: 7 },
-    { name: 'Détruits', value: 23 },
-  ]
+  const wasteByCategory = Object.keys(categoryMap).length > 0 
+    ? Object.entries(categoryMap).map(([name, value]) => ({ name, value }))
+    : [
+        { name: 'Cytotoxiques', value: 0 },
+        { name: 'Infectieux (DASRI)', value: 0 },
+        { name: 'Chimiques', value: 0 },
+        { name: 'Autres', value: 0 },
+      ]
 
-  const wasteAlerts = [
-    { text: "Capacité de stockage des déchets atteinte à 78%", date: "19/05/2025", type: "warning" },
-    { text: "3 lots de déchets dépassent le délai légal de stockage (90j)", date: "19/05/2025", type: "error" },
-    { text: "Destruction planifiée le 26/05/2025 (DES-2025-05-0088)", date: "18/05/2025", type: "warning" },
-    { text: "Procès-verbal de destruction validé par la direction", date: "18/05/2025", type: "info" },
-  ]
+  const statusMap = batches.reduce((acc: Record<string, number>, b) => {
+    const s = b.status || 'Déclaré'
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {})
+
+  const wasteByStatus = Object.keys(statusMap).length > 0
+    ? Object.entries(statusMap).map(([name, value]) => ({ name, value }))
+    : [
+        { name: 'Déclarés', value: 0 },
+        { name: 'En contrôle', value: 0 },
+        { name: 'Validés', value: 0 },
+        { name: 'En attente destruction', value: 0 },
+        { name: 'Détruits', value: 0 },
+      ]
+
+  const wasteAlerts: { text: string; date: string; type: "error" | "warning" | "info" }[] = []
+  if (plannedDestructionsCount > 0) {
+    wasteAlerts.push({
+      text: `${plannedDestructionsCount} plan(s) de destruction en cours de validation`,
+      date: new Date().toLocaleDateString('fr-FR'),
+      type: "warning"
+    })
+  }
+  if (wasteAlerts.length === 0) {
+    wasteAlerts.push({
+      text: "Aucune alerte active sur les déchets pharmaceutiques",
+      date: new Date().toLocaleDateString('fr-FR'),
+      type: "info"
+    })
+  }
 
   return (
     <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
