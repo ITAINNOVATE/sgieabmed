@@ -28,6 +28,7 @@ import { clearAllTestData } from "@/utils/clean-test-data"
 import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { SampleLocationDialog } from "@/components/sample-location-dialog"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 export type Sample = {
   id: string
@@ -185,7 +186,7 @@ export default function SamplesDataTable() {
     try {
       const supabase = createClient()
       const fetchPromise = supabase.from('samples').select('*').order('created_at', { ascending: false })
-      const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
+      const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 8000))
       
       const res = await Promise.race([fetchPromise, timeoutPromise])
       if (res && res.data && res.data.length > 0) {
@@ -326,6 +327,13 @@ export default function SamplesDataTable() {
       fetchData()
     }
   }, [fetchData])
+
+  // Synchronisation temps réel multi-postes pour les échantillons en stock
+  useRealtimeSync({
+    tables: ['samples', 'receptions', 'movements'],
+    onSync: fetchData,
+    pollIntervalMs: 6000,
+  })
 
   const filteredData = useMemo(() => {
     if (!globalSearch) return data

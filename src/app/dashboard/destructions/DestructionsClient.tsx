@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const MOCK_DESTRUCTION_PLANS: any[] = []
 
@@ -22,21 +24,54 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
     return initialPlans && initialPlans.length > 0 ? initialPlans : []
   })
 
-  useEffect(() => {
+  const fetchPlans = async () => {
+    let remotePlans: any[] = []
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('destruction_plans')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (!error && data && data.length > 0) {
+        remotePlans = data
+      }
+    } catch (e) {
+      console.warn("Erreur fetch remote destruction_plans:", e)
+    }
+
+    let localPlans: any[] = []
     try {
       const stored = localStorage.getItem('destruction_plans_custom_v1')
       if (stored) {
-        const customPlans = JSON.parse(stored)
-        if (Array.isArray(customPlans) && customPlans.length > 0) {
-          const base = initialPlans && initialPlans.length > 0 ? initialPlans : MOCK_DESTRUCTION_PLANS
-          const merged = [...customPlans, ...base.filter((bp: any) => !customPlans.some((cp: any) => cp.id === bp.id || cp.plan_number === bp.plan_number))]
-          setPlansList(merged)
-        }
+        localPlans = JSON.parse(stored)
       }
-    } catch (e) {
-      console.error(e)
+    } catch (e) {}
+
+    const planMap = new Map<string, any>()
+    localPlans.forEach((p: any) => {
+      const key = p.plan_number || p.id
+      if (key) planMap.set(key, p)
+    })
+    remotePlans.forEach((p: any) => {
+      const key = p.plan_number || p.id
+      if (key) planMap.set(key, p)
+    })
+
+    if (planMap.size > 0) {
+      setPlansList(Array.from(planMap.values()))
     }
-  }, [initialPlans])
+  }
+
+  useEffect(() => {
+    fetchPlans()
+  }, [])
+
+  // Synchronisation temps réel automatique des plans de destruction
+  useRealtimeSync({
+    tables: ['destruction_plans', 'waste_batches'],
+    onSync: fetchPlans,
+    pollIntervalMs: 6000,
+  })
 
   const filteredPlans = plansList.filter(plan => {
     const matchesSearch = 

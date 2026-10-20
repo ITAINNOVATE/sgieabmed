@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import Link from "next/link"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,29 +25,25 @@ export default function MovementsPage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [selectedMovement, setSelectedMovement] = useState<any | null>(null)
 
-  useEffect(() => {
-    async function fetchMovements() {
-      const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true';
+  const fetchMovements = useCallback(async () => {
+    const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true';
 
       let remoteMovements: any[] = [];
       try {
         const supabase = createClient()
         const fetchPromise = supabase
           .from('movements')
-          .select(`
-            id, mvt_number, movement_date, movement_type, quantity,
-            samples ( commercial_name, batch_number )
-          `)
+          .select('*')
           .order('movement_date', { ascending: false });
-        const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 1500));
+        const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 8000));
 
         const res = await Promise.race([fetchPromise, timeoutPromise]);
         if (res && res.data && res.data.length > 0) {
           remoteMovements = res.data.map((m: any) => ({
             ...m,
-            commercial_name: Array.isArray(m.samples) ? m.samples[0]?.commercial_name : m.samples?.commercial_name,
-            batch_number: Array.isArray(m.samples) ? m.samples[0]?.batch_number : m.samples?.batch_number,
-            operator: 'Système'
+            commercial_name: m.commercial_name || (Array.isArray(m.samples) ? m.samples[0]?.commercial_name : m.samples?.commercial_name) || "Échantillon",
+            batch_number: m.batch_number || (Array.isArray(m.samples) ? m.samples[0]?.batch_number : m.samples?.batch_number) || "LOT-SANS",
+            operator: m.operator || 'Marie ADANDE'
           }));
         }
       } catch (e) {
@@ -154,9 +151,18 @@ export default function MovementsPage() {
       } finally {
         setLoading(false);
       }
-    }
-    fetchMovements();
   }, [])
+
+  useEffect(() => {
+    fetchMovements();
+  }, [fetchMovements]);
+
+  // Synchronisation temps réel automatique multi-ordinateurs pour les mouvements
+  useRealtimeSync({
+    tables: ['movements', 'receptions', 'samples'],
+    onSync: fetchMovements,
+    pollIntervalMs: 6000,
+  });
 
   const filteredMovements = movements.filter(mvt => {
     const matchesSearch = 

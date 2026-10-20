@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, Suspense, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 function ReceptionsContent() {
   const router = useRouter()
@@ -133,13 +134,16 @@ function ReceptionsContent() {
     try {
       const { data, error } = await supabase
         .from('receptions')
-        .select('id, rec_number, date_reception, supplier, status, inspector, created_at')
+        .select('id, rec_number, date_reception, supplier, status, inspector, created_at, samples_data')
         .order('created_at', { ascending: false })
       if (error) {
         console.warn("Erreur Supabase select réceptions:", error.message)
       }
       if (data && data.length > 0) {
-        remoteData = data
+        remoteData = data.map((item: any) => ({
+          ...item,
+          samples: [{ count: (Array.isArray(item.samples_data) ? item.samples_data.length : 1) }]
+        }))
       }
     } catch (err) {
       console.warn("Erreur chargement distant réceptions:", err)
@@ -253,15 +257,14 @@ function ReceptionsContent() {
 
   useEffect(() => {
     fetchData()
-
-    window.addEventListener('focus', fetchData)
-    window.addEventListener('storage', fetchData)
-
-    return () => {
-      window.removeEventListener('focus', fetchData)
-      window.removeEventListener('storage', fetchData)
-    }
   }, [])
+
+  // Synchronisation temps réel automatique multi-ordinateurs
+  useRealtimeSync({
+    tables: ['receptions', 'samples'],
+    onSync: fetchData,
+    pollIntervalMs: 6000,
+  })
 
   const filteredReceptions = receptions.filter(rec => {
     const matchesSearch = 

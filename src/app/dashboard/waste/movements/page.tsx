@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Flame, Search, Trash2, Eye, Printer, FileText, CheckCircle2, ShieldCheck, Building2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const MOCK_WASTE_MOVEMENTS = [
   { id: '1', mvt_number: 'MVT-W-2026-001', date: '2026-01-20T14:30:00.000Z', type: 'Entrée au local déchet', batch: 'DEC-2026-73355', waste_type: 'Médicaments périmés', quantity: '150 Kg', operator: 'Jean DUPONT', destination: 'Local Déchets A1', origin: 'Pharmacie Centrale', signature_hash: 'SIG-MVT-8821A' },
@@ -27,11 +28,10 @@ export default function WasteMovementsPage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [selectedMovement, setSelectedMovement] = useState<any>(null)
 
-  useEffect(() => {
-    async function loadMovements() {
-      const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
+  const loadMovements = useCallback(async () => {
+    const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
 
-      // 1. Charger les lots de déchets récents (localStorage et Supabase)
+    // 1. Charger les lots de déchets récents (localStorage et Supabase)
       let wasteBatches: any[] = []
       try {
         const stored = localStorage.getItem('waste_batches_custom_v1')
@@ -110,6 +110,19 @@ export default function WasteMovementsPage() {
         })
       } catch (e) {}
 
+      // Charger également la table Supabase waste_movements
+      try {
+        const supabase = createClient()
+        const { data: dbMvts } = await supabase.from('waste_movements').select('*').order('date', { ascending: false })
+        if (dbMvts && dbMvts.length > 0) {
+          dbMvts.forEach((m: any) => {
+            if (!dynamicMovements.some((dm) => dm.id === m.id || dm.mvt_number === m.mvt_number)) {
+              dynamicMovements.push(m)
+            }
+          })
+        }
+      } catch (e) {}
+
       // Trier par date décroissante
       dynamicMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -119,10 +132,18 @@ export default function WasteMovementsPage() {
         setMovements(isWiped ? [] : MOCK_WASTE_MOVEMENTS)
       }
       setLoading(false)
-    }
-
-    loadMovements()
   }, [])
+
+  useEffect(() => {
+    loadMovements()
+  }, [loadMovements])
+
+  // Synchronisation temps réel automatique pour les mouvements de déchets
+  useRealtimeSync({
+    tables: ['waste_movements', 'waste_batches', 'destruction_plans'],
+    onSync: loadMovements,
+    pollIntervalMs: 6000,
+  })
 
   const filteredMovements = movements.filter(mvt => {
     const matchesSearch = 

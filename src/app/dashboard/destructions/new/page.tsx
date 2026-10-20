@@ -227,31 +227,27 @@ export default function NewDestructionPlanPage() {
         const { data: planData } = await supabase
           .from("destruction_plans")
           .insert({
+            id: newPlanId,
             plan_number: values.plan_number,
             planned_date: values.planned_date,
+            destruction_method: values.destruction_method,
+            destruction_site: values.destruction_site,
+            supervisor_name: values.supervisor_name,
+            observations: values.observations || "",
             status: "En préparation",
-            created_by: userId,
+            items_data: selectedItems,
           })
           .select()
           .single()
 
-        if (planData) {
-          const itemsToInsert = values.selected_batches.map((batchId) => {
-            const batch = wasteBatches.find((b) => b.id === batchId)
-            return {
-              plan_id: planData.id,
-              waste_batch_id: batchId,
-              sample_id: batch?.sample_id || null,
-              quantity: batch?.quantity || 0,
-            }
+        // Mettre à jour les lots de déchets dans Supabase
+        await supabase
+          .from("waste_batches")
+          .update({ 
+            status: "En attente de destruction",
+            destruction_plan_ref: values.plan_number 
           })
-
-          await supabase.from("destruction_items").insert(itemsToInsert)
-          await supabase
-            .from("waste_batches")
-            .update({ status: "En attente de destruction" })
-            .in("id", values.selected_batches)
-        }
+          .in("id", values.selected_batches)
       } catch (remoteErr) {
         console.warn("Échec insertion Supabase destruction_plans (mode local):", remoteErr)
       }

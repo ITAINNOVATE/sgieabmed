@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use, useMemo } from "react"
+import { useState, useEffect, use, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { createClient } from "@/utils/supabase/client"
 import { exportDestructionCertificatePDF } from "@/utils/exportUtils"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {
   '1': {
@@ -116,68 +117,71 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
     toast.success("Certificat officiel de destruction téléchargé en PDF !")
   }
 
-  useEffect(() => {
-    async function fetchPlan() {
-      // 1. Vérifier d'abord dans le localStorage
-      try {
-        const stored = localStorage.getItem('destruction_plans_custom_v1')
-        if (stored) {
-          const list = JSON.parse(stored)
-          const found = list.find((p: any) => p.id === resolvedParams.id || p.plan_number === resolvedParams.id)
-          if (found) {
-            setPlan(found)
-            setLoading(false)
-            return
-          }
+  const fetchPlan = useCallback(async () => {
+    // 1. Vérifier en priorité dans Supabase Cloud pour la cohérence multi-postes
+    try {
+      const { data, error } = await supabase
+        .from('destruction_plans')
+        .select('*')
+        .or(`id.eq.${resolvedParams.id},plan_number.eq.${resolvedParams.id}`)
+        .maybeSingle()
+      
+      if (data) {
+        const formatted = {
+          ...data,
+          items: data.items_data && Array.isArray(data.items_data) && data.items_data.length > 0 ? data.items_data : (data.items || []),
         }
-      } catch (e) {}
+        setPlan(formatted)
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      console.warn("Supabase fetch destruction plan warning:", err)
+    }
 
-      // 2. Vérifier dans Supabase
-      try {
-        const { data, error } = await supabase
-          .from('destruction_plans')
-          .select(`
-            *,
-            items:destruction_items (
-              id, quantity,
-              waste_batch:waste_batches ( id, batch_number, waste_type, unit, status )
-            ),
-            validations:destruction_validations (
-              id, role, validation_date, status, comments
-            )
-          `)
-          .eq('id', resolvedParams.id)
-          .single()
-        
-        if (data) {
-          setPlan(data)
+    // 2. Fallback localStorage
+    try {
+      const stored = localStorage.getItem('destruction_plans_custom_v1')
+      if (stored) {
+        const list = JSON.parse(stored)
+        const found = list.find((p: any) => p.id === resolvedParams.id || p.plan_number === resolvedParams.id)
+        if (found) {
+          setPlan(found)
           setLoading(false)
           return
         }
-      } catch (err) {
-        console.warn("Supabase fetch destruction plan warning:", err)
       }
+    } catch (e) {}
 
-      // 3. Fallback mock ou dynamique
-      if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
-        setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
-      } else {
-        setPlan({
-          id: resolvedParams.id,
-          plan_number: `DES-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
-          planned_date: '2026-04-15',
-          execution_date: null,
-          status: 'En préparation',
-          items: [
-            { id: 'item-def', quantity: 75, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
-          ],
-          validations: []
-        })
-      }
-      setLoading(false)
+    // 3. Fallback mock ou dynamique
+    if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
+      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
+    } else {
+      setPlan({
+        id: resolvedParams.id,
+        plan_number: `DES-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
+        planned_date: '2026-04-15',
+        execution_date: null,
+        status: 'En préparation',
+        items: [
+          { id: 'item-def', quantity: 75, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
+        ],
+        validations: []
+      })
     }
-    fetchPlan()
+    setLoading(false)
   }, [resolvedParams.id, supabase])
+
+  useEffect(() => {
+    fetchPlan()
+  }, [fetchPlan])
+
+  // Synchronisation temps réel automatique du plan et de son exécution
+  useRealtimeSync({
+    tables: ['destruction_plans', 'waste_batches'],
+    onSync: fetchPlan,
+    pollIntervalMs: 6000,
+  })
 
   const handleValidation = async (role: string, action: 'Approuver' | 'Rejeter') => {
     setIsProcessing(true)
@@ -337,15 +341,49 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
         
         await supabase
           .from('destruction_plans')
-          .update({ status: 'Exécuté', execution_date: nowIso })
-          .eq('id', plan.id)
+          .update({ 
+            status: 'Exécuté', 
+            execution_date: nowIso, 
+            certificate_number: certNum 
+          })
+          .or(`id.eq.${plan.id},plan_number.eq.${plan.plan_number}`)
 
-        const batchIds = (plan.items || []).map((i: any) => i.waste_batch_id || i.waste_batch?.id).filter(Boolean)
+        const batchIds = (plan.items || []).map((i: any) => i.waste_batch_id || i.waste_batch?.id || i.id).filter(Boolean)
         if (batchIds.length > 0) {
           await supabase
             .from('waste_batches')
-            .update({ status: 'Détruit' })
+            .update({ 
+              status: 'Détruit',
+              destruction_date: nowIso,
+              certificate_number: certNum,
+              destruction_plan_ref: plan.plan_number 
+            })
             .in('id', batchIds)
+        }
+
+        // Enregistrer la traçabilité dans la table Supabase waste_movements
+        for (const item of (plan.items || [])) {
+          const wb = item.waste_batch || item
+          try {
+            await supabase.from('waste_movements').insert({
+              mvt_number: `MVT-DEST-${wb.batch_number?.replace('DEC-', '') || Math.floor(10000 + Math.random() * 90000)}`,
+              date: nowIso,
+              type: 'Destruction effectuée',
+              batch: wb.batch_number,
+              waste_type: wb.waste_type || 'Déchets pharmaceutiques',
+              commercial_name: wb.commercial_name || '',
+              quantity: `${item.quantity || wb.quantity || 1} ${wb.unit || 'Kg'}`,
+              operator: plan.supervisor_name || 'Marie ADANDE (Resp. Déchets)',
+              origin: wb.current_location || 'Zone de Quarantaine - Déchets',
+              destination: plan.destruction_site || 'Centre d\'Incinération Agréé',
+              certificate_number: certNum,
+              source_structure: wb.source_structure || '',
+              reception_number: wb.reception_number || '',
+              signature_hash: `SIG-DEST-${certNum}`,
+            })
+          } catch (mErr) {
+            console.warn("Échec insertion mvt destruction Supabase:", mErr)
+          }
         }
 
         if (userData?.user?.id) {

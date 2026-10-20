@@ -237,6 +237,24 @@ export default function NewWasteReceptionPage() {
         }
       })
 
+      const newMvts = newBatches.map((b) => ({
+        id: `mvt-rec-${b.batch_number}`,
+        mvt_number: `MVT-REC-${b.batch_number.replace('DEC-', '')}`,
+        date: `${values.reception_date}T${values.reception_time || '08:00'}:00.000Z`,
+        type: 'Entrée au local déchet',
+        batch: b.batch_number,
+        waste_type: b.waste_type,
+        commercial_name: b.commercial_name,
+        quantity: `${b.quantity} ${b.unit}`,
+        operator: values.recipient_agent || 'Marie ADANDE',
+        destination: b.current_location,
+        origin: `${values.source_structure} (${values.depositor_name})`,
+        reception_number: values.reception_number,
+        source_structure: values.source_structure,
+        depositor_name: values.depositor_name,
+        signature_hash: `SIG-REC-${b.batch_number.replace('DEC-', '')}`,
+      }))
+
       // 1. Sauvegarde locale garantie pour tous les lots et traçabilité des mouvements
       try {
         localStorage.removeItem('all_data_wiped')
@@ -246,23 +264,6 @@ export default function NewWasteReceptionPage() {
 
         // Journal des mouvements de déchets
         const currentMvts = JSON.parse(localStorage.getItem("waste_movements_custom_v1") || "[]")
-        const newMvts = newBatches.map((b) => ({
-          id: `mvt-rec-${b.batch_number}`,
-          mvt_number: `MVT-REC-${b.batch_number.replace('DEC-', '')}`,
-          date: `${values.reception_date}T${values.reception_time || '08:00'}:00.000Z`,
-          type: 'Entrée au local déchet',
-          batch: b.batch_number,
-          waste_type: b.waste_type,
-          commercial_name: b.commercial_name,
-          quantity: `${b.quantity} ${b.unit}`,
-          operator: values.recipient_agent || 'Marie ADANDE',
-          destination: b.current_location,
-          origin: `${values.source_structure} (${values.depositor_name})`,
-          reception_number: values.reception_number,
-          source_structure: values.source_structure,
-          depositor_name: values.depositor_name,
-          signature_hash: `SIG-REC-${b.batch_number.replace('DEC-', '')}`,
-        }))
         localStorage.setItem("waste_movements_custom_v1", JSON.stringify([...newMvts, ...currentMvts]))
       } catch (localErr) {
         console.warn("Erreur sauvegarde locale déchets:", localErr)
@@ -276,14 +277,54 @@ export default function NewWasteReceptionPage() {
         for (const b of newBatches) {
           await supabase.from("waste_batches").insert({
             batch_number: b.batch_number,
+            reception_number: b.reception_number,
+            reception_date: b.reception_date,
+            reception_time: b.reception_time,
+            delivery_slip_ref: b.delivery_slip_ref,
+            recipient_agent: b.recipient_agent,
+            source_structure: b.source_structure,
+            source_type: b.source_type,
+            city: b.city,
+            depositor_name: b.depositor_name,
+            depositor_phone: b.depositor_phone,
+            depositor_id_card: b.depositor_id_card,
             waste_type: b.waste_type,
+            commercial_name: b.commercial_name,
+            original_batch: b.original_batch,
             sample_id: b.sample_id,
             quantity: b.quantity,
             unit: b.unit,
+            packaging: b.packaging,
+            packaging_condition: b.packaging_condition,
+            destruction_motive: b.destruction_motive,
             current_location: b.current_location,
             status: "Déclaré",
-            created_by: userId,
+            observations: b.observations,
           })
+        }
+
+        // Insertion des mouvements de déchets dans Supabase
+        for (const mvt of newMvts) {
+          try {
+            await supabase.from("waste_movements").insert({
+              mvt_number: mvt.mvt_number,
+              date: mvt.date,
+              type: mvt.type,
+              batch: mvt.batch,
+              waste_type: mvt.waste_type,
+              commercial_name: mvt.commercial_name,
+              quantity: mvt.quantity,
+              operator: mvt.operator,
+              origin: mvt.origin,
+              destination: mvt.destination,
+              reception_number: mvt.reception_number,
+              source_structure: mvt.source_structure,
+              depositor_name: mvt.depositor_name,
+              signature_hash: mvt.signature_hash,
+            })
+          } catch (wmErr) {
+            console.warn("Échec insertion waste_movements Supabase:", wmErr)
+          }
         }
 
         if (userId) {

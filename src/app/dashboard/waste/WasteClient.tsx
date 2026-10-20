@@ -20,6 +20,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const MOCK_WASTE_BATCHES: any[] = []
 
@@ -37,21 +39,55 @@ export default function WasteClient({
     return initialBatches && initialBatches.length > 0 ? initialBatches : []
   })
 
-  useEffect(() => {
+  const fetchBatches = async () => {
+    let remoteBatches: any[] = []
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('waste_batches')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (!error && data && data.length > 0) {
+        remoteBatches = data
+      }
+    } catch (err) {
+      console.warn("Erreur fetch remote waste_batches:", err)
+    }
+
+    let localBatches: any[] = []
     try {
       const stored = localStorage.getItem('waste_batches_custom_v1')
       if (stored) {
-        const localBatches = JSON.parse(stored)
-        if (Array.isArray(localBatches) && localBatches.length > 0) {
-          const base = initialBatches && initialBatches.length > 0 ? initialBatches : MOCK_WASTE_BATCHES
-          const merged = [...localBatches, ...base.filter((b: any) => !localBatches.some((lb: any) => lb.id === b.id || lb.batch_number === b.batch_number))]
-          setBatches(merged)
-        }
+        localBatches = JSON.parse(stored)
       }
-    } catch (e) {
-      console.error(e)
+    } catch (e) {}
+
+    const batchMap = new Map<string, any>()
+    // Priorité aux données Supabase pour la conformité inter-postes
+    localBatches.forEach((b: any) => {
+      const key = b.batch_number || b.id
+      if (key) batchMap.set(key, b)
+    })
+    remoteBatches.forEach((b: any) => {
+      const key = b.batch_number || b.id
+      if (key) batchMap.set(key, b)
+    })
+
+    if (batchMap.size > 0) {
+      setBatches(Array.from(batchMap.values()))
     }
-  }, [initialBatches])
+  }
+
+  useEffect(() => {
+    fetchBatches()
+  }, [])
+
+  // Synchronisation temps réel automatique pour les déchets
+  useRealtimeSync({
+    tables: ['waste_batches', 'destruction_plans', 'waste_movements'],
+    onSync: fetchBatches,
+    pollIntervalMs: 6000,
+  })
   const [activeView, setActiveView] = useState<'table' | 'analytics'>('table')
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")

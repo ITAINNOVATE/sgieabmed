@@ -668,6 +668,7 @@ export default function NewReceptionPage() {
       measures: values.measures || null,
       validator_name: values.validator_name || null,
       validation_date: values.validation_date || null,
+      samples_data: (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== ""),
     }
 
     // Toujours persister dans l'historique local pour affichage garanti dans l'historique
@@ -773,17 +774,29 @@ export default function NewReceptionPage() {
         const updatedMovements = [...newMovements, ...filteredMovements]
         localStorage.setItem('local_movements_history', JSON.stringify(updatedMovements))
 
-        // Tentative d'insertion Supabase dans table movements
+        // Insertion complète Supabase dans la table movements pour synchronisation multi-postes
         for (const mvt of newMovements) {
           try {
             await supabase.from('movements').insert({
               mvt_number: mvt.mvt_number,
               movement_date: mvt.movement_date,
               movement_type: 'Entrée',
+              sample_id: mvt.sample_id,
+              sample_number: mvt.sample_number,
+              commercial_name: mvt.commercial_name,
+              batch_number: mvt.batch_number,
               quantity: mvt.quantity,
+              source_location: mvt.source_location,
+              destination_location: mvt.destination_location,
+              operator: mvt.operator,
               reason: mvt.reason,
+              observations: mvt.observations,
+              status: mvt.status,
+              reference_document: values.rec_number,
             })
-          } catch (mErr) {}
+          } catch (mErr) {
+            console.warn("Échec insertion movement Supabase:", mErr)
+          }
         }
       } catch (errMvt) {
         console.warn("Erreur génération mouvements entrée:", errMvt)
