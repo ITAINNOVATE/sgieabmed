@@ -474,7 +474,7 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* DIALOG OFFICIEL CERTIFICAT / ATTESTATION DE RÉCEPTION DE DÉCHETS */}
       <Dialog open={showCertificateModal} onOpenChange={setShowCertificateModal}>
-        <DialogContent className="max-w-3xl bg-card border-border/70 p-6 rounded-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl sm:max-w-4xl w-[95vw] md:w-full bg-card border-border/70 p-4 sm:p-6 rounded-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2 text-foreground">
               <ShieldCheck className="h-5 w-5 text-[#1B5C2E]" />
@@ -577,7 +577,7 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 {/* Blocs de Signatures */}
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="border border-border/70 rounded-xl p-3 min-h-[90px] flex flex-col justify-between">
                     <div>
                       <p className="font-bold text-[10px] uppercase text-foreground">POUR LA STRUCTURE APPORTRICE</p>

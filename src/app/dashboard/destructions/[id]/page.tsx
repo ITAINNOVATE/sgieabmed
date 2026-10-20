@@ -557,7 +557,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
       {/* MODAL DU CERTIFICAT / ATTESTATION OFFICIELLE DE DESTRUCTION */}
       <Dialog open={showCertificateModal} onOpenChange={setShowCertificateModal}>
-        <DialogContent className="max-w-3xl bg-card border-border/70 p-6 rounded-2xl max-h-[90vh] overflow-y-auto print:max-w-full print:m-0 print:p-0 print:border-none print:shadow-none">
+        <DialogContent className="max-w-4xl sm:max-w-4xl w-[95vw] md:w-full bg-card border-border/70 p-4 sm:p-6 rounded-2xl max-h-[92vh] overflow-y-auto print:max-w-full print:m-0 print:p-0 print:border-none print:shadow-none">
           <DialogHeader className="print:hidden">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
@@ -667,51 +667,53 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   3. Inventaire des Lots de Déchets Neutralisés
                 </p>
-                <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
-                  <thead className="bg-[#1B5C2E] text-white text-[11px]">
-                    <tr>
-                      <th className="p-2 border-r border-[#1B5C2E]/30">N° Lot Déchet</th>
-                      <th className="p-2 border-r border-[#1B5C2E]/30">Structure Apportrice</th>
-                      <th className="p-2 border-r border-[#1B5C2E]/30">Classification & Produits</th>
-                      <th className="p-2 text-right">Quantité Détruite</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {(selectedCertStructure === 'all'
-                      ? (plan.items || [])
-                      : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
-                    ).map((item: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200">
-                          {item.waste_batch?.batch_number}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
+                    <thead className="bg-[#1B5C2E] text-white text-[11px]">
+                      <tr>
+                        <th className="p-2 border-r border-[#1B5C2E]/30 whitespace-nowrap">N° Lot Déchet</th>
+                        <th className="p-2 border-r border-[#1B5C2E]/30">Structure Apportrice</th>
+                        <th className="p-2 border-r border-[#1B5C2E]/30">Classification & Produits</th>
+                        <th className="p-2 text-right whitespace-nowrap">Quantité Détruite</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {(selectedCertStructure === 'all'
+                        ? (plan.items || [])
+                        : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
+                      ).map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                            {item.waste_batch?.batch_number}
+                          </td>
+                          <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
+                            {item.waste_batch?.source_structure || "Dépôt direct"}
+                          </td>
+                          <td className="p-2 border-r border-slate-200">
+                            <p className="font-semibold text-slate-900">{item.waste_batch?.waste_type}</p>
+                            {item.waste_batch?.commercial_name && (
+                              <p className="text-[10px] text-slate-600">{item.waste_batch.commercial_name}</p>
+                            )}
+                          </td>
+                          <td className="p-2 text-right font-black text-slate-900 whitespace-nowrap">
+                            {item.quantity} {item.waste_batch?.unit || 'Kg'}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-100 font-bold">
+                        <td colSpan={3} className="p-2 text-right border-r border-slate-300">
+                          MASSE TOTALE DÉTRUITE :
                         </td>
-                        <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
-                          {item.waste_batch?.source_structure || "Dépôt direct"}
-                        </td>
-                        <td className="p-2 border-r border-slate-200">
-                          <p className="font-semibold text-slate-900">{item.waste_batch?.waste_type}</p>
-                          {item.waste_batch?.commercial_name && (
-                            <p className="text-[10px] text-slate-600">{item.waste_batch.commercial_name}</p>
-                          )}
-                        </td>
-                        <td className="p-2 text-right font-black text-slate-900">
-                          {item.quantity} {item.waste_batch?.unit || 'Kg'}
+                        <td className="p-2 text-right font-black text-[#1B5C2E] whitespace-nowrap">
+                          {(selectedCertStructure === 'all'
+                            ? (plan.items || [])
+                            : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
+                          ).reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités
                         </td>
                       </tr>
-                    ))}
-                    <tr className="bg-slate-100 font-bold">
-                      <td colSpan={3} className="p-2 text-right border-r border-slate-300">
-                        MASSE TOTALE DÉTRUITE :
-                      </td>
-                      <td className="p-2 text-right font-black text-[#1B5C2E]">
-                        {(selectedCertStructure === 'all'
-                          ? (plan.items || [])
-                          : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
-                        ).reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* ATTESTATION LÉGALE DE DESTRUCTION ET SORTIE DE STOCK */}
@@ -726,7 +728,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
               </div>
 
               {/* DOUBLE BLOC DE SIGNATURE OFFICIEL */}
-              <div className="grid grid-cols-2 gap-4 pt-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs">
                 
                 {/* SIGNATURE RESP DECHETS */}
                 <div className="border border-slate-300 rounded-lg p-3 min-h-[110px] flex flex-col justify-between">
