@@ -508,9 +508,9 @@ export default function UsersAdminPage() {
 
       {/* Modal CRUD Edit/Create */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-xl shadow-2xl border-none">
-            <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-xl shadow-2xl border-none max-h-[92vh] flex flex-col my-auto overflow-hidden bg-card">
+            <CardHeader className="bg-muted/20 border-b border-border/50 pb-3 p-4 sm:p-6 shrink-0">
               <CardTitle className="text-base flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
                 {editingUser ? "Modifier le compte utilisateur" : "Créer un nouvel utilisateur"}
@@ -519,7 +519,7 @@ export default function UsersAdminPage() {
                 Remplissez les détails du compte professionnel de l'autorité ABMed.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               
               {!editingUser && (
                 <div className="bg-blue-50/70 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/50 rounded-lg p-2.5 flex items-start gap-2.5 text-xs text-blue-950 dark:text-blue-200">
@@ -622,12 +622,12 @@ export default function UsersAdminPage() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-border/50">
-                <Button variant="ghost" size="sm" onClick={() => setShowModal(false)}>Annuler</Button>
-                <Button size="sm" onClick={handleSave} className="bg-[#0B5ED7] hover:bg-[#094bb3] text-white">Sauvegarder</Button>
-              </div>
-
             </CardContent>
+
+            <div className="flex justify-end gap-2 p-4 border-t border-border/50 bg-muted/10 shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setShowModal(false)}>Annuler</Button>
+              <Button size="sm" onClick={handleSave} className="bg-[#0B5ED7] hover:bg-[#094bb3] text-white">Sauvegarder</Button>
+            </div>
           </Card>
         </div>
       )}

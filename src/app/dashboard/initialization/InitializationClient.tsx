@@ -339,8 +339,8 @@ export default function InitializationClient() {
                   <TableHead className="min-w-[200px]">Nom Commercial / Type déchet</TableHead>
                   <TableHead className="min-w-[150px]">DCI</TableHead>
                   <TableHead className="w-36">Catégorie</TableHead>
-                  <TableHead className="w-36">N° Lot</TableHead>
-                  <TableHead className="w-32">Quantité & Unité</TableHead>
+                  <TableHead className="w-36 min-w-[130px]">N° Lot</TableHead>
+                  <TableHead className="w-52 min-w-[200px]">Quantité & Unité</TableHead>
                   <TableHead className="w-44">Expiration (AAAA-MM-JJ)</TableHead>
                   <TableHead className="w-40">Localisation</TableHead>
                   <TableHead className="w-12 text-center pr-4">Action</TableHead>
@@ -436,12 +436,12 @@ export default function InitializationClient() {
 
                       {/* Quantity & Unit */}
                       <TableCell>
-                        <div className="flex gap-1.5 items-center">
-                          <div className="space-y-1 flex-1">
+                        <div className="flex gap-2 items-center min-w-[190px]">
+                          <div className="space-y-1 flex-1 min-w-[80px]">
                             <Input
                               type="number"
                               placeholder="Qté"
-                              className="h-8 text-xs text-center font-bold"
+                              className="h-8 text-xs text-center font-bold w-full min-w-[80px]"
                               value={item.quantity}
                               onChange={(e) => handleEdit(item.id, "quantity", e.target.value)}
                             />
@@ -453,7 +453,7 @@ export default function InitializationClient() {
                             value={item.unit} 
                             onValueChange={(val) => handleEdit(item.id, "unit", val)}
                           >
-                            <SelectTrigger className="h-8 w-16 text-xs px-1.5 shrink-0">
+                            <SelectTrigger className="h-8 w-24 text-xs px-2 shrink-0 bg-background font-medium">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

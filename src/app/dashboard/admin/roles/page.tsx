@@ -636,9 +636,9 @@ export default function RolesAdminPage() {
 
       {/* MODAL CREATION / EDITION ROLE */}
       {showRoleModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-2xl border-none">
-            <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-md shadow-2xl border-none max-h-[92vh] flex flex-col my-auto overflow-hidden bg-card">
+            <CardHeader className="bg-muted/20 border-b border-border/50 pb-3 p-4 sm:p-6 shrink-0">
               <CardTitle className="text-base flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />
                 {editingRole ? "Modifier le rôle" : "Créer un nouveau rôle"}
@@ -647,7 +647,7 @@ export default function RolesAdminPage() {
                 Définissez le rôle fonctionnel pour le modèle de sécurité.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground/80">Intitulé du rôle *</label>
                 <Input value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="" className="h-9 text-xs" />
