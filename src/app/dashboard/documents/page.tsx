@@ -1,66 +1,21 @@
 import { Suspense } from "react"
-import { supabase } from "@/lib/supabase"
 import DocumentsClient from "./DocumentsClient"
 
-export const dynamic = 'force-dynamic'
-
-export default async function DocumentsPage() {
-  let dbDocuments: any[] | null = null
-  let samplesList: any[] = []
-
-  try {
-    const [docsResult, samplesResult] = await Promise.all([
-      supabase
-        .from('documents')
-        .select(`
-          id,
-          title,
-          document_type,
-          file_url,
-          version,
-          uploaded_at,
-          samples ( sample_number, commercial_name ),
-          users!uploaded_by ( first_name, last_name )
-        `)
-        .order('uploaded_at', { ascending: false }),
-      supabase
-        .from('samples')
-        .select('id, sample_number, commercial_name')
-        .order('sample_number', { ascending: false })
-    ])
-    dbDocuments = docsResult.data
-    samplesList = samplesResult.data || []
-  } catch (err) {
-    console.warn("Supabase fetch fallback in DocumentsPage:", err)
-  }
-
-  const documents = dbDocuments?.map(doc => ({
-    id: doc.id,
-    title: doc.title,
-    type: doc.document_type,
-    // @ts-ignore
-    sample: doc.samples ? `${doc.samples.sample_number} - ${doc.samples.commercial_name}` : 'N/A',
-    version: `v${doc.version}`,
-    // @ts-ignore
-    author: doc.users ? `${doc.users.first_name} ${doc.users.last_name}` : 'Système',
-    date: new Date(doc.uploaded_at).toLocaleDateString('fr-FR'),
-    file_url: doc.file_url
-  })) || []
-
-  // Mock data si la table est vide pour démonstration
-  const displayDocuments = documents.length ? documents : [
-    { id: '1', title: 'Certificat d\'Analyse Amoxicilline', type: "Certificat d'analyse", sample: 'ECH-001 - Amoxicilline 500mg', version: 'v1.0', author: 'Kadia Barry', date: new Date().toLocaleDateString('fr-FR'), file_url: '#' },
-    { id: '2', title: 'Photo destruction ECH-002', type: 'Photo de destruction', sample: 'ECH-002 - Ibuprofène 400mg', version: 'v1.0', author: 'Moussa Traoré', date: new Date(Date.now() - 86400000).toLocaleDateString('fr-FR'), file_url: '#' },
-    { id: '3', title: 'Rapport Destruction trimestriel Q2', type: 'Rapport de destruction', sample: 'N/A', version: 'v2.1', author: 'System', date: new Date(Date.now() - 172800000).toLocaleDateString('fr-FR'), file_url: '#' },
-    { id: '4', title: 'Bordereau Suivi Déchets (BSD-2026-088)', type: 'Bordereau de suivi des déchets (BSD)', sample: 'DEC-2026-73355', version: 'v1.0', author: 'Marie ADANDE', date: new Date(Date.now() - 259200000).toLocaleDateString('fr-FR'), file_url: '#' },
-    { id: '5', title: 'Procès-Verbal Destruction DES-2026-0031', type: 'Procès-Verbal de destruction', sample: 'DEC-2026-11409', version: 'v1.0', author: 'Dr. Valère GANDONOU', date: new Date(Date.now() - 345600000).toLocaleDateString('fr-FR'), file_url: '#' }
+export default function DocumentsPage() {
+  const displayDocuments = [
+    { id: '1', title: 'Certificat d\'Analyse Amoxicilline', type: "Certificat d'analyse", sample: 'ECH-001 - Amoxicilline 500mg', version: 'v1.0', author: 'Kadia Barry', date: '15/03/2026', file_url: '#' },
+    { id: '2', title: 'Photo destruction ECH-002', type: 'Photo de destruction', sample: 'ECH-002 - Ibuprofène 400mg', version: 'v1.0', author: 'Moussa Traoré', date: '14/03/2026', file_url: '#' },
+    { id: '3', title: 'Rapport Destruction trimestriel Q2', type: 'Rapport de destruction', sample: 'N/A', version: 'v2.1', author: 'System', date: '13/03/2026', file_url: '#' },
+    { id: '4', title: 'Bordereau Suivi Déchets (BSD-2026-088)', type: 'Bordereau de suivi des déchets (BSD)', sample: 'DEC-2026-73355', version: 'v1.0', author: 'Marie ADANDE', date: '12/03/2026', file_url: '#' },
+    { id: '5', title: 'Procès-Verbal Destruction DES-2026-0031', type: 'Procès-Verbal de destruction', sample: 'DEC-2026-11409', version: 'v1.0', author: 'Dr. Valère GANDONOU', date: '11/03/2026', file_url: '#' }
   ]
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-xs animate-pulse">Chargement de la gestion documentaire...</div>}>
-        <DocumentsClient initialDocuments={displayDocuments} samplesList={samplesList} />
+        <DocumentsClient initialDocuments={displayDocuments} samplesList={[]} />
       </Suspense>
     </div>
   )
 }
+

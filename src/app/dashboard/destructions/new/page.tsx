@@ -59,48 +59,36 @@ export default function NewDestructionPlanPage() {
 
   useEffect(() => {
     async function fetchWasteBatches() {
-      let combined: any[] = []
-      
-      // 1. Récupération Supabase
+      let localAvailable: any[] = []
+      try {
+        const stored = localStorage.getItem("waste_batches_custom_v1")
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed)) {
+            localAvailable = parsed.filter((b: any) => b.status !== "Détruit")
+            setWasteBatches(localAvailable)
+          }
+        }
+      } catch (e) {}
+
+      // Récupération Supabase
       try {
         const { data } = await supabase
           .from("waste_batches")
-          .select("*, sample:samples(commercial_name)")
+          .select("*")
           .neq("status", "Détruit")
         
         if (data && data.length > 0) {
-          combined = data
+          const mergedMap = new Map()
+          localAvailable.forEach((b: any) => mergedMap.set(b.batch_number || b.id, b))
+          data.forEach((cb: any) => {
+            mergedMap.set(cb.batch_number || cb.id, cb)
+          })
+          setWasteBatches(Array.from(mergedMap.values()))
         }
       } catch (err) {
         console.warn("Supabase fetch waste batches notice:", err)
       }
-
-      // 2. Fusion avec les lots enregistrés localement
-      try {
-        const stored = localStorage.getItem("waste_batches_custom_v1")
-        if (stored) {
-          const localBatches = JSON.parse(stored)
-          if (Array.isArray(localBatches)) {
-            // Filtrer les lots déjà détruits (sortis de stock)
-            const availableLocal = localBatches.filter((b: any) => b.status !== "Détruit")
-            
-            // Fusion dédoublonnée
-            const localMap = new Map()
-            availableLocal.forEach((b: any) => localMap.set(b.id || b.batch_number, b))
-            combined.forEach((cb: any) => {
-              const key = cb.id || cb.batch_number
-              if (!localMap.has(key)) {
-                localMap.set(key, cb)
-              }
-            })
-            combined = Array.from(localMap.values())
-          }
-        }
-      } catch (e) {
-        console.error("Local batches read error:", e)
-      }
-
-      setWasteBatches(combined)
     }
     fetchWasteBatches()
   }, [supabase])
@@ -198,13 +186,12 @@ export default function NewDestructionPlanPage() {
         validations: [],
       }
 
-      // 1. Sauvegarde locale garantie
+      // 1. Sauvegarde locale garantie (0ms)
       try {
         const stored = localStorage.getItem("destruction_plans_custom_v1")
         const currentPlans = stored ? JSON.parse(stored) : []
         localStorage.setItem("destruction_plans_custom_v1", JSON.stringify([newPlan, ...currentPlans]))
 
-        // Mettre à jour le statut des lots dans le registre local en "En attente de destruction"
         const storedBatches = localStorage.getItem("waste_batches_custom_v1")
         if (storedBatches) {
           const localBatches = JSON.parse(storedBatches)
@@ -219,38 +206,34 @@ export default function NewDestructionPlanPage() {
         console.warn("Erreur sauvegarde locale plan de destruction:", localErr)
       }
 
-      // 2. Sauvegarde Supabase
-      try {
-        const { data: userData } = await supabase.auth.getUser()
-        const userId = userData?.user?.id
+      // 2. Synchronisation Supabase en parallèle (rapide)
+      const selectedBatchNumbers = selectedItems.map(it => it.waste_batch.batch_number).filter(Boolean)
+      const syncPromise = Promise.all([
+        supabase.from("destruction_plans").upsert({
+          id: newPlanId,
+          plan_number: values.plan_number,
+          planned_date: values.planned_date,
+          destruction_method: values.destruction_method,
+          destruction_site: values.destruction_site,
+          supervisor_name: values.supervisor_name,
+          observations: values.observations || "",
+          status: "En préparation",
+          items_data: selectedItems,
+        }, { onConflict: "plan_number" }),
+        selectedBatchNumbers.length > 0
+          ? supabase
+              .from("waste_batches")
+              .update({
+                status: "En attente de destruction",
+                destruction_plan_ref: values.plan_number,
+              })
+              .in("batch_number", selectedBatchNumbers)
+          : Promise.resolve(),
+      ]).catch((remoteErr) => {
+        console.warn("Échec synchronisation Supabase destruction_plans:", remoteErr)
+      })
 
-        const { data: planData } = await supabase
-          .from("destruction_plans")
-          .insert({
-            id: newPlanId,
-            plan_number: values.plan_number,
-            planned_date: values.planned_date,
-            destruction_method: values.destruction_method,
-            destruction_site: values.destruction_site,
-            supervisor_name: values.supervisor_name,
-            observations: values.observations || "",
-            status: "En préparation",
-            items_data: selectedItems,
-          })
-          .select()
-          .single()
-
-        // Mettre à jour les lots de déchets dans Supabase
-        await supabase
-          .from("waste_batches")
-          .update({ 
-            status: "En attente de destruction",
-            destruction_plan_ref: values.plan_number 
-          })
-          .in("id", values.selected_batches)
-      } catch (remoteErr) {
-        console.warn("Échec insertion Supabase destruction_plans (mode local):", remoteErr)
-      }
+      await Promise.race([syncPromise, new Promise(r => setTimeout(r, 600))])
 
       toast.success(
         `Plan de destruction ${values.plan_number} créé avec succès avec ${values.selected_batches.length} lot(s) !`

@@ -28,94 +28,86 @@ function ReceptionsContent() {
   const handleDeleteReception = async (rec: any) => {
     if (!confirm(`Voulez-vous vraiment supprimer la réception ${rec.rec_number} ?`)) return
 
+    // 1. Mise à jour optimiste immédiate (0ms d'attente)
+    setReceptions(prev => prev.filter(item => item.rec_number !== rec.rec_number && item.id !== rec.id))
+    toast.success(`Réception ${rec.rec_number} supprimée`)
+
     try {
-      // 1. Supprimer de Supabase
-      await supabase.from('receptions').delete().or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
-      await supabase.from('samples').delete().eq('reception_ref', rec.rec_number)
-      await supabase.from('movements').delete().eq('reference_document', rec.rec_number)
+      const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+      if (rec.rec_number && !deletedIds.includes(rec.rec_number)) deletedIds.push(rec.rec_number)
+      if (rec.id && !deletedIds.includes(rec.id)) deletedIds.push(rec.id)
+      localStorage.setItem('reception_deleted_ids', JSON.stringify(deletedIds))
 
-      // 2. Mémoriser la suppression dans localStorage
-      try {
-        const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
-        if (rec.rec_number && !deletedIds.includes(rec.rec_number)) deletedIds.push(rec.rec_number)
-        if (rec.id && !deletedIds.includes(rec.id)) deletedIds.push(rec.id)
-        localStorage.setItem('reception_deleted_ids', JSON.stringify(deletedIds))
+      const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+      const updatedHistory = localHistory.filter((item: any) => item.rec_number !== rec.rec_number && item.id !== rec.id)
+      localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
+      localStorage.removeItem('reception_draft_details_' + rec.rec_number)
+      localStorage.removeItem('reception_form_autosave')
+    } catch (e) {}
 
-        const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
-        const updatedHistory = localHistory.filter((item: any) => item.rec_number !== rec.rec_number && item.id !== rec.id)
-        localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
-        localStorage.removeItem('reception_draft_details_' + rec.rec_number)
-        localStorage.removeItem('reception_form_autosave')
-      } catch (e) {}
-
-      // 3. Mettre à jour l'état local
-      setReceptions(prev => prev.filter(item => item.rec_number !== rec.rec_number && item.id !== rec.id))
-      toast.success(`Réception ${rec.rec_number} supprimée`)
-    } catch (err: any) {
-      console.error(err)
-      toast.error("Erreur lors de la suppression")
-    }
+    // 2. Suppression Supabase Cloud en parallèle (sans bloquer l'interface)
+    Promise.all([
+      supabase.from('receptions').delete().or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`),
+      supabase.from('samples').delete().eq('reception_ref', rec.rec_number),
+      supabase.from('movements').delete().eq('reference_document', rec.rec_number),
+    ]).catch(err => console.error("Erreur suppression Cloud:", err))
   }
 
   const handleValidateReception = async (rec: any) => {
-    try {
-      const validatorName = "Dr. Kadia BARRY (Responsable Qualité)"
-      const validationDate = new Date().toISOString().split('T')[0]
+    const validatorName = "Dr. Kadia BARRY (Responsable Qualité)"
+    const validationDate = new Date().toISOString().split('T')[0]
 
-      await supabase.from('receptions').update({
+    // 1. Mise à jour optimiste immédiate (0ms d'attente)
+    setReceptions(prev => prev.map(item => {
+      if (item.rec_number === rec.rec_number || item.id === rec.id) {
+        return { ...item, status: 'Validée', validator_name: validatorName, validation_date: validationDate }
+      }
+      return item
+    }))
+    toast.success(`Réception ${rec.rec_number} validée avec succès ! (Statut: Finalisé)`)
+
+    try {
+      const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+      const updatedHistory = localHistory.map((item: any) => {
+        if (item.rec_number === rec.rec_number || item.id === rec.id) {
+          return { ...item, status: 'Validée', validator_name: validatorName, validation_date: validationDate }
+        }
+        return item
+      })
+      localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
+
+      const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+      if (rawDetails) {
+        const parsed = JSON.parse(rawDetails)
+        parsed.status = 'Validée'
+        if (parsed.formData) {
+          parsed.formData.status = 'Validée'
+          parsed.formData.validator_name = validatorName
+          parsed.formData.validation_date = validationDate
+        }
+        localStorage.setItem('reception_draft_details_' + rec.rec_number, JSON.stringify(parsed))
+      }
+
+      const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+      const updatedMovements = localMovements.map((m: any) => {
+        if (m.id?.includes(rec.rec_number) || m.reference_document === rec.rec_number || m.sample_number?.includes(rec.rec_number.replace('REC-', ''))) {
+          return { ...m, status: 'Validé', new_status: 'Disponible' }
+        }
+        return m
+      })
+      localStorage.setItem('local_movements_history', JSON.stringify(updatedMovements))
+    } catch (e) {}
+
+    // 2. Mise à jour Supabase Cloud en parallèle
+    Promise.all([
+      supabase.from('receptions').update({
         status: 'Validée',
         validator_name: validatorName,
         validation_date: validationDate,
-      }).or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`)
-
-      await supabase.from('samples').update({ status: 'Disponible' }).eq('reception_ref', rec.rec_number)
-      await supabase.from('movements').update({ status: 'Validé' }).eq('reference_document', rec.rec_number)
-
-      try {
-        const localHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
-        const updatedHistory = localHistory.map((item: any) => {
-          if (item.rec_number === rec.rec_number || item.id === rec.id) {
-            return { ...item, status: 'Validée', validator_name: validatorName, validation_date: validationDate }
-          }
-          return item
-        })
-        localStorage.setItem('reception_history_records', JSON.stringify(updatedHistory))
-
-        const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
-        if (rawDetails) {
-          const parsed = JSON.parse(rawDetails)
-          parsed.status = 'Validée'
-          if (parsed.formData) {
-            parsed.formData.status = 'Validée'
-            parsed.formData.validator_name = validatorName
-            parsed.formData.validation_date = validationDate
-          }
-          localStorage.setItem('reception_draft_details_' + rec.rec_number, JSON.stringify(parsed))
-        }
-
-        // Mettre à jour les mouvements associés dans l'historique
-        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
-        const updatedMovements = localMovements.map((m: any) => {
-          if (m.id?.includes(rec.rec_number) || m.reference_document === rec.rec_number || m.sample_number?.includes(rec.rec_number.replace('REC-', ''))) {
-            return { ...m, status: 'Validé', new_status: 'Disponible' }
-          }
-          return m
-        })
-        localStorage.setItem('local_movements_history', JSON.stringify(updatedMovements))
-      } catch (e) {}
-
-      setReceptions(prev => prev.map(item => {
-        if (item.rec_number === rec.rec_number || item.id === rec.id) {
-          return { ...item, status: 'Validée' }
-        }
-        return item
-      }))
-
-      toast.success(`Réception ${rec.rec_number} validée avec succès ! (Statut: Finalisé)`)
-    } catch (err: any) {
-      console.error(err)
-      toast.error("Erreur lors de la validation")
-    }
+      }).or(`rec_number.eq.${rec.rec_number},id.eq.${rec.id}`),
+      supabase.from('samples').update({ status: 'Disponible' }).eq('reception_ref', rec.rec_number),
+      supabase.from('movements').update({ status: 'Validé' }).eq('reference_document', rec.rec_number),
+    ]).catch(err => console.error("Erreur validation Cloud:", err))
   }
 
   const handleFilterClick = (filter: string) => {
@@ -130,10 +122,55 @@ function ReceptionsContent() {
   const fetchData = async () => {
     let deletedIds: string[] = []
     let syncedIds: string[] = []
+    let localData: any[] = []
     try {
       deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
       syncedIds = JSON.parse(localStorage.getItem('reception_synced_cloud_ids') || '[]')
+      localData = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
     } catch (e) {}
+
+    // Scanner localStorage pour tout reception_draft_details_*
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('reception_draft_details_')) {
+          const raw = localStorage.getItem(key)
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            const recNum = parsed.formData?.rec_number
+            if (recNum && !deletedIds.includes(recNum)) {
+              const sampleCount = (parsed.formData?.samples || []).filter((s: any) => s.commercial_name && s.commercial_name.trim() !== "").length || 1
+              localData.push({
+                id: recNum,
+                rec_number: recNum,
+                date_reception: parsed.formData?.date_reception || new Date().toISOString().split('T')[0],
+                supplier: parsed.formData?.supplier || "DEMANDEUR NON PRÉCISÉ",
+                status: parsed.status || parsed.formData?.status || "En attente de validation",
+                inspector: parsed.formData?.inspector || "Marie ADANDE",
+                created_at: parsed.formData?.created_at || new Date().toISOString(),
+                samples: [{ count: sampleCount }],
+              })
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Affichage instantané (0ms) depuis le cache local avant même la réponse réseau
+    if (localData.length > 0) {
+      const quickMap = new Map<string, any>()
+      localData.forEach(item => {
+        if (item.rec_number && !deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
+          quickMap.set(item.rec_number, item)
+        }
+      })
+      setReceptions(Array.from(quickMap.values()).sort((a, b) => {
+        const timeA = new Date(a.created_at || a.date_reception || 0).getTime()
+        const timeB = new Date(b.created_at || b.date_reception || 0).getTime()
+        return timeB - timeA
+      }))
+      setLoading(false)
+    }
 
     // 1. Données distantes Supabase (Source de vérité Cloud)
     let remoteData: any[] = []
@@ -143,15 +180,12 @@ function ReceptionsContent() {
         .from('receptions')
         .select('id, rec_number, date_reception, supplier, status, inspector, created_at, samples_data')
         .order('created_at', { ascending: false })
-      if (error) {
-        console.warn("Erreur Supabase select réceptions:", error.message)
-      } else if (Array.isArray(data)) {
+      if (!error && Array.isArray(data)) {
         remoteFetchSuccess = true
         remoteData = data.map((item: any) => ({
           ...item,
           samples: [{ count: (Array.isArray(item.samples_data) && item.samples_data.length > 0 ? item.samples_data.length : 1) }]
         }))
-        // Marquer tous les éléments présents sur le Cloud comme synchronisés
         let syncedUpdated = false
         remoteData.forEach((r: any) => {
           if (r.rec_number && !syncedIds.includes(r.rec_number)) {
@@ -169,42 +203,7 @@ function ReceptionsContent() {
       console.warn("Erreur chargement distant réceptions:", err)
     }
 
-    // 2. Données locales historique
-    let localData: any[] = []
-    try {
-      localData = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
-    } catch (e) {}
-
-    // 3. Scanner localStorage pour tout reception_draft_details_* pour ne rater aucune soumission
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && key.startsWith('reception_draft_details_')) {
-          const raw = localStorage.getItem(key)
-          if (raw) {
-            const parsed = JSON.parse(raw)
-            const recNum = parsed.formData?.rec_number
-            if (recNum && !deletedIds.includes(recNum)) {
-              const sampleCount = (parsed.formData?.samples || []).filter((s: any) => s.commercial_name && s.commercial_name.trim() !== "").length || 1
-              const draftRecord = {
-                id: recNum,
-                rec_number: recNum,
-                date_reception: parsed.formData?.date_reception || new Date().toISOString().split('T')[0],
-                supplier: parsed.formData?.supplier || "DEMANDEUR NON PRÉCISÉ",
-                status: parsed.status || parsed.formData?.status || "En attente de validation",
-                inspector: parsed.formData?.inspector || "Marie ADANDE",
-                created_at: parsed.formData?.created_at || new Date().toISOString(),
-                samples: [{ count: sampleCount }],
-              }
-              localData.push(draftRecord)
-            }
-          }
-        }
-      }
-    } catch (e) {}
-
-    // 4. Si un élément local avait déjà été synchronisé sur le Cloud mais n'est plus sur le Cloud,
-    // c'est qu'il a été supprimé depuis un autre navigateur/ordinateur : on le purge localement.
+    // Purge locale des réceptions supprimées sur un autre navigateur/ordinateur
     if (remoteFetchSuccess) {
       const remoteRecNumbers = new Set(remoteData.map((r: any) => r.rec_number))
       let purgedAny = false
@@ -227,90 +226,7 @@ function ReceptionsContent() {
       }
     }
 
-    // 5. Synchronisation montante automatique vers Supabase Cloud (uniquement colonnes SQL valides)
-    for (const item of localData) {
-      const remoteItem = remoteData.find((r: any) => r.rec_number === item.rec_number)
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('reception_draft_details_' + item.rec_number) : null
-      const needsRichSync = raw && remoteItem && (!Array.isArray(remoteItem.samples_data) || remoteItem.samples_data.length === 0 || remoteItem.samples_data[0]?.commercial_name?.startsWith('ÉCHANTILLON '))
-
-      if (!deletedIds.includes(item.rec_number) && (!remoteItem || needsRichSync)) {
-        try {
-          let fd: any = {}
-          let validSamples: any[] = []
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw)
-              fd = parsed.formData || {}
-              if (Array.isArray(fd.samples)) {
-                validSamples = fd.samples.filter((s: any) => s.commercial_name && s.commercial_name.trim() !== '')
-              }
-            } catch (e) {}
-          }
-
-          const payloadToInsert: any = {
-            rec_number: item.rec_number,
-            date_reception: fd.date_reception || item.date_reception || new Date().toISOString().split('T')[0],
-            time_reception: fd.time_reception || '08:00',
-            ref_document: fd.ref_document || null,
-            type_reception: fd.type_reception || null,
-            inspector: fd.inspector || item.inspector || "Marie ADANDE",
-            status: remoteItem?.status === 'Validée' ? 'Validée' : (item.status || fd.status || "En attente de validation"),
-            supplier: fd.supplier || item.supplier || "DEMANDEUR NON PRÉCISÉ",
-            manufacturer: fd.manufacturer || null,
-            country: fd.country || null,
-            city: fd.city || null,
-            contact_person: fd.contact_person || null,
-            phone: fd.phone || null,
-            check_packaging: !!fd.check_packaging,
-            check_boxes: !!fd.check_boxes,
-            check_seals: !!fd.check_seals,
-            check_qty: !!fd.check_qty,
-            check_docs: !!fd.check_docs,
-            check_damage: !!fd.check_damage,
-            check_conform: !!fd.check_conform,
-            anomalies: fd.anomalies || null,
-            measures: fd.measures || null,
-            validator_name: fd.validator_name || null,
-            validation_date: fd.validation_date && fd.validation_date.trim() !== '' ? fd.validation_date : null,
-            samples_data: validSamples.length > 0 ? validSamples : (remoteItem?.samples_data || [{ commercial_name: `ÉCHANTILLON ${item.supplier || ''}`.trim(), qty: 1 }]),
-          }
-
-          const { error: upsertErr } = await supabase.from('receptions').upsert(payloadToInsert, { onConflict: 'rec_number' })
-          if (!upsertErr) {
-            if (!syncedIds.includes(item.rec_number)) {
-              syncedIds.push(item.rec_number)
-              localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
-            }
-          } else {
-            console.warn("Erreur upsert réception vers Supabase:", upsertErr.message)
-          }
-
-          if (validSamples.length > 0) {
-            for (let idx = 0; idx < validSamples.length; idx++) {
-              const s = validSamples[idx]
-              await supabase.from('samples').upsert({
-                sample_number: s.sample_number || `ECH-${item.rec_number.replace('REC-', '')}-${idx + 1}`,
-                reception_ref: item.rec_number,
-                commercial_name: s.commercial_name,
-                dci: s.dci || null,
-                dosage: s.dosage || null,
-                batch_number: s.batch || 'LOT-TEMP',
-                quantity: Number(s.qty) || 1,
-                status: payloadToInsert.status === 'Validée' ? 'Disponible' : 'À localiser',
-                expiry_date: s.exp_date && s.exp_date.trim() !== '' ? s.exp_date : null,
-                current_location: s.location || 'Zone de Réception / Quarantaine',
-                manufacturer_name: fd.manufacturer || null,
-                supplier_name: fd.supplier || item.supplier || null,
-              }, { onConflict: 'sample_number' })
-            }
-          }
-        } catch (syncErr) {
-          console.warn("Échec auto-migration réception vers Supabase:", syncErr)
-        }
-      }
-    }
-
-    // Fusionner les enregistrements sans doublons par rec_number (Priorité aux statuts Cloud)
+    // Fusionner et afficher immédiatement avant la synchronisation montante en arrière-plan
     const mergedMap = new Map<string, any>()
     remoteData.forEach(item => {
       if (!deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
@@ -343,6 +259,85 @@ function ReceptionsContent() {
 
     setReceptions(mergedList)
     setLoading(false)
+
+    // Synchronisation montante non-bloquante en arrière-plan
+    ;(async () => {
+      for (const item of localData) {
+        const remoteItem = remoteData.find((r: any) => r.rec_number === item.rec_number)
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('reception_draft_details_' + item.rec_number) : null
+        const needsRichSync = raw && remoteItem && (!Array.isArray(remoteItem.samples_data) || remoteItem.samples_data.length === 0 || remoteItem.samples_data[0]?.commercial_name?.startsWith('ÉCHANTILLON '))
+
+        if (!deletedIds.includes(item.rec_number) && (!remoteItem || needsRichSync)) {
+          try {
+            let fd: any = {}
+            let validSamples: any[] = []
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw)
+                fd = parsed.formData || {}
+                if (Array.isArray(fd.samples)) {
+                  validSamples = fd.samples.filter((s: any) => s.commercial_name && s.commercial_name.trim() !== '')
+                }
+              } catch (e) {}
+            }
+
+            const payloadToInsert: any = {
+              rec_number: item.rec_number,
+              date_reception: fd.date_reception || item.date_reception || new Date().toISOString().split('T')[0],
+              time_reception: fd.time_reception || '08:00',
+              ref_document: fd.ref_document || null,
+              type_reception: fd.type_reception || null,
+              inspector: fd.inspector || item.inspector || "Marie ADANDE",
+              status: remoteItem?.status === 'Validée' ? 'Validée' : (item.status || fd.status || "En attente de validation"),
+              supplier: fd.supplier || item.supplier || "DEMANDEUR NON PRÉCISÉ",
+              manufacturer: fd.manufacturer || null,
+              country: fd.country || null,
+              city: fd.city || null,
+              contact_person: fd.contact_person || null,
+              phone: fd.phone || null,
+              check_packaging: !!fd.check_packaging,
+              check_boxes: !!fd.check_boxes,
+              check_seals: !!fd.check_seals,
+              check_qty: !!fd.check_qty,
+              check_docs: !!fd.check_docs,
+              check_damage: !!fd.check_damage,
+              check_conform: !!fd.check_conform,
+              anomalies: fd.anomalies || null,
+              measures: fd.measures || null,
+              validator_name: fd.validator_name || null,
+              validation_date: fd.validation_date && fd.validation_date.trim() !== '' ? fd.validation_date : null,
+              samples_data: validSamples.length > 0 ? validSamples : (remoteItem?.samples_data || [{ commercial_name: `ÉCHANTILLON ${item.supplier || ''}`.trim(), qty: 1 }]),
+            }
+
+            const { error: upsertErr } = await supabase.from('receptions').upsert(payloadToInsert, { onConflict: 'rec_number' })
+            if (!upsertErr && !syncedIds.includes(item.rec_number)) {
+              syncedIds.push(item.rec_number)
+              localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
+            }
+
+            if (validSamples.length > 0) {
+              const samplesBatch = validSamples.map((s: any, idx: number) => ({
+                sample_number: s.sample_number || `ECH-${item.rec_number.replace('REC-', '')}-${idx + 1}`,
+                reception_ref: item.rec_number,
+                commercial_name: s.commercial_name,
+                dci: s.dci || null,
+                dosage: s.dosage || null,
+                batch_number: s.batch || 'LOT-TEMP',
+                quantity: Number(s.qty) || 1,
+                status: payloadToInsert.status === 'Validée' ? 'Disponible' : 'À localiser',
+                expiry_date: s.exp_date && s.exp_date.trim() !== '' ? s.exp_date : null,
+                current_location: s.location || 'Zone de Réception / Quarantaine',
+                manufacturer_name: fd.manufacturer || null,
+                supplier_name: fd.supplier || item.supplier || null,
+              }))
+              await supabase.from('samples').upsert(samplesBatch, { onConflict: 'sample_number' })
+            }
+          } catch (syncErr) {
+            console.warn("Échec auto-migration réception vers Supabase:", syncErr)
+          }
+        }
+      }
+    })()
   }
 
   useEffect(() => {

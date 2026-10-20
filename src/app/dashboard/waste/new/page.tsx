@@ -269,79 +269,57 @@ export default function NewWasteReceptionPage() {
         console.warn("Erreur sauvegarde locale déchets:", localErr)
       }
 
-      // 2. Sauvegarde Supabase
-      try {
-        const { data: userData } = await supabase.auth.getUser()
-        const userId = userData?.user?.id
+      // 2. Synchronisation Supabase Cloud en parallèle (sans bloquer l'ouverture de l'attestation)
+      const batchesPayload = newBatches.map((b) => ({
+        batch_number: b.batch_number,
+        reception_number: b.reception_number,
+        reception_date: b.reception_date,
+        reception_time: b.reception_time,
+        delivery_slip_ref: b.delivery_slip_ref,
+        recipient_agent: b.recipient_agent,
+        source_structure: b.source_structure,
+        source_type: b.source_type,
+        city: b.city,
+        depositor_name: b.depositor_name,
+        depositor_phone: b.depositor_phone,
+        depositor_id_card: b.depositor_id_card,
+        waste_type: b.waste_type,
+        commercial_name: b.commercial_name,
+        original_batch: b.original_batch,
+        sample_id: b.sample_id,
+        quantity: b.quantity,
+        unit: b.unit,
+        packaging: b.packaging,
+        packaging_condition: b.packaging_condition,
+        destruction_motive: b.destruction_motive,
+        current_location: b.current_location,
+        status: "Déclaré",
+        observations: b.observations,
+      }))
 
-        for (const b of newBatches) {
-          await supabase.from("waste_batches").insert({
-            batch_number: b.batch_number,
-            reception_number: b.reception_number,
-            reception_date: b.reception_date,
-            reception_time: b.reception_time,
-            delivery_slip_ref: b.delivery_slip_ref,
-            recipient_agent: b.recipient_agent,
-            source_structure: b.source_structure,
-            source_type: b.source_type,
-            city: b.city,
-            depositor_name: b.depositor_name,
-            depositor_phone: b.depositor_phone,
-            depositor_id_card: b.depositor_id_card,
-            waste_type: b.waste_type,
-            commercial_name: b.commercial_name,
-            original_batch: b.original_batch,
-            sample_id: b.sample_id,
-            quantity: b.quantity,
-            unit: b.unit,
-            packaging: b.packaging,
-            packaging_condition: b.packaging_condition,
-            destruction_motive: b.destruction_motive,
-            current_location: b.current_location,
-            status: "Déclaré",
-            observations: b.observations,
-          })
-        }
+      const mvtsPayload = newMvts.map((mvt) => ({
+        mvt_number: mvt.mvt_number,
+        date: mvt.date,
+        type: mvt.type,
+        batch: mvt.batch,
+        waste_type: mvt.waste_type,
+        commercial_name: mvt.commercial_name,
+        quantity: mvt.quantity,
+        operator: mvt.operator,
+        origin: mvt.origin,
+        destination: mvt.destination,
+        reception_number: mvt.reception_number,
+        source_structure: mvt.source_structure,
+        depositor_name: mvt.depositor_name,
+        signature_hash: mvt.signature_hash,
+      }))
 
-        // Insertion des mouvements de déchets dans Supabase
-        for (const mvt of newMvts) {
-          try {
-            await supabase.from("waste_movements").insert({
-              mvt_number: mvt.mvt_number,
-              date: mvt.date,
-              type: mvt.type,
-              batch: mvt.batch,
-              waste_type: mvt.waste_type,
-              commercial_name: mvt.commercial_name,
-              quantity: mvt.quantity,
-              operator: mvt.operator,
-              origin: mvt.origin,
-              destination: mvt.destination,
-              reception_number: mvt.reception_number,
-              source_structure: mvt.source_structure,
-              depositor_name: mvt.depositor_name,
-              signature_hash: mvt.signature_hash,
-            })
-          } catch (wmErr) {
-            console.warn("Échec insertion waste_movements Supabase:", wmErr)
-          }
-        }
-
-        if (userId) {
-          await supabase.from("audit_logs").insert({
-            user_id: userId,
-            action: "CREATE_WASTE_RECEPTION_MULTI",
-            entity_type: "waste_batches",
-            new_value: {
-              reception_number: values.reception_number,
-              source_structure: values.source_structure,
-              items_count: values.waste_items.length,
-            },
-          })
-        }
-      } catch (remoteErr) {
-        console.warn("Échec insertion Supabase waste_batches (mode déconnecté):", remoteErr)
-      }
+      Promise.all([
+        supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" }),
+        supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" }),
+      ]).catch((remoteErr) => {
+        console.warn("Échec synchronisation Supabase waste_batches:", remoteErr)
+      })
 
       // 3. Préparer le document d'attestation consolidé pour tous les déchets
       const slipPayload = {

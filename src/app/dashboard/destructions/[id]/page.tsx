@@ -118,9 +118,23 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
   }
 
   const fetchPlan = useCallback(async () => {
-    // 1. Vérifier en priorité dans Supabase Cloud pour la cohérence multi-postes
+    let localFound: any = null
+    // 1. Affichage instantané (0ms) depuis localStorage si présent
     try {
-      const { data, error } = await supabase
+      const stored = localStorage.getItem('destruction_plans_custom_v1')
+      if (stored) {
+        const list = JSON.parse(stored)
+        localFound = list.find((p: any) => p.id === resolvedParams.id || p.plan_number === resolvedParams.id)
+        if (localFound) {
+          setPlan(localFound)
+          setLoading(false)
+        }
+      }
+    } catch (e) {}
+
+    // 2. Vérifier dans Supabase Cloud pour la cohérence multi-postes
+    try {
+      const { data } = await supabase
         .from('destruction_plans')
         .select('*')
         .or(`id.eq.${resolvedParams.id},plan_number.eq.${resolvedParams.id}`)
@@ -128,8 +142,10 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       
       if (data) {
         const formatted = {
+          ...localFound,
           ...data,
-          items: data.items_data && Array.isArray(data.items_data) && data.items_data.length > 0 ? data.items_data : (data.items || []),
+          items: data.items_data && Array.isArray(data.items_data) && data.items_data.length > 0 ? data.items_data : (localFound?.items || data.items || []),
+          validations: localFound?.validations || data.validations || [],
         }
         setPlan(formatted)
         setLoading(false)
@@ -139,19 +155,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       console.warn("Supabase fetch destruction plan warning:", err)
     }
 
-    // 2. Fallback localStorage
-    try {
-      const stored = localStorage.getItem('destruction_plans_custom_v1')
-      if (stored) {
-        const list = JSON.parse(stored)
-        const found = list.find((p: any) => p.id === resolvedParams.id || p.plan_number === resolvedParams.id)
-        if (found) {
-          setPlan(found)
-          setLoading(false)
-          return
-        }
-      }
-    } catch (e) {}
+    if (localFound) return
 
     // 3. Fallback mock ou dynamique
     if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
@@ -186,15 +190,14 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
   const handleValidation = async (role: string, action: 'Approuver' | 'Rejeter') => {
     setIsProcessing(true)
     try {
-      // 1. Calcul du nouveau statut
       let newStatus = plan.status
       if (action === 'Rejeter') {
         newStatus = 'Rejeté'
       } else {
         if (role === 'Responsable Déchets') {
-          newStatus = 'Validation Qualité' // Passe à l'étape suivante
+          newStatus = 'Validation Qualité'
         } else if (role === 'Responsable Qualité') {
-          newStatus = 'En attente exécution' // Prêt à être détruit
+          newStatus = 'En attente exécution'
         }
       }
 
@@ -206,7 +209,17 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
         comments: 'Validation réglementaire effectuée.'
       }
 
-      // 2. Mise à jour locale garantie
+      // 1. Mise à jour locale et état React immédiat (0ms)
+      setPlan((prev: any) => ({
+        ...prev,
+        status: newStatus,
+        validations: [
+          ...(prev?.validations?.filter((v: any) => v.role !== role) || []),
+          newValidation
+        ]
+      }))
+      toast.success(`Validation enregistrée : ${action}`)
+
       try {
         const stored = localStorage.getItem('destruction_plans_custom_v1')
         if (stored) {
@@ -227,52 +240,14 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           })
           localStorage.setItem('destruction_plans_custom_v1', JSON.stringify(updated))
         }
-      } catch (localErr) {
-        console.warn("Erreur mise à jour locale validation:", localErr)
-      }
+      } catch (localErr) {}
 
-      // 3. Mettre à jour l'état React immédiat
-      setPlan((prev: any) => ({
-        ...prev,
-        status: newStatus,
-        validations: [
-          ...(prev?.validations?.filter((v: any) => v.role !== role) || []),
-          newValidation
-        ]
-      }))
-
-      // 4. Tentative Supabase en tâche de fond
-      try {
-        const { data: userData } = await supabase.auth.getUser()
-        const userId = userData?.user?.id
-
-        if (userId) {
-          await supabase.from('destruction_validations').insert({
-            plan_id: plan.id,
-            user_id: userId,
-            role: role,
-            signature_hash: `SIG-${Date.now()}-${userId.substring(0,8)}`,
-            status: action === 'Approuver' ? 'Approuvé' : 'Rejeté'
-          })
-
-          await supabase
-            .from('destruction_plans')
-            .update({ status: newStatus })
-            .eq('id', plan.id)
-
-          await supabase.from('audit_logs').insert({
-            user_id: userId,
-            action: 'VALIDATE_DESTRUCTION_PLAN',
-            entity_type: 'destruction_plans',
-            entity_id: plan.id,
-            new_value: { role, action, newStatus }
-          })
-        }
-      } catch (remoteErr) {
-        console.warn("Supabase validation skip:", remoteErr)
-      }
-
-      toast.success(`Validation enregistrée : ${action}`)
+      // 2. Mise à jour Supabase Cloud en tâche de fond (sans bloquer l'interface)
+      supabase
+        .from('destruction_plans')
+        .update({ status: newStatus })
+        .or(`id.eq.${plan.id},plan_number.eq.${plan.plan_number}`)
+        .then(() => {})
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -286,7 +261,17 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       const nowIso = new Date().toISOString()
       const certNum = plan.certificate_number || `CERT-DEST-${new Date().getFullYear()}-${plan.plan_number?.replace("DES-", "") || Math.floor(1000 + Math.random() * 9000)}`
 
-      // 1. Mise à jour locale garantie
+      // 1. Mettre à jour l'état React et ouvrir le modal immédiatement (0ms)
+      setPlan((prev: any) => ({
+        ...prev,
+        status: 'Exécuté',
+        execution_date: nowIso,
+        certificate_number: certNum
+      }))
+      toast.success("Destruction exécutée avec succès ! Les déchets sont sortis du stock.")
+      setShowCertificateModal(true)
+
+      // 2. Mise à jour locale garantie
       try {
         const stored = localStorage.getItem('destruction_plans_custom_v1')
         if (stored) {
@@ -305,13 +290,13 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           localStorage.setItem('destruction_plans_custom_v1', JSON.stringify(updated))
         }
 
-        // Marquer les déchets associés comme détruits et enregistrer la traçabilité
         const storedBatches = localStorage.getItem('waste_batches_custom_v1')
         if (storedBatches) {
           const localBatches = JSON.parse(storedBatches)
           const itemBatchIds = plan.items?.map((it: any) => it.waste_batch_id || it.waste_batch?.id) || []
+          const itemBatchNumbers = plan.items?.map((it: any) => it.waste_batch?.batch_number).filter(Boolean) || []
           const updatedBatches = localBatches.map((b: any) => 
-            itemBatchIds.includes(b.id) 
+            (itemBatchIds.includes(b.id) || itemBatchNumbers.includes(b.batch_number))
               ? { 
                   ...b, 
                   status: 'Détruit', 
@@ -323,84 +308,54 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           )
           localStorage.setItem('waste_batches_custom_v1', JSON.stringify(updatedBatches))
         }
-      } catch (localErr) {
-        console.warn("Erreur mise à jour locale execution:", localErr)
-      }
+      } catch (localErr) {}
 
-      // 2. Mettre à jour l'état React immédiat
-      setPlan((prev: any) => ({
-        ...prev,
-        status: 'Exécuté',
-        execution_date: nowIso,
-        certificate_number: certNum
-      }))
+      // 3. Synchronisation Supabase Cloud en parallèle (sans bloquer l'interface)
+      const batchNumbers = (plan.items || []).map((i: any) => i.waste_batch?.batch_number).filter(Boolean)
+      const movementsPayload = (plan.items || []).map((item: any) => {
+        const wb = item.waste_batch || item
+        return {
+          mvt_number: `MVT-DEST-${wb.batch_number?.replace('DEC-', '') || Math.floor(10000 + Math.random() * 90000)}`,
+          date: nowIso,
+          type: 'Destruction effectuée',
+          batch: wb.batch_number,
+          waste_type: wb.waste_type || 'Déchets pharmaceutiques',
+          commercial_name: wb.commercial_name || '',
+          quantity: `${item.quantity || wb.quantity || 1} ${wb.unit || 'Kg'}`,
+          operator: plan.supervisor_name || 'Marie ADANDE (Resp. Déchets)',
+          origin: wb.current_location || 'Zone de Quarantaine - Déchets',
+          destination: plan.destruction_site || 'Centre d\'Incinération Agréé',
+          certificate_number: certNum,
+          source_structure: wb.source_structure || '',
+          reception_number: wb.reception_number || '',
+          signature_hash: `SIG-DEST-${certNum}`,
+        }
+      })
 
-      // 3. Tentative Supabase en tâche de fond
-      try {
-        const { data: userData } = await supabase.auth.getUser()
-        
-        await supabase
+      Promise.all([
+        supabase
           .from('destruction_plans')
           .update({ 
             status: 'Exécuté', 
             execution_date: nowIso, 
             certificate_number: certNum 
           })
-          .or(`id.eq.${plan.id},plan_number.eq.${plan.plan_number}`)
-
-        const batchIds = (plan.items || []).map((i: any) => i.waste_batch_id || i.waste_batch?.id || i.id).filter(Boolean)
-        if (batchIds.length > 0) {
-          await supabase
-            .from('waste_batches')
-            .update({ 
-              status: 'Détruit',
-              destruction_date: nowIso,
-              certificate_number: certNum,
-              destruction_plan_ref: plan.plan_number 
-            })
-            .in('id', batchIds)
-        }
-
-        // Enregistrer la traçabilité dans la table Supabase waste_movements
-        for (const item of (plan.items || [])) {
-          const wb = item.waste_batch || item
-          try {
-            await supabase.from('waste_movements').insert({
-              mvt_number: `MVT-DEST-${wb.batch_number?.replace('DEC-', '') || Math.floor(10000 + Math.random() * 90000)}`,
-              date: nowIso,
-              type: 'Destruction effectuée',
-              batch: wb.batch_number,
-              waste_type: wb.waste_type || 'Déchets pharmaceutiques',
-              commercial_name: wb.commercial_name || '',
-              quantity: `${item.quantity || wb.quantity || 1} ${wb.unit || 'Kg'}`,
-              operator: plan.supervisor_name || 'Marie ADANDE (Resp. Déchets)',
-              origin: wb.current_location || 'Zone de Quarantaine - Déchets',
-              destination: plan.destruction_site || 'Centre d\'Incinération Agréé',
-              certificate_number: certNum,
-              source_structure: wb.source_structure || '',
-              reception_number: wb.reception_number || '',
-              signature_hash: `SIG-DEST-${certNum}`,
-            })
-          } catch (mErr) {
-            console.warn("Échec insertion mvt destruction Supabase:", mErr)
-          }
-        }
-
-        if (userData?.user?.id) {
-          await supabase.from('audit_logs').insert({
-            user_id: userData?.user?.id,
-            action: 'EXECUTE_DESTRUCTION',
-            entity_type: 'destruction_plans',
-            entity_id: plan.id,
-            new_value: { certificate_number: certNum, execution_date: nowIso }
-          })
-        }
-      } catch (remoteErr) {
-        console.warn("Supabase execute skip:", remoteErr)
-      }
-
-      toast.success("Destruction exécutée avec succès ! Les déchets sont sortis du stock.")
-      setShowCertificateModal(true)
+          .or(`id.eq.${plan.id},plan_number.eq.${plan.plan_number}`),
+        batchNumbers.length > 0
+          ? supabase
+              .from('waste_batches')
+              .update({ 
+                status: 'Détruit',
+                destruction_date: nowIso,
+                certificate_number: certNum,
+                destruction_plan_ref: plan.plan_number 
+              })
+              .in('batch_number', batchNumbers)
+          : Promise.resolve(),
+        movementsPayload.length > 0
+          ? supabase.from('waste_movements').upsert(movementsPayload, { onConflict: 'mvt_number' })
+          : Promise.resolve(),
+      ]).catch(err => console.warn("Supabase execute sync warning:", err))
     } catch (error: any) {
       toast.error(error.message)
     } finally {

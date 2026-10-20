@@ -695,61 +695,14 @@ export default function NewReceptionPage() {
       console.warn("Erreur sauvegarde locale historique:", e)
     }
 
-    try {
-      let { error } = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
-
-      // Si l'upsert échoue (ex: colonne absente ou contrainte), tenter update puis insert minimal
-      if (error) {
-        console.warn("Échec upsert complet, tentative update/insert:", error.message)
-        const { error: updateErr } = await supabase.from('receptions').update(fullPayload).eq('rec_number', values.rec_number)
-        if (updateErr) {
-          const minimalPayload = {
-            rec_number: values.rec_number,
-            date_reception: values.date_reception || new Date().toISOString().split('T')[0],
-            supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
-            status: status,
-            inspector: values.inspector || "Marie ADANDE",
-          }
-          const { error: minUpdateErr } = await supabase.from('receptions').update(minimalPayload).eq('rec_number', values.rec_number)
-          if (minUpdateErr) {
-            await supabase.from('receptions').insert(minimalPayload)
-          }
-        }
-      }
-    } catch (dbErr) {
-      console.warn("Supabase receptions database operation warning:", dbErr)
-    }
-
-    // Insérer les échantillons valides
+    // ─── Préparation des échantillons et mouvements ────────────────────────────
     const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
-    if (validSamples.length > 0) {
-      try {
-        await supabase.from('samples').delete().eq('reception_ref', values.rec_number)
-        const samplesToInsert = validSamples.map((sample, idx) => ({
-          sample_number: `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`,
-          reception_ref: values.rec_number,
-          commercial_name: sample.commercial_name,
-          dci: sample.dci || null,
-          dosage: sample.dosage || null,
-          batch_number: sample.batch || 'LOT-TEMP',
-          expiry_date: sample.exp_date || null,
-          quantity: Number(sample.qty) || 1,
-          status: status === 'Validée' ? 'Disponible' : 'À localiser',
-          current_location: 'Zone de Réception / Quarantaine',
-          manufacturer_name: values.manufacturer || null,
-          supplier_name: values.supplier || null,
-        }))
-        await supabase.from('samples').insert(samplesToInsert)
-      } catch (sErr) {
-        console.warn("Erreur insertion échantillons:", sErr)
-      }
-    }
+    let newMovements: any[] = []
 
-    // ─── Génération automatique des mouvements d'entrée de stock ──────────────
     if (validSamples.length > 0) {
       try {
         const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
-        const newMovements = validSamples.map((sample, idx) => {
+        newMovements = validSamples.map((sample, idx) => {
           const sampleNum = `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`
           return {
             id: `mvt-${values.rec_number}-${idx}`,
@@ -773,54 +726,98 @@ export default function NewReceptionPage() {
           }
         })
 
-        // Éviter les doublons pour cette même réception
         const filteredMovements = localMovements.filter((m: any) => !m.id?.startsWith(`mvt-${values.rec_number}-`))
-        const updatedMovements = [...newMovements, ...filteredMovements]
-        localStorage.setItem('local_movements_history', JSON.stringify(updatedMovements))
-
-        // Insertion complète Supabase dans la table movements pour synchronisation multi-postes
-        for (const mvt of newMovements) {
-          try {
-            await supabase.from('movements').insert({
-              mvt_number: mvt.mvt_number,
-              movement_date: mvt.movement_date,
-              movement_type: 'Entrée',
-              sample_id: mvt.sample_id,
-              sample_number: mvt.sample_number,
-              commercial_name: mvt.commercial_name,
-              batch_number: mvt.batch_number,
-              quantity: mvt.quantity,
-              source_location: mvt.source_location,
-              destination_location: mvt.destination_location,
-              operator: mvt.operator,
-              reason: mvt.reason,
-              observations: mvt.observations,
-              status: mvt.status,
-              reference_document: values.rec_number,
-            })
-          } catch (mErr) {
-            console.warn("Échec insertion movement Supabase:", mErr)
-          }
-        }
+        localStorage.setItem('local_movements_history', JSON.stringify([...newMovements, ...filteredMovements]))
       } catch (errMvt) {
-        console.warn("Erreur génération mouvements entrée:", errMvt)
+        console.warn("Erreur génération mouvements locale:", errMvt)
       }
     }
+
+    // ─── Synchronisation Cloud parallèle ultra-rapide (Promise.all) ───────────
+    const syncPromise = Promise.all([
+      (async () => {
+        try {
+          const { error } = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
+          if (!error) {
+            try {
+              const syncedIds = JSON.parse(localStorage.getItem('reception_synced_cloud_ids') || '[]')
+              if (!syncedIds.includes(values.rec_number)) {
+                syncedIds.push(values.rec_number)
+                localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
+              }
+            } catch (e) {}
+          }
+        } catch (dbErr) {
+          console.warn("Supabase receptions sync warning:", dbErr)
+        }
+      })(),
+      (async () => {
+        if (validSamples.length === 0) return
+        try {
+          const samplesToUpsert = validSamples.map((sample, idx) => ({
+            sample_number: `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`,
+            reception_ref: values.rec_number,
+            commercial_name: sample.commercial_name,
+            dci: sample.dci || null,
+            dosage: sample.dosage || null,
+            batch_number: sample.batch || 'LOT-TEMP',
+            expiry_date: sample.exp_date && sample.exp_date.trim() !== '' ? sample.exp_date : null,
+            quantity: Number(sample.qty) || 1,
+            status: status === 'Validée' ? 'Disponible' : 'À localiser',
+            current_location: 'Zone de Réception / Quarantaine',
+            manufacturer_name: values.manufacturer || null,
+            supplier_name: values.supplier || null,
+          }))
+          await supabase.from('samples').upsert(samplesToUpsert, { onConflict: 'sample_number' })
+        } catch (sErr) {
+          console.warn("Erreur upsert échantillons:", sErr)
+        }
+      })(),
+      (async () => {
+        if (newMovements.length === 0) return
+        try {
+          const movementsPayload = newMovements.map((mvt) => ({
+            mvt_number: mvt.mvt_number,
+            movement_date: mvt.movement_date,
+            movement_type: 'Entrée',
+            sample_id: mvt.sample_id,
+            sample_number: mvt.sample_number,
+            commercial_name: mvt.commercial_name,
+            batch_number: mvt.batch_number,
+            quantity: mvt.quantity,
+            source_location: mvt.source_location,
+            destination_location: mvt.destination_location,
+            operator: mvt.operator,
+            reason: mvt.reason,
+            observations: mvt.observations,
+            status: mvt.status,
+            reference_document: values.rec_number,
+          }))
+          await supabase.from('movements').upsert(movementsPayload, { onConflict: 'mvt_number' })
+        } catch (mErr) {
+          console.warn("Échec upsert movements Supabase:", mErr)
+        }
+      })()
+    ])
+
+    // Attendre au maximum 800ms pour une navigation quasi-instantanée tout en laissant la requête aboutir
+    await Promise.race([
+      syncPromise,
+      new Promise(resolve => setTimeout(resolve, 800))
+    ])
   }
 
   // ─── Sauvegarder (En instance de validation) ──────────────────────────────
   const onDraft = async () => {
     setIsDrafting(true)
-    const toastId = toast.loading("Sauvegarde en cours...")
     try {
       await saveReceptionToSupabase("En attente de validation")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception enregistrée avec succès ! Elle est visible dans les réceptions en instance et les mouvements.", { id: toastId, duration: 3500 })
+      toast.success("Réception enregistrée avec succès !", { duration: 2500 })
       router.push("/dashboard/receptions?status=en_attente")
-      setTimeout(() => { window.location.href = "/dashboard/receptions?status=en_attente" }, 300)
     } catch (err: any) {
       console.error(err)
-      toast.error(`Erreur : ${err.message || "Impossible de sauvegarder la réception."}`, { id: toastId })
+      toast.error(`Erreur : ${err.message || "Impossible de sauvegarder la réception."}`)
     } finally {
       setIsDrafting(false)
     }
@@ -829,16 +826,14 @@ export default function NewReceptionPage() {
   // ─── Soumettre la réception pour validation ───────────────────────────────
   const onSubmit = async () => {
     setIsSaving(true)
-    const toastId = toast.loading("Soumission en cours...")
     try {
       await saveReceptionToSupabase("En attente de validation")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception soumise avec succès ! Elle est désormais visible dans les réceptions en instance.", { id: toastId, duration: 3500 })
+      toast.success("Réception soumise avec succès !", { duration: 2500 })
       router.push("/dashboard/receptions?status=en_attente")
-      setTimeout(() => { window.location.href = "/dashboard/receptions?status=en_attente" }, 300)
     } catch (err: any) {
       console.error(err)
-      toast.error(`Erreur : ${err.message || "Impossible de soumettre la réception."}`, { id: toastId })
+      toast.error(`Erreur : ${err.message || "Impossible de soumettre la réception."}`)
     } finally {
       setIsSaving(false)
     }
@@ -847,16 +842,14 @@ export default function NewReceptionPage() {
   // ─── Validation officielle par le responsable ──────────────────────────────
   const onValidateByValidator = async () => {
     setIsSaving(true)
-    const toastId = toast.loading("Validation en cours...")
     try {
       await saveReceptionToSupabase("Validée")
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception validée avec succès ! (Statut: Finalisé)", { id: toastId, duration: 3000 })
+      toast.success("Réception validée avec succès ! (Statut: Finalisé)", { duration: 2500 })
       router.push("/dashboard/receptions")
-      setTimeout(() => { window.location.href = "/dashboard/receptions" }, 300)
     } catch (err: any) {
       console.error(err)
-      toast.error(`Erreur : ${err.message || "Impossible de valider la réception."}`, { id: toastId })
+      toast.error(`Erreur : ${err.message || "Impossible de valider la réception."}`)
     } finally {
       setIsSaving(false)
     }

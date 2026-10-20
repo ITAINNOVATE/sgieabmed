@@ -389,30 +389,35 @@ export default function NewMovementPage() {
         localStorage.setItem('local_sample_overrides', JSON.stringify(overrides))
       } catch (e) { console.warn("Override save error:", e); }
 
-      // 2. Sync Supabase si UUID valide
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSample.id);
-      if (isUUID) {
-        try {
-          await supabase.from('movements').insert({
-            mvt_number: mvtData.mvt_number,
-            sample_id: selectedSample.id,
-            movement_type: values.movement_type,
-            quantity: mvtData.quantity,
-            source_location: mvtData.source_location,
-            destination_location: mvtData.destination_location,
-            reason: values.reason,
-            observations: values.observations,
-          });
-          await supabase.from('samples').update({
-            quantity: newQuantity,
-            status: newStatus,
-            current_location: newLocation,
-          }).eq('id', selectedSample.id);
-        } catch (e) { console.warn("Supabase sync warning:", e); }
-      }
+      // 2. Synchronisation Supabase Cloud en parallèle (sans bloquer la navigation)
+      Promise.all([
+        supabase.from('movements').upsert({
+          mvt_number: mvtData.mvt_number,
+          movement_date: mvtData.movement_date,
+          sample_id: String(selectedSample.id || ''),
+          sample_number: mvtData.sample_number,
+          commercial_name: mvtData.commercial_name,
+          batch_number: mvtData.batch_number,
+          movement_type: values.movement_type,
+          quantity: mvtData.quantity,
+          source_location: mvtData.source_location,
+          destination_location: mvtData.destination_location,
+          operator: mvtData.operator,
+          reason: values.reason,
+          observations: values.observations || "",
+          status: "Validé",
+        }, { onConflict: 'mvt_number' }),
+        selectedSample.sample_number
+          ? supabase.from('samples').update({
+              quantity: newQuantity,
+              status: newStatus,
+              current_location: newLocation,
+            }).eq('sample_number', selectedSample.sample_number)
+          : Promise.resolve(),
+      ]).catch((e) => console.warn("Supabase sync warning:", e))
 
-      toast.success(`✅ Mouvement "${values.movement_type}" validé et stock mis à jour avec succès !`);
-      router.push("/dashboard/movements");
+      toast.success(`Mouvement "${values.movement_type}" validé et stock mis à jour avec succès !`)
+      router.push("/dashboard/movements")
     } catch (error: any) {
       console.error("Erreur validation mouvement:", error);
       toast.error(error.message || "Impossible de valider le mouvement.");

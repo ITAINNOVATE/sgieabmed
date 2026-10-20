@@ -149,10 +149,7 @@ export const columns: ColumnDef<Sample>[] = [
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer text-xs" onClick={async () => {
                 if (window.confirm("Êtes-vous sûr de vouloir supprimer cet échantillon ?")) {
-                  const supabase = createClient()
-                  await supabase.from('samples').delete().eq('id', sample.id)
-                  toast.success("Échantillon supprimé")
-                  window.location.reload()
+                  meta?.onDeleteSample?.(sample)
                 }
               }}>
                 <Trash className="mr-2 h-3.5 w-3.5"/> Supprimer
@@ -182,24 +179,11 @@ export default function SamplesDataTable() {
   const fetchData = useCallback(async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
 
-    let remoteSamples: Sample[] = []
-    try {
-      const supabase = createClient()
-      const fetchPromise = supabase.from('samples').select('*').order('created_at', { ascending: false })
-      const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 8000))
-      
-      const res = await Promise.race([fetchPromise, timeoutPromise])
-      if (res && res.data && res.data.length > 0) {
-        remoteSamples = res.data
-      }
-    } catch (e) {
-      console.warn("Supabase fetch failed or timed out:", e)
-    }
-
     let localSamples: Sample[] = []
+    let deletedIds: string[] = []
     try {
       const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
-      const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+      deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
 
       historyRecords.forEach((rec: any) => {
         if (deletedIds.includes(rec.rec_number) || deletedIds.includes(rec.id)) return
@@ -222,7 +206,7 @@ export default function SamplesDataTable() {
                   dci: (dciStr || s.commercial_name).toUpperCase(),
                   batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
                   quantity: Number(s.qty) || 1,
-                  status: rec.status === 'Finalisé' ? 'Disponible' : (rec.status || 'Disponible'),
+                  status: rec.status === 'Finalisé' || rec.status === 'Validée' ? 'Disponible' : (rec.status || 'Disponible'),
                   expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
                   current_location: s.location || 'Magasin Central (Zone A)',
                 })
@@ -233,99 +217,108 @@ export default function SamplesDataTable() {
       })
     } catch (e) {}
 
-    try {
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
-      const sampleMap = new Map<string, Sample>()
+    const applyOverridesAndSet = (remoteSamples: Sample[]) => {
+      try {
+        const sampleMap = new Map<string, Sample>()
+        const isDeleted = (s: any) => {
+          if (!s) return true
+          const name = (s.commercial_name || '').toUpperCase()
+          const num = (s.sample_number || s.id || '').toUpperCase()
+          const batch = (s.batch_number || '').toUpperCase()
+          const ref = (s.reception_ref || '').toUpperCase()
+          return deletedIds.some((d: string) => {
+            const upperD = d.toUpperCase()
+            return (upperD && (name.includes(upperD) || num.includes(upperD) || batch.includes(upperD) || ref === upperD || s.id === d))
+          })
+        }
 
-      const isDeleted = (s: any) => {
-        if (!s) return true
-        const name = (s.commercial_name || '').toUpperCase()
-        const num = (s.sample_number || s.id || '').toUpperCase()
-        const batch = (s.batch_number || '').toUpperCase()
-        return deletedIds.some((d: string) => {
-          const upperD = d.toUpperCase()
-          return (upperD && (name.includes(upperD) || num.includes(upperD) || batch.includes(upperD) || s.id === d))
+        if (!isWiped) {
+          DEFAULT_SAMPLES.forEach(s => {
+            if (!isDeleted(s)) sampleMap.set(s.sample_number || s.id, s)
+          })
+        }
+        localSamples.forEach(s => {
+          if (!isDeleted(s)) sampleMap.set(s.sample_number || s.id, s)
         })
-      }
-
-      if (!isWiped) {
-        DEFAULT_SAMPLES.forEach(s => {
-          if (!isDeleted(s)) sampleMap.set(s.id, s)
+        remoteSamples.forEach(s => {
+          if (!isDeleted(s)) sampleMap.set(s.sample_number || s.id, s)
         })
-      }
-      localSamples.forEach(s => {
-        if (!isDeleted(s)) sampleMap.set(s.id, s)
-      })
-      remoteSamples.forEach(s => {
-        if (!isDeleted(s)) sampleMap.set(s.id || s.sample_number, s)
-      })
 
-      // Appliquer les mises à jour de stock issues des mouvements validés
-      const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
-      const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+        const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
 
-      sampleMap.forEach((sample, key) => {
-        const comboKey = sample.commercial_name && sample.batch_number 
-          ? `${sample.commercial_name.toUpperCase()}___${sample.batch_number.toUpperCase()}`
-          : null;
+        sampleMap.forEach((sample, key) => {
+          const comboKey = sample.commercial_name && sample.batch_number 
+            ? `${sample.commercial_name.toUpperCase()}___${sample.batch_number.toUpperCase()}`
+            : null
 
-        // 1. Chercher dans local_sample_overrides par clé, id, N° d'échantillon, Nom produit ou clé combinée
-        let override = overrides[key] || 
-                       (sample.id ? overrides[sample.id] : null) || 
-                       (sample.sample_number ? overrides[sample.sample_number] : null) ||
-                       (sample.commercial_name ? overrides[sample.commercial_name.toUpperCase()] : null) ||
-                       (comboKey ? overrides[comboKey] : null);
+          let override = overrides[key] || 
+                         (sample.id ? overrides[sample.id] : null) || 
+                         (sample.sample_number ? overrides[sample.sample_number] : null) ||
+                         (sample.commercial_name ? overrides[sample.commercial_name.toUpperCase()] : null) ||
+                         (comboKey ? overrides[comboKey] : null)
 
-        // 2. Si pas trouvé dans overrides, chercher le tout dernier mouvement validé dans local_movements_history
-        if (!override && localMovements.length > 0) {
-          const matchingMvt = localMovements.find((m: any) => {
-            if (m.sample_id && sample.id && m.sample_id === sample.id) return true;
-            if (m.sample_number && sample.sample_number && m.sample_number === sample.sample_number) return true;
-            if (m.commercial_name && sample.commercial_name && m.commercial_name.toUpperCase() === sample.commercial_name.toUpperCase()) {
-              if (!m.batch_number || !sample.batch_number || m.batch_number.toUpperCase() === sample.batch_number.toUpperCase()) {
-                return true;
+          if (!override && localMovements.length > 0) {
+            const matchingMvt = localMovements.find((m: any) => {
+              if (m.sample_id && sample.id && m.sample_id === sample.id) return true
+              if (m.sample_number && sample.sample_number && m.sample_number === sample.sample_number) return true
+              if (m.commercial_name && sample.commercial_name && m.commercial_name.toUpperCase() === sample.commercial_name.toUpperCase()) {
+                if (!m.batch_number || !sample.batch_number || m.batch_number.toUpperCase() === sample.batch_number.toUpperCase()) {
+                  return true
+                }
+              }
+              return false
+            })
+
+            if (matchingMvt && typeof matchingMvt.new_quantity === 'number') {
+              override = {
+                quantity: matchingMvt.new_quantity,
+                status: matchingMvt.new_status || sample.status,
+                current_location: matchingMvt.new_location || sample.current_location
               }
             }
-            return false;
-          });
-
-          if (matchingMvt && typeof matchingMvt.new_quantity === 'number') {
-            override = {
-              quantity: matchingMvt.new_quantity,
-              status: matchingMvt.new_status || sample.status,
-              current_location: matchingMvt.new_location || sample.current_location
-            };
           }
-        }
 
-        if (override) {
-          sampleMap.set(key, { 
-            ...sample, 
-            quantity: override.quantity !== undefined ? Number(override.quantity) : sample.quantity,
-            status: override.status || sample.status,
-            current_location: override.current_location || sample.current_location
-          });
-        }
-      });
+          if (override) {
+            sampleMap.set(key, { 
+              ...sample, 
+              quantity: override.quantity !== undefined ? Number(override.quantity) : sample.quantity,
+              status: override.status || sample.status,
+              current_location: override.current_location || sample.current_location
+            })
+          }
+        })
 
-      setData(Array.from(sampleMap.values()))
-    } catch (e) {
-      console.warn("Error processing samples data:", e);
-      setData(DEFAULT_SAMPLES)
-    } finally {
-      setLoading(false)
+        setData(Array.from(sampleMap.values()))
+      } catch (e) {
+        setData(DEFAULT_SAMPLES)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    // 1. Affichage instantané (0ms) des échantillons locaux
+    if (localSamples.length > 0) {
+      applyOverridesAndSet([])
+    }
+
+    // 2. Chargement Supabase Cloud
+    let remoteSamples: Sample[] = []
+    try {
+      const supabase = createClient()
+      const { data: sData } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
+      if (sData && sData.length > 0) {
+        remoteSamples = sData
+      }
+    } catch (e) {
+      console.warn("Supabase fetch samples warning:", e)
+    }
+
+    applyOverridesAndSet(remoteSamples)
   }, [])
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !localStorage.getItem('test_data_cleaned_v3')) {
-      clearAllTestData().then(() => {
-        localStorage.setItem('test_data_cleaned_v3', 'true')
-        fetchData()
-      })
-    } else {
-      fetchData()
-    }
+    fetchData()
   }, [fetchData])
 
   // Synchronisation temps réel multi-postes pour les échantillons en stock
@@ -357,6 +350,18 @@ export default function SamplesDataTable() {
     onAssignLocation: (sample: Sample) => {
       setLocationSample(sample)
       setIsLocationDialogOpen(true)
+    },
+    onDeleteSample: (sample: Sample) => {
+      setData(prev => prev.filter(s => s.id !== sample.id && s.sample_number !== sample.sample_number))
+      toast.success("Échantillon supprimé")
+      try {
+        const deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+        if (sample.sample_number && !deletedIds.includes(sample.sample_number)) deletedIds.push(sample.sample_number)
+        if (sample.id && !deletedIds.includes(sample.id)) deletedIds.push(sample.id)
+        localStorage.setItem('reception_deleted_ids', JSON.stringify(deletedIds))
+      } catch (e) {}
+      const supabase = createClient()
+      supabase.from('samples').delete().or(`id.eq.${sample.id},sample_number.eq.${sample.sample_number}`).then(() => {})
     }
   }), [])
 

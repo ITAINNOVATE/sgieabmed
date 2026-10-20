@@ -25,6 +25,17 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
   })
 
   const fetchPlans = async () => {
+    let localPlans: any[] = []
+    try {
+      const stored = localStorage.getItem('destruction_plans_custom_v1')
+      if (stored) {
+        localPlans = JSON.parse(stored)
+        if (localPlans.length > 0) {
+          setPlansList(localPlans)
+        }
+      }
+    } catch (e) {}
+
     let remotePlans: any[] = []
     try {
       const supabase = createClient()
@@ -39,37 +50,6 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
       console.warn("Erreur fetch remote destruction_plans:", e)
     }
 
-    let localPlans: any[] = []
-    try {
-      const stored = localStorage.getItem('destruction_plans_custom_v1')
-      if (stored) {
-        localPlans = JSON.parse(stored)
-      }
-    } catch (e) {}
-
-    // Auto-synchronisation des plans locaux vers Supabase Cloud
-    for (const lp of localPlans) {
-      if (!remotePlans.some((rp: any) => rp.plan_number === lp.plan_number)) {
-        try {
-          const supabase = createClient()
-          await supabase.from('destruction_plans').upsert({
-            plan_number: lp.plan_number,
-            planned_date: lp.planned_date,
-            execution_date: lp.execution_date || null,
-            destruction_method: lp.destruction_method || 'Incinération',
-            destruction_site: lp.destruction_site || 'Centre Agréé',
-            supervisor_name: lp.supervisor_name || 'Marie ADANDE',
-            observations: lp.observations || '',
-            certificate_number: lp.certificate_number || null,
-            status: lp.status || 'En préparation',
-            items_data: lp.items || lp.items_data || [],
-          }, { onConflict: 'plan_number' })
-        } catch (e) {
-          console.warn("Échec auto-sync destruction_plan vers Supabase:", e)
-        }
-      }
-    }
-
     const planMap = new Map<string, any>()
     localPlans.forEach((p: any) => {
       const key = p.plan_number || p.id
@@ -77,11 +57,35 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
     })
     remotePlans.forEach((p: any) => {
       const key = p.plan_number || p.id
-      if (key) planMap.set(key, p)
+      if (key) planMap.set(key, {
+        ...p,
+        items: Array.isArray(p.items_data) && p.items_data.length > 0 ? p.items_data : (p.items || [])
+      })
     })
 
     if (planMap.size > 0) {
       setPlansList(Array.from(planMap.values()))
+    }
+
+    // Auto-synchronisation en lot non-bloquante en arrière-plan
+    const unsyncedPlans = localPlans.filter(
+      (lp: any) => lp.plan_number && !remotePlans.some((rp: any) => rp.plan_number === lp.plan_number)
+    )
+    if (unsyncedPlans.length > 0) {
+      const supabase = createClient()
+      const payload = unsyncedPlans.map((lp: any) => ({
+        plan_number: lp.plan_number,
+        planned_date: lp.planned_date,
+        execution_date: lp.execution_date || null,
+        destruction_method: lp.destruction_method || 'Incinération',
+        destruction_site: lp.destruction_site || 'Centre Agréé',
+        supervisor_name: lp.supervisor_name || 'Marie ADANDE',
+        observations: lp.observations || '',
+        certificate_number: lp.certificate_number || null,
+        status: lp.status || 'En préparation',
+        items_data: lp.items || lp.items_data || [],
+      }))
+      supabase.from('destruction_plans').upsert(payload, { onConflict: 'plan_number' }).then(() => {})
     }
   }
 

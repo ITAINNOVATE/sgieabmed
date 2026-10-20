@@ -40,6 +40,17 @@ export default function WasteClient({
   })
 
   const fetchBatches = async () => {
+    let localBatches: any[] = []
+    try {
+      const stored = localStorage.getItem('waste_batches_custom_v1')
+      if (stored) {
+        localBatches = JSON.parse(stored)
+        if (localBatches.length > 0) {
+          setBatches(localBatches)
+        }
+      }
+    } catch (e) {}
+
     let remoteBatches: any[] = []
     try {
       const supabase = createClient()
@@ -54,53 +65,7 @@ export default function WasteClient({
       console.warn("Erreur fetch remote waste_batches:", err)
     }
 
-    let localBatches: any[] = []
-    try {
-      const stored = localStorage.getItem('waste_batches_custom_v1')
-      if (stored) {
-        localBatches = JSON.parse(stored)
-      }
-    } catch (e) {}
-
-    // Auto-synchronisation des lots locaux vers Supabase Cloud
-    for (const lb of localBatches) {
-      if (!remoteBatches.some((rb: any) => rb.batch_number === lb.batch_number)) {
-        try {
-          const supabase = createClient()
-          await supabase.from('waste_batches').upsert({
-            batch_number: lb.batch_number,
-            reception_number: lb.reception_number || null,
-            reception_date: lb.reception_date || null,
-            reception_time: lb.reception_time || null,
-            delivery_slip_ref: lb.delivery_slip_ref || null,
-            recipient_agent: lb.recipient_agent || 'Marie ADANDE',
-            source_structure: lb.source_structure || 'Structure Déposante',
-            source_type: lb.source_type || 'Officine',
-            city: lb.city || 'Cotonou',
-            depositor_name: lb.depositor_name || '',
-            depositor_phone: lb.depositor_phone || '',
-            depositor_id_card: lb.depositor_id_card || '',
-            waste_type: lb.waste_type || 'Déchets pharmaceutiques',
-            commercial_name: lb.commercial_name || '',
-            original_batch: lb.original_batch || '',
-            sample_id: lb.sample_id || null,
-            quantity: Number(lb.quantity) || 1,
-            unit: lb.unit || 'Kg',
-            packaging: lb.packaging || 'Carton',
-            packaging_condition: lb.packaging_condition || 'Conforme',
-            destruction_motive: lb.destruction_motive || 'Péremption',
-            current_location: lb.current_location || 'Zone de Quarantaine - Déchets',
-            status: lb.status || 'Déclaré',
-            observations: lb.observations || '',
-          }, { onConflict: 'batch_number' })
-        } catch (e) {
-          console.warn("Échec auto-sync waste_batch vers Supabase:", e)
-        }
-      }
-    }
-
     const batchMap = new Map<string, any>()
-    // Priorité aux données Supabase pour la conformité inter-postes
     localBatches.forEach((b: any) => {
       const key = b.batch_number || b.id
       if (key) batchMap.set(key, b)
@@ -112,6 +77,41 @@ export default function WasteClient({
 
     if (batchMap.size > 0) {
       setBatches(Array.from(batchMap.values()))
+    }
+
+    // Auto-synchronisation en lot non-bloquante en arrière-plan
+    const unsyncedBatches = localBatches.filter(
+      (lb: any) => lb.batch_number && !remoteBatches.some((rb: any) => rb.batch_number === lb.batch_number)
+    )
+    if (unsyncedBatches.length > 0) {
+      const supabase = createClient()
+      const payload = unsyncedBatches.map((lb: any) => ({
+        batch_number: lb.batch_number,
+        reception_number: lb.reception_number || null,
+        reception_date: lb.reception_date || null,
+        reception_time: lb.reception_time || null,
+        delivery_slip_ref: lb.delivery_slip_ref || null,
+        recipient_agent: lb.recipient_agent || 'Marie ADANDE',
+        source_structure: lb.source_structure || 'Structure Déposante',
+        source_type: lb.source_type || 'Officine',
+        city: lb.city || 'Cotonou',
+        depositor_name: lb.depositor_name || '',
+        depositor_phone: lb.depositor_phone || '',
+        depositor_id_card: lb.depositor_id_card || '',
+        waste_type: lb.waste_type || 'Déchets pharmaceutiques',
+        commercial_name: lb.commercial_name || '',
+        original_batch: lb.original_batch || '',
+        sample_id: lb.sample_id || null,
+        quantity: Number(lb.quantity) || 1,
+        unit: lb.unit || 'Kg',
+        packaging: lb.packaging || 'Carton',
+        packaging_condition: lb.packaging_condition || 'Conforme',
+        destruction_motive: lb.destruction_motive || 'Péremption',
+        current_location: lb.current_location || 'Zone de Quarantaine - Déchets',
+        status: lb.status || 'Déclaré',
+        observations: lb.observations || '',
+      }))
+      supabase.from('waste_batches').upsert(payload, { onConflict: 'batch_number' }).then(() => {})
     }
   }
 

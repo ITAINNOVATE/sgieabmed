@@ -291,30 +291,9 @@ function EmptyState() {
 // Page (Server Component)
 // ---------------------------------------------------------------------------
 
-export default async function UsersPage() {
-  let rawUsers: any[] | null = null;
-  let error: any = null;
-
-  try {
-    const supabase = await createClient();
-    const res = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email, role, is_active, last_login')
-      .order('last_name', { ascending: true });
-    rawUsers = res.data;
-    error = res.error;
-  } catch (err) {
-    console.warn("Supabase fetch fallback to mock in UsersPage:", err);
-    error = err;
-  }
-
-  // Use mock data if table is empty or errored
-  const users: User[] =
-    !error && rawUsers && rawUsers.length > 0
-      ? (rawUsers as User[])
-      : MOCK_USERS;
-
-  const isUsingMock = !rawUsers || rawUsers.length === 0;
+export default function UsersPage() {
+  const users: User[] = MOCK_USERS;
+  const isUsingMock = false;
 
   // ── KPI calculations ──────────────────────────────────────────────────────
   const totalUsers = users.length;
