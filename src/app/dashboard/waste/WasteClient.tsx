@@ -63,6 +63,8 @@ export default function WasteClient({
     const matchesSearch = 
       batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       batch.waste_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (batch.source_structure && batch.source_structure.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (batch.depositor_name && batch.depositor_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.current_location && batch.current_location.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesStatus = statusFilter === "all" || batch.status === statusFilter
@@ -249,6 +251,7 @@ export default function WasteClient({
                       />
                     </TableHead>
                     <TableHead className="py-2 text-[11px] font-bold uppercase">N° Lot Déchet</TableHead>
+                    <TableHead className="py-2 text-[11px] font-bold uppercase">Provenance / Structure</TableHead>
                     <TableHead className="py-2 text-[11px] font-bold uppercase">Classification</TableHead>
                     <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Quantité</TableHead>
                     <TableHead className="py-2 text-[11px] font-bold uppercase">Localisation</TableHead>
@@ -258,7 +261,7 @@ export default function WasteClient({
                 </TableHeader>
                 <TableBody>
                   {filteredBatches.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="h-16 text-center text-xs text-muted-foreground">Aucun lot de déchet trouvé.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="h-16 text-center text-xs text-muted-foreground">Aucun lot de déchet trouvé.</TableCell></TableRow>
                   ) : (
                     filteredBatches.map((batch) => (
                       <TableRow key={batch.id} className="text-xs hover:bg-muted/30">
@@ -269,6 +272,18 @@ export default function WasteClient({
                           />
                         </TableCell>
                         <TableCell className="font-bold text-foreground font-mono py-2">{batch.batch_number}</TableCell>
+                        <TableCell className="py-2 font-medium text-foreground">
+                          {batch.source_structure ? (
+                            <div>
+                              <span>{batch.source_structure}</span>
+                              {batch.depositor_name && (
+                                <span className="block text-[10px] text-muted-foreground">Apporté par : {batch.depositor_name}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic">Interne ABMed</span>
+                          )}
+                        </TableCell>
                         <TableCell className="py-2">{batch.waste_type}</TableCell>
                         <TableCell className="py-2 text-right font-bold tabular-nums">{batch.quantity} {batch.unit || 'Kg'}</TableCell>
                         <TableCell className="py-2 text-muted-foreground">{batch.current_location || 'Zone Stockage A'}</TableCell>

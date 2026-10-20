@@ -193,3 +193,182 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   
   doc.save(`${reception.rec_number || 'reception'}.pdf`)
 }
+
+// 5. Export Waste Reception Slip & Attestation PDF (Bordereau / Attestation de Réception de Déchets)
+export function exportWasteReceptionSlipPDF(slipData: {
+  reception_number: string
+  reception_date: string
+  reception_time?: string
+  delivery_slip_ref?: string
+  recipient_agent?: string
+  source_structure: string
+  source_type?: string
+  city?: string
+  depositor_name?: string
+  depositor_phone?: string
+  depositor_id_card?: string
+  general_observations?: string
+  items: Array<{
+    batch_number: string
+    waste_type: string
+    commercial_name?: string
+    original_batch?: string
+    quantity: number
+    unit: string
+    packaging?: string
+    location?: string
+    observations?: string
+  }>
+}) {
+  const doc = new jsPDF()
+
+  // En-tête officiel ABMed (Bandeau vert institutionnel)
+  doc.setFillColor(27, 92, 46) // Vert ABMed #1B5C2E
+  doc.rect(0, 0, 210, 36, "F")
+
+  doc.setFontSize(8)
+  doc.setTextColor(255, 255, 255)
+  doc.text("RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ", 14, 10)
+  
+  doc.setFontSize(15)
+  doc.setFont("helvetica", "bold")
+  doc.text("ATTESTATION DE RÉCEPTION DE DÉCHETS PHARMACEUTIQUES", 14, 20)
+  
+  doc.setFontSize(9)
+  doc.setFont("helvetica", "normal")
+  doc.text("AGENCE BÉNINOISE DU MÉDICAMENT (ABMed) — GESTION DES DÉCHETS (PSQIF)", 14, 28)
+
+  // N° Bordereau & Date
+  doc.setFontSize(10)
+  doc.setTextColor(27, 92, 46)
+  doc.setFont("helvetica", "bold")
+  doc.text(`RÉCÉPISSÉ N° : ${slipData.reception_number || 'REC-DECH-2026-0001'}`, 14, 46)
+
+  doc.setFontSize(9)
+  doc.setTextColor(100, 116, 139)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Date & heure : ${slipData.reception_date || new Date().toLocaleDateString('fr-FR')} ${slipData.reception_time || ''}`, 130, 46)
+
+  // Section 1 : Structure Apportrice (Cadre gauche)
+  doc.setDrawColor(203, 213, 225)
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(14, 52, 88, 48, 2, 2, "FD")
+
+  doc.setFontSize(9)
+  doc.setTextColor(15, 23, 42)
+  doc.setFont("helvetica", "bold")
+  doc.text("1. STRUCTURE / ÉTABLISSEMENT DÉPOSANT", 18, 59)
+  doc.line(18, 61, 98, 61)
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Établissement : ${slipData.source_structure || 'Non précisé'}`, 18, 68)
+  doc.text(`Type : ${slipData.source_type || 'Officine / Établissement'}`, 18, 74)
+  doc.text(`Localité : ${slipData.city || 'Cotonou / Bénin'}`, 18, 80)
+  doc.text(`Déposant : ${slipData.depositor_name || 'Non précisé'}`, 18, 86)
+  doc.text(`Contact : ${slipData.depositor_phone || 'N/A'} (ID: ${slipData.depositor_id_card || 'N/A'})`, 18, 92)
+
+  // Section 2 : Réception ABMed & Transport (Cadre droit)
+  doc.roundedRect(108, 52, 88, 48, 2, 2, "FD")
+
+  doc.setFontSize(9)
+  doc.setFont("helvetica", "bold")
+  doc.text("2. PRISE EN CHARGE ABMed", 112, 59)
+  doc.line(112, 61, 192, 61)
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Agent récepteur : ${slipData.recipient_agent || 'Marie ADANDE'}`, 112, 68)
+  doc.text(`Service : Direction de la Gestion des Déchets`, 112, 74)
+  doc.text(`Bordereau apport : ${slipData.delivery_slip_ref || 'Remise directe sur site'}`, 112, 80)
+  doc.text(`Statut initial : Déclaré / En attente de destruction`, 112, 86)
+  doc.text(`Nombre de lots reçus : ${slipData.items?.length || 1} lot(s)`, 112, 92)
+
+  // Tableau des Déchets Réceptionnés
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("3. INVENTAIRE DES PRODUITS & DÉCHETS REÇUS", 14, 110)
+
+  const headers = [
+    "N° Lot Déchet",
+    "Classification / Désignation",
+    "Conditionnement",
+    "Quantité / Poids",
+    "Zone Stockage"
+  ]
+
+  const rows = (slipData.items || []).map((item) => [
+    item.batch_number || 'N/A',
+    `${item.waste_type || 'Déchets pharmaceutiques'}${item.commercial_name ? `\n(${item.commercial_name})` : ''}`,
+    item.packaging || 'Fûts / Cartons fermés',
+    `${item.quantity} ${item.unit || 'Kg'}`,
+    item.location || 'Zone Quarantaine'
+  ])
+
+  autoTable(doc, {
+    startY: 114,
+    head: [headers],
+    body: rows,
+    theme: "striped",
+    headStyles: { fillColor: [27, 92, 46], textColor: [255, 255, 255], fontSize: 8.5 },
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    columnStyles: {
+      0: { cellWidth: 35, fontStyle: 'bold' },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+      4: { cellWidth: 24 }
+    },
+    margin: { left: 14, right: 14 }
+  })
+
+  const currentY = (doc as any).lastAutoTable.finalY + 8
+
+  // Texte officiel d'attestation de décharge
+  doc.setFillColor(241, 245, 249)
+  doc.roundedRect(14, currentY, 182, 22, 2, 2, "F")
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "italic")
+  doc.setTextColor(51, 65, 85)
+  const attestationText = 
+    "ATTESTATION ET DÉCHARGE RÉGLEMENTAIRE : L'Agence Béninoise du Médicament (ABMed) atteste par la présente avoir réceptionné " +
+    "ce jour les produits pharmaceutiques avariés, périmés ou non conformes ci-dessus mentionnés aux fins de neutralisation et destruction sécurisée. " +
+    "La structure déposante est déchargée de la détention physique de ces produits sous réserve de l'exactitude des déclarations fournies."
+  doc.text(doc.splitTextToSize(attestationText, 174), 18, currentY + 6)
+
+  // Blocs de Signatures
+  const sigY = currentY + 28
+  
+  // Signature Déposant
+  doc.setDrawColor(148, 163, 184)
+  doc.roundedRect(14, sigY, 86, 38, 2, 2, "D")
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("POUR LA STRUCTURE DÉPOSANTE", 18, sigY + 7)
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Nom : ${slipData.depositor_name || slipData.source_structure || ''}`, 18, sigY + 14)
+  doc.text("Mention : « Remis pour destruction conforme »", 18, sigY + 20)
+  doc.text("Date & Signature :", 18, sigY + 26)
+
+  // Signature ABMed
+  doc.roundedRect(110, sigY, 86, 38, 2, 2, "D")
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "bold")
+  doc.text("POUR L'ABMed (AGENT RÉCEPTEUR)", 114, sigY + 7)
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Agent : ${slipData.recipient_agent || 'Marie ADANDE'}`, 114, sigY + 14)
+  doc.text("Direction de la Gestion des Déchets", 114, sigY + 20)
+  doc.text("Signature & Cachet officiel :", 114, sigY + 26)
+
+  // Pied de page
+  doc.setFontSize(7)
+  doc.setTextColor(148, 163, 184)
+  doc.text("Document généré par le Système de Gestion de l'Échantillothèque et des Déchets (SGIE - ABMed) — République du Bénin", 14, 290)
+
+  doc.save(`${slipData.reception_number || 'attestation-dechets'}.pdf`)
+}
+
