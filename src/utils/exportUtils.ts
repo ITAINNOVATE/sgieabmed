@@ -383,3 +383,183 @@ export function exportWasteReceptionSlipPDF(slipData: {
   doc.save(`${slipData.reception_number || 'attestation-dechets'}.pdf`)
 }
 
+// 6. Export Official Destruction Certificate PDF (Certificat / Attestation de Destruction à délivrer à la structure)
+export function exportDestructionCertificatePDF(certData: {
+  certificate_number: string
+  destruction_date: string
+  plan_number: string
+  destruction_method?: string
+  destruction_site?: string
+  source_structure: string
+  source_type?: string
+  city?: string
+  supervisor_name?: string
+  quality_manager_name?: string
+  items: Array<{
+    batch_number: string
+    waste_type: string
+    commercial_name?: string
+    quantity: number
+    unit: string
+    reception_number?: string
+  }>
+}) {
+  const doc = new jsPDF()
+
+  // En-tête officiel ABMed
+  doc.setFillColor(27, 92, 46) // Vert ABMed #1B5C2E
+  doc.rect(0, 0, 210, 36, "F")
+
+  doc.setFontSize(8)
+  doc.setTextColor(255, 255, 255)
+  doc.text("RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ", 14, 10)
+
+  doc.setFontSize(14)
+  doc.setFont("helvetica", "bold")
+  doc.text("CERTIFICAT OFFICIEL DE DESTRUCTION PHARMACEUTIQUE", 14, 20)
+
+  doc.setFontSize(9)
+  doc.setFont("helvetica", "normal")
+  doc.text("AGENCE BÉNINOISE DU MÉDICAMENT (ABMed) — ATTESTATION RÉGLEMENTAIRE (PSQIF)", 14, 28)
+
+  // N° Certificat & Date
+  doc.setFontSize(10)
+  doc.setTextColor(27, 92, 46)
+  doc.setFont("helvetica", "bold")
+  doc.text(`CERTIFICAT N° : ${certData.certificate_number || 'CERT-DEST-2026-0001'}`, 14, 46)
+
+  doc.setFontSize(9)
+  doc.setTextColor(100, 116, 139)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Date d'exécution : ${certData.destruction_date || new Date().toLocaleDateString('fr-FR')}`, 130, 46)
+
+  // Section 1 : Structure Bénéficiaire / Mandataire (Cadre gauche)
+  doc.setDrawColor(203, 213, 225)
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(14, 52, 88, 46, 2, 2, "FD")
+
+  doc.setFontSize(9)
+  doc.setTextColor(15, 23, 42)
+  doc.setFont("helvetica", "bold")
+  doc.text("1. STRUCTURE BÉNÉFICIAIRE", 18, 59)
+  doc.line(18, 61, 98, 61)
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Établissement : ${certData.source_structure || 'Toutes structures concernées'}`, 18, 68)
+  doc.text(`Type : ${certData.source_type || 'Officine / Grossiste / Établissement'}`, 18, 74)
+  doc.text(`Localité : ${certData.city || 'Cotonou / Bénin'}`, 18, 80)
+  doc.text(`Réf. Dossier : ${certData.plan_number || 'DES-2026-0001'}`, 18, 86)
+
+  // Section 2 : Détails de l'Opération de Destruction (Cadre droit)
+  doc.roundedRect(108, 52, 88, 46, 2, 2, "FD")
+
+  doc.setFontSize(9)
+  doc.setFont("helvetica", "bold")
+  doc.text("2. DÉTAILS DE L'OPÉRATION", 112, 59)
+  doc.line(112, 61, 192, 61)
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Méthode : ${certData.destruction_method || 'Incinération haute température (>1200°C)'}`, 112, 68)
+  doc.text(`Site : ${certData.destruction_site || 'Centre d\'Incinération Agréé Cotonou'}`, 112, 74)
+  doc.text(`Supervision : Direction de la Gestion des Déchets`, 112, 80)
+  doc.text(`Validation : Double Contrôle Qualité (Quatre Yeux)`, 112, 86)
+
+  // Tableau des Déchets Détruits
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("3. INVENTAIRE DES LOTS DÉTRUITS", 14, 108)
+
+  const headers = [
+    "N° Lot Déchet",
+    "Classification / Désignation",
+    "Récépissé Initial",
+    "Quantité Détruite"
+  ]
+
+  const rows = (certData.items || []).map((item) => [
+    item.batch_number || 'N/A',
+    `${item.waste_type || 'Déchets pharmaceutiques'}${item.commercial_name ? ` (${item.commercial_name})` : ''}`,
+    item.reception_number || 'Bordereau Initial',
+    `${item.quantity} ${item.unit || 'Kg'}`
+  ])
+
+  const totalQty = (certData.items || []).reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)
+  if (certData.items && certData.items.length > 1) {
+    rows.push([
+      "TOTAL DÉTRUIT",
+      `${certData.items.length} lots neutralisés définitivement`,
+      "-",
+      `${totalQty.toFixed(2)} (Total)`
+    ])
+  }
+
+  autoTable(doc, {
+    startY: 112,
+    head: [headers],
+    body: rows,
+    theme: "striped",
+    headStyles: { fillColor: [27, 92, 46], textColor: [255, 255, 255], fontSize: 8.5 },
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    columnStyles: {
+      0: { cellWidth: 40, fontStyle: 'bold' },
+      1: { cellWidth: 80 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
+    },
+    margin: { left: 14, right: 14 }
+  })
+
+  const currentY = (doc as any).lastAutoTable.finalY + 8
+
+  // Texte officiel d'attestation de destruction
+  doc.setFillColor(241, 245, 249)
+  doc.roundedRect(14, currentY, 182, 26, 2, 2, "F")
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "italic")
+  doc.setTextColor(51, 65, 85)
+  const attestationText = 
+    "CERTIFICATION LÉGALE DE DESTRUCTION DÉFINITIVE : L'Agence Béninoise du Médicament (ABMed) certifie par la présente que les produits " +
+    "et déchets pharmaceutiques détaillés ci-dessus, remis par la structure susmentionnée, ont été intégralement, définitivement et irréversiblement détruits " +
+    "conformément aux directives nationales de santé publique et aux normes environnementales applicables. Ces produits ont été radiés des registres et stocks. " +
+    "Le présent certificat est délivré à la structure mandataire pour servir et valoir ce que de droit."
+  doc.text(doc.splitTextToSize(attestationText, 174), 18, currentY + 6)
+
+  // Blocs de Signatures
+  const sigY = currentY + 32
+
+  // Signature Resp Déchets
+  doc.setDrawColor(148, 163, 184)
+  doc.roundedRect(14, sigY, 86, 38, 2, 2, "D")
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("LE RESPONSABLE GESTION DES DÉCHETS", 18, sigY + 7)
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Nom : ${certData.supervisor_name || 'Marie ADANDE'}`, 18, sigY + 14)
+  doc.text("Direction de la Gestion des Déchets - ABMed", 18, sigY + 20)
+  doc.text("Signature & Cachet officiel :", 18, sigY + 26)
+
+  // Signature Resp Qualité / Direction
+  doc.roundedRect(110, sigY, 86, 38, 2, 2, "D")
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "bold")
+  doc.text("LE RESPONSABLE ASSURANCE QUALITÉ", 114, sigY + 7)
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Nom : ${certData.quality_manager_name || 'Dr. Christian KOSSOU'}`, 114, sigY + 14)
+  doc.text("Direction de l'Assurance Qualité - ABMed", 114, sigY + 20)
+  doc.text("Signature & Visa de conformité :", 114, sigY + 26)
+
+  // Pied de page
+  doc.setFontSize(7)
+  doc.setTextColor(148, 163, 184)
+  doc.text("Document officiel délivré par le Système de Gestion de l'Échantillothèque et des Déchets (SGIE - ABMed) — République du Bénin", 14, 290)
+
+  doc.save(`${certData.certificate_number || 'certificat-destruction'}.pdf`)
+}
+
+

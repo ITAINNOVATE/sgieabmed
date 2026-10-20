@@ -1,18 +1,23 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, CheckCircle2, XCircle, Flame, ShieldCheck, Printer, Download, Clock } from "lucide-react"
+import { 
+  ArrowLeft, CheckCircle2, XCircle, Flame, ShieldCheck, Printer, 
+  Download, Clock, Building2, FileText, Award, Check, Trash2
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { createClient } from "@/utils/supabase/client"
+import { exportDestructionCertificatePDF } from "@/utils/exportUtils"
 
 const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {
   '1': {
@@ -63,8 +68,53 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [showCertificateModal, setShowCertificateModal] = useState(false)
+  const [selectedCertStructure, setSelectedCertStructure] = useState("all")
   const router = useRouter()
   const supabase = createClient()
+
+  // Structures représentées dans ce plan de destruction
+  const structuresInPlan = useMemo(() => {
+    const set = new Set<string>()
+    plan?.items?.forEach((it: any) => {
+      const s = it.waste_batch?.source_structure
+      if (s) set.add(s)
+    })
+    return Array.from(set)
+  }, [plan])
+
+  const handleDownloadCertificatePdf = () => {
+    if (!plan) return
+    const certNum = plan.certificate_number || `CERT-DEST-${new Date().getFullYear()}-${plan.plan_number?.replace("DES-", "") || "001"}`
+    const itemsToCertify = selectedCertStructure === "all"
+      ? (plan.items || [])
+      : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
+
+    const structureName = selectedCertStructure === "all"
+      ? (structuresInPlan.length > 0 ? structuresInPlan.join(", ") : "Toutes structures bénéficiaires")
+      : selectedCertStructure
+
+    exportDestructionCertificatePDF({
+      certificate_number: certNum,
+      destruction_date: plan.execution_date ? new Date(plan.execution_date).toLocaleDateString("fr-FR") : new Date().toLocaleDateString("fr-FR"),
+      plan_number: plan.plan_number,
+      destruction_method: plan.destruction_method || "Incinération haute température (>1200°C)",
+      destruction_site: plan.destruction_site || "Centre d'Incinération Agréé Cotonou",
+      source_structure: structureName,
+      source_type: "Officine / Grossiste / Établissement de Santé",
+      city: "Cotonou",
+      supervisor_name: plan.supervisor_name || "Marie ADANDE (Resp. Déchets ABMed)",
+      quality_manager_name: "Dr. Christian KOSSOU (Resp. Assurance Qualité)",
+      items: itemsToCertify.map((it: any) => ({
+        batch_number: it.waste_batch?.batch_number || "N/A",
+        waste_type: it.waste_batch?.waste_type || "Déchet pharmaceutique",
+        commercial_name: it.waste_batch?.commercial_name || "",
+        quantity: it.quantity,
+        unit: it.waste_batch?.unit || "Kg",
+        reception_number: it.waste_batch?.reception_number || "Bordereau Initial",
+      })),
+    })
+    toast.success("Certificat officiel de destruction téléchargé en PDF !")
+  }
 
   useEffect(() => {
     async function fetchPlan() {
@@ -230,6 +280,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
     setIsProcessing(true)
     try {
       const nowIso = new Date().toISOString()
+      const certNum = plan.certificate_number || `CERT-DEST-${new Date().getFullYear()}-${plan.plan_number?.replace("DES-", "") || Math.floor(1000 + Math.random() * 9000)}`
 
       // 1. Mise à jour locale garantie
       try {
@@ -238,20 +289,33 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           const list = JSON.parse(stored)
           const updated = list.map((p: any) => {
             if (p.id === plan.id || p.plan_number === plan.plan_number) {
-              return { ...p, status: 'Exécuté', execution_date: nowIso }
+              return { 
+                ...p, 
+                status: 'Exécuté', 
+                execution_date: nowIso,
+                certificate_number: certNum 
+              }
             }
             return p
           })
           localStorage.setItem('destruction_plans_custom_v1', JSON.stringify(updated))
         }
 
-        // Marquer les déchets associés comme détruits
+        // Marquer les déchets associés comme détruits et enregistrer la traçabilité
         const storedBatches = localStorage.getItem('waste_batches_custom_v1')
         if (storedBatches) {
           const localBatches = JSON.parse(storedBatches)
           const itemBatchIds = plan.items?.map((it: any) => it.waste_batch_id || it.waste_batch?.id) || []
           const updatedBatches = localBatches.map((b: any) => 
-            itemBatchIds.includes(b.id) ? { ...b, status: 'Détruit', destruction_date: nowIso } : b
+            itemBatchIds.includes(b.id) 
+              ? { 
+                  ...b, 
+                  status: 'Détruit', 
+                  destruction_date: nowIso,
+                  certificate_number: certNum,
+                  destruction_plan_ref: plan.plan_number
+                } 
+              : b
           )
           localStorage.setItem('waste_batches_custom_v1', JSON.stringify(updatedBatches))
         }
@@ -263,7 +327,8 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       setPlan((prev: any) => ({
         ...prev,
         status: 'Exécuté',
-        execution_date: nowIso
+        execution_date: nowIso,
+        certificate_number: certNum
       }))
 
       // 3. Tentative Supabase en tâche de fond
@@ -289,13 +354,15 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
             action: 'EXECUTE_DESTRUCTION',
             entity_type: 'destruction_plans',
             entity_id: plan.id,
+            new_value: { certificate_number: certNum, execution_date: nowIso }
           })
         }
       } catch (remoteErr) {
         console.warn("Supabase execute skip:", remoteErr)
       }
 
-      toast.success("Destruction exécutée et enregistrée !")
+      toast.success("Destruction exécutée avec succès ! Les déchets sont sortis du stock.")
+      setShowCertificateModal(true)
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -336,17 +403,29 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="flex items-center gap-2">
           {plan.status === 'Exécuté' ? (
-            <Button variant="outline" onClick={() => setShowCertificateModal(true)} className="gap-2 cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300">
-              <Download className="h-4 w-4 text-emerald-600" /> Procès-Verbal (PV)
-            </Button>
+            <>
+              <Button 
+                variant="outline" 
+                onClick={handleDownloadCertificatePdf} 
+                className="gap-2 cursor-pointer text-[#1B5C2E] border-[#1B5C2E]/30 hover:bg-[#1B5C2E]/10"
+              >
+                <Download className="h-4 w-4" /> Certificat PDF
+              </Button>
+              <Button 
+                onClick={() => setShowCertificateModal(true)} 
+                className="gap-2 cursor-pointer bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm font-bold"
+              >
+                <Award className="h-4 w-4" /> Certificat de Destruction
+              </Button>
+            </>
           ) : (
             <Button variant="outline" onClick={() => setShowCertificateModal(true)} className="gap-2 cursor-pointer">
               <Printer className="h-4 w-4" /> Ordre de Destruction
             </Button>
           )}
           {plan.status === 'En attente exécution' && (
-            <Button onClick={executeDestruction} disabled={isProcessing} className="gap-2 shadow-md bg-destructive hover:bg-destructive/90 text-white">
-              <Flame className="h-4 w-4" /> Exécuter la destruction
+            <Button onClick={executeDestruction} disabled={isProcessing} className="gap-2 shadow-md bg-destructive hover:bg-destructive/90 text-white font-bold">
+              <Flame className="h-4 w-4" /> Exécuter la destruction & Sortir du stock
             </Button>
           )}
         </div>
@@ -354,27 +433,57 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
       <div className="grid md:grid-cols-3 gap-6">
         
-        {/* Colonne de gauche: Infos & Lots */}
+        {/* Colonne de gauche: Infos & Lots avec Structures Déposantes */}
         <div className="md:col-span-2 space-y-6">
           <Card className="shadow-sm border-border/50">
             <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-              <CardTitle className="text-lg">Lots concernés par la destruction</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Trash2 className="h-4 w-4 text-primary" />
+                  Lots concernés par la destruction ({plan.items?.length || 0})
+                </CardTitle>
+                {plan.status === 'Exécuté' && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
+                    Sortis du stock & Archivés
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="pt-0 p-0">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="pl-6">N° Lot (Déchet)</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right pr-6">Quantité</TableHead>
+                    <TableHead className="pl-6 text-[11px] font-bold uppercase">N° Lot (Déchet)</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase">Structure Déposante</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase">Classification & Produits</TableHead>
+                    <TableHead className="text-right pr-6 text-[11px] font-bold uppercase">Quantité</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {plan.items?.map((item: any) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="pl-6 font-mono text-xs">{item.waste_batch?.batch_number}</TableCell>
-                      <TableCell>{item.waste_batch?.waste_type}</TableCell>
-                      <TableCell className="text-right pr-6">{item.quantity} {item.waste_batch?.unit}</TableCell>
+                    <TableRow key={item.id} className="text-xs">
+                      <TableCell className="pl-6 font-mono font-bold text-foreground">
+                        {item.waste_batch?.batch_number}
+                      </TableCell>
+                      <TableCell className="font-semibold text-foreground">
+                        {item.waste_batch?.source_structure ? (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span>{item.waste_batch.source_structure}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground italic">Dépôt interne ABMed</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium text-foreground">{item.waste_batch?.waste_type}</p>
+                        {item.waste_batch?.commercial_name && (
+                          <p className="text-[10px] text-muted-foreground">{item.waste_batch.commercial_name}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right pr-6 font-black tabular-nums text-foreground">
+                        {item.quantity} {item.waste_batch?.unit || 'Kg'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -446,90 +555,252 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
       </div>
 
-      {/* MODAL DU PROCÈS-VERBAL / ORDRE OFFICIEL DE DESTRUCTION */}
+      {/* MODAL DU CERTIFICAT / ATTESTATION OFFICIELLE DE DESTRUCTION */}
       <Dialog open={showCertificateModal} onOpenChange={setShowCertificateModal}>
-        <DialogContent className="max-w-2xl bg-card border-border/70 p-6 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black flex items-center gap-2 text-foreground">
-              <Flame className="h-5 w-5 text-red-600" />
-              {plan.status === 'Exécuté' ? "Procès-Verbal Officiel de Destruction (PV-DEST)" : "Ordre Réglementaire de Destruction"}
-            </DialogTitle>
+        <DialogContent className="max-w-3xl bg-card border-border/70 p-6 rounded-2xl max-h-[90vh] overflow-y-auto print:max-w-full print:m-0 print:p-0 print:border-none print:shadow-none">
+          <DialogHeader className="print:hidden">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Award className="h-5 w-5 text-[#1B5C2E]" />
+                {plan.status === 'Exécuté' 
+                  ? "Certificat Officiel de Destruction (Attestation à délivrer à la structure)" 
+                  : "Ordre Réglementaire de Destruction"}
+              </DialogTitle>
+              <Badge className="bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/20 text-[10px]">
+                {plan.status === 'Exécuté' ? "Sortie de stock certifiée" : "Planification"}
+              </Badge>
+            </div>
             <DialogDescription className="text-xs text-muted-foreground">
-              Agence béninoise du Médicament et des autres produits de Santé (ABMed) — PSQIF / Norme ISO 17025
+              Document officiel certifiant l&apos;élimination irréversible des déchets à remettre à la structure déposante.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-3 border-t border-border/50 text-xs">
-            <div className="bg-muted/40 p-3 rounded-xl border border-border/50 grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[10px] text-muted-foreground font-bold uppercase block">N° Référence Plan</span>
-                <span className="font-mono font-bold text-sm text-foreground">{plan.plan_number}</span>
+          <div className="space-y-4 pt-2 text-xs">
+            
+            {/* SÉLECTEUR DE STRUCTURE (SI PLUSIEURS STRUCTURES DANS LE MÊME PLAN) */}
+            {plan.status === 'Exécuté' && structuresInPlan.length > 1 && (
+              <div className="print:hidden flex items-center justify-between p-3 bg-muted/40 border border-border/60 rounded-xl">
+                <span className="text-xs font-semibold text-muted-foreground">Délivrer le certificat pour :</span>
+                <Select value={selectedCertStructure} onValueChange={(val) => setSelectedCertStructure(val || "all")}>
+                  <SelectTrigger className="h-8 text-xs bg-background w-64">
+                    <SelectValue placeholder="Choisir la structure" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les structures (Consolidé)</SelectItem>
+                    {structuresInPlan.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <span className="text-[10px] text-muted-foreground font-bold uppercase block">Statut Validation</span>
-                <Badge className={plan.status === 'Exécuté' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}>
-                  {plan.status}
-                </Badge>
-              </div>
-              <div>
-                <span className="text-[10px] text-muted-foreground font-bold uppercase block">Lots Inclus</span>
-                <span className="font-bold text-foreground">{plan.items?.length || 1} lot(s) de déchets</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-muted-foreground font-bold uppercase block">Masse Totale Déclarée</span>
-                <span className="font-bold text-foreground">
-                  {plan.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0) || 150} Kg
-                </span>
-              </div>
-            </div>
+            )}
 
-            <div className="border border-border/50 rounded-xl overflow-hidden">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead className="py-2 text-[10px] font-bold uppercase pl-3">N° Lot</TableHead>
-                    <TableHead className="py-2 text-[10px] font-bold uppercase">Classification</TableHead>
-                    <TableHead className="py-2 text-[10px] font-bold uppercase text-right pr-3">Quantité</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plan.items?.map((it: any) => (
-                    <TableRow key={it.id} className="text-xs">
-                      <TableCell className="pl-3 font-mono font-semibold py-1.5">{it.waste_batch?.batch_number || 'DEC-LOT'}</TableCell>
-                      <TableCell className="py-1.5">{it.waste_batch?.waste_type || 'Déchet standard'}</TableCell>
-                      <TableCell className="text-right pr-3 font-bold py-1.5">{it.quantity} {it.waste_batch?.unit || 'Kg'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-950 space-y-1">
-              <p className="font-bold flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Signatures Réglementaires à Quatre Yeux
-              </p>
-              <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                <div className="p-2 bg-white/70 rounded-lg border border-amber-200">
-                  <span className="font-bold block">1. Resp. Déchets :</span>
-                  <span className="text-emerald-700 font-semibold">✓ Conforme & Validé</span>
+            {/* DOCUMENT OFFICIEL FORMAT CERTIFICAT (A4 PRINTABLE) */}
+            <div id="printable-destruction-cert" className="bg-white text-slate-900 p-6 sm:p-8 rounded-xl border border-slate-300 shadow-sm space-y-5 print:border-none print:p-4 print:shadow-none">
+              
+              {/* EN-TÊTE OFFICIEL ABMed */}
+              <div className="border-b-2 border-[#1B5C2E] pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                  <p className="text-[10px] font-bold tracking-widest text-slate-600 uppercase">
+                    RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ
+                  </p>
+                  <h1 className="text-base sm:text-lg font-black text-[#1B5C2E] tracking-tight">
+                    AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)
+                  </h1>
+                  <p className="text-[11px] font-semibold text-slate-700">
+                    Direction de la Gestion des Déchets Pharmaceutiques (PSQIF)
+                  </p>
                 </div>
-                <div className="p-2 bg-white/70 rounded-lg border border-amber-200">
-                  <span className="font-bold block">2. Resp. Qualité (AQ) :</span>
-                  <span className="text-emerald-700 font-semibold">✓ Autorisation accordée</span>
+                <div className="text-right sm:text-right">
+                  <span className="inline-block px-2.5 py-1 rounded bg-[#1B5C2E]/10 border border-[#1B5C2E]/30 text-xs font-mono font-bold text-[#1B5C2E]">
+                    {plan.certificate_number || `CERT-DEST-2026-${plan.plan_number?.replace('DES-', '') || '001'}`}
+                  </span>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Date : {plan.execution_date ? new Date(plan.execution_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}
+                  </p>
                 </div>
               </div>
+
+              {/* TITRE DU CERTIFICAT */}
+              <div className="text-center py-1.5 bg-slate-50 rounded border border-slate-200">
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+                  CERTIFICAT OFFICIEL DE DESTRUCTION DE DÉCHETS PHARMACEUTIQUES
+                </h2>
+              </div>
+
+              {/* GRILLE 2 CADRES : STRUCTURE & OPÉRATION */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                
+                {/* CADRE 1 : STRUCTURE BÉNÉFICIAIRE */}
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                    1. Structure / Établissement Bénéficiaire
+                  </p>
+                  <p className="pt-1">
+                    <span className="text-slate-500">Établissement :</span>{" "}
+                    <strong className="text-slate-900">
+                      {selectedCertStructure === 'all' 
+                        ? (structuresInPlan.length > 0 ? structuresInPlan.join(', ') : 'Établissements Mandataires')
+                        : selectedCertStructure}
+                    </strong>
+                  </p>
+                  <p><span className="text-slate-500">Réf. Plan ABMed :</span> <span className="font-mono font-semibold">{plan.plan_number}</span></p>
+                  <p><span className="text-slate-500">Localité :</span> Cotonou / République du Bénin</p>
+                  <p><span className="text-slate-500">Statut :</span> <strong className="text-emerald-700">Détruit & Radié des stocks</strong></p>
+                </div>
+
+                {/* CADRE 2 : DÉTAILS DE L'OPÉRATION */}
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                    2. Modalités d&apos;Élimination
+                  </p>
+                  <p className="pt-1"><span className="text-slate-500">Méthode :</span> {plan.destruction_method || "Incinération haute température (>1200°C)"}</p>
+                  <p><span className="text-slate-500">Site :</span> {plan.destruction_site || "Centre d'Incinération Agréé Cotonou"}</p>
+                  <p><span className="text-slate-500">Contrôle :</span> Procédure réglementaire à Quatre Yeux</p>
+                  <p><span className="text-slate-500">Superviseur :</span> {plan.supervisor_name || "Marie ADANDE (Resp. Déchets)"}</p>
+                </div>
+
+              </div>
+
+              {/* TABLEAU DES DÉCHETS DÉTRUITS */}
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  3. Inventaire des Lots de Déchets Neutralisés
+                </p>
+                <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
+                  <thead className="bg-[#1B5C2E] text-white text-[11px]">
+                    <tr>
+                      <th className="p-2 border-r border-[#1B5C2E]/30">N° Lot Déchet</th>
+                      <th className="p-2 border-r border-[#1B5C2E]/30">Structure Apportrice</th>
+                      <th className="p-2 border-r border-[#1B5C2E]/30">Classification & Produits</th>
+                      <th className="p-2 text-right">Quantité Détruite</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {(selectedCertStructure === 'all'
+                      ? (plan.items || [])
+                      : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
+                    ).map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200">
+                          {item.waste_batch?.batch_number}
+                        </td>
+                        <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
+                          {item.waste_batch?.source_structure || "Dépôt direct"}
+                        </td>
+                        <td className="p-2 border-r border-slate-200">
+                          <p className="font-semibold text-slate-900">{item.waste_batch?.waste_type}</p>
+                          {item.waste_batch?.commercial_name && (
+                            <p className="text-[10px] text-slate-600">{item.waste_batch.commercial_name}</p>
+                          )}
+                        </td>
+                        <td className="p-2 text-right font-black text-slate-900">
+                          {item.quantity} {item.waste_batch?.unit || 'Kg'}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-100 font-bold">
+                      <td colSpan={3} className="p-2 text-right border-r border-slate-300">
+                        MASSE TOTALE DÉTRUITE :
+                      </td>
+                      <td className="p-2 text-right font-black text-[#1B5C2E]">
+                        {(selectedCertStructure === 'all'
+                          ? (plan.items || [])
+                          : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
+                        ).reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ATTESTATION LÉGALE DE DESTRUCTION ET SORTIE DE STOCK */}
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg text-emerald-950 text-[11px] leading-relaxed">
+                <p className="font-bold flex items-center gap-1.5 mb-1">
+                  <ShieldCheck className="h-4 w-4 text-[#1B5C2E]" />
+                  Attestation & Certification Légale de Destruction Définitive
+                </p>
+                <p>
+                  L&apos;Agence Béninoise du Médicament (ABMed) certifie par la présente que les produits et déchets pharmaceutiques ci-dessus décrits ont été intégralement, définitivement et irréversiblement détruits conformément aux normes environnementales et directives sanitaires nationales. Ces lots sont définitivement radiés des registres et stocks. La présente attestation est délivrée à la structure mandataire pour servir et valoir ce que de droit.
+                </p>
+              </div>
+
+              {/* DOUBLE BLOC DE SIGNATURE OFFICIEL */}
+              <div className="grid grid-cols-2 gap-4 pt-2 text-xs">
+                
+                {/* SIGNATURE RESP DECHETS */}
+                <div className="border border-slate-300 rounded-lg p-3 min-h-[110px] flex flex-col justify-between">
+                  <div>
+                    <p className="font-bold text-slate-900 uppercase text-[10px]">
+                      LE RESPONSABLE GESTION DES DÉCHETS
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      {plan.supervisor_name || "Marie ADANDE"}
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Direction de la Gestion des Déchets — ABMed
+                    </p>
+                  </div>
+                  <div className="border-t border-dashed border-slate-300 pt-1 text-[9px] text-slate-400">
+                    Signature & Cachet officiel
+                  </div>
+                </div>
+
+                {/* SIGNATURE RESP QUALITÉ */}
+                <div className="border border-slate-300 rounded-lg p-3 min-h-[110px] flex flex-col justify-between">
+                  <div>
+                    <p className="font-bold text-slate-900 uppercase text-[10px]">
+                      LE RESPONSABLE ASSURANCE QUALITÉ
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Dr. Christian KOSSOU
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Direction de l&apos;Assurance Qualité — ABMed
+                    </p>
+                  </div>
+                  <div className="border-t border-dashed border-slate-300 pt-1 text-[9px] text-slate-400">
+                    Visa de conformité & Cachet
+                  </div>
+                </div>
+
+              </div>
+
+              {/* PIED DE PAGE */}
+              <div className="text-[9px] text-center text-slate-400 pt-2 border-t border-slate-200">
+                Document officiel délivré par le Système de Gestion de l&apos;Échantillothèque et des Déchets (SGIE - ABMed) — République du Bénin
+              </div>
+
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setShowCertificateModal(false)}>Fermer</Button>
-              <Button size="sm" onClick={() => window.print()} className="bg-red-600 hover:bg-red-700 text-white gap-1.5">
-                <Printer className="h-3.5 w-3.5" /> Imprimer le PV officiel
+            {/* BOUTONS ACTIONS MODAL */}
+            <div className="print:hidden flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-border/60">
+              <Button variant="outline" size="sm" onClick={() => setShowCertificateModal(false)}>
+                Fermer
               </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDownloadCertificatePdf}
+                  className="gap-1.5 text-xs text-[#1B5C2E] border-[#1B5C2E]/30 hover:bg-[#1B5C2E]/10"
+                >
+                  <Download className="h-3.5 w-3.5" /> Télécharger Certificat (PDF)
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => window.print()}
+                  className="gap-1.5 text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Imprimer pour la Structure
+                </Button>
+              </div>
             </div>
+
           </div>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+
