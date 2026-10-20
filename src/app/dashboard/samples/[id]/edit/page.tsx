@@ -192,7 +192,7 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
         <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
         <div className="text-sm">
           <p className="font-semibold mb-1">Attention : Modification d'un produit officiel</p>
-          <p>Toute modification apportée à cet échantillon sera tracée dans le journal d'audit de l'ANRP. Les quantités ne devraient être modifiées ici qu'en cas d'erreur de saisie initiale. Pour les opérations courantes, utilisez le module <strong>Mouvements</strong>.</p>
+          <p>Toute modification apportée à cet échantillon sera tracée dans le journal d'audit de l'ABMed. Les quantités ne devraient être modifiées ici qu'en cas d'erreur de saisie initiale. Pour les opérations courantes, utilisez le module <strong>Mouvements</strong>.</p>
         </div>
       </div>
 

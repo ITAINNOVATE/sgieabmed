@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@/utils/supabase/server';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -255,18 +256,17 @@ function ActionsDropdown({ user }: { user: User }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem className="gap-2 cursor-pointer">
-          <Eye className="h-4 w-4 text-muted-foreground" />
-          Voir le profil
+        <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+          <Link href={`/dashboard/admin/users?search=${encodeURIComponent(user.email)}`}>
+            <Eye className="h-4 w-4 text-muted-foreground" />
+            Consulter
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2 cursor-pointer">
-          <Pencil className="h-4 w-4 text-muted-foreground" />
-          Modifier
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive">
-          <Ban className="h-4 w-4" />
-          {user.is_active ? 'Désactiver' : 'Réactiver'}
+        <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+          <Link href={`/dashboard/admin/users?edit=${encodeURIComponent(user.id)}`}>
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+            Gérer / Modifier
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -348,25 +348,12 @@ export default async function UsersPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger render={
-                <Button variant="default" className="gap-2 rounded-xl shadow-sm">
-                  <UserPlus className="h-4 w-4" />
-                  Nouvel utilisateur
-                </Button>
-              } />
-              <TooltipContent side="bottom" className="max-w-xs text-center">
-                <div className="flex items-start gap-2">
-                  <Info className="h-4 w-4 shrink-0 mt-0.5 text-blue-400" />
-                  <p className="text-xs leading-relaxed">
-                    La création d&apos;utilisateurs s&apos;effectue via{' '}
-                    <strong>Supabase Authentication</strong>. Le profil est
-                    automatiquement lié à la table <code>users</code> lors de la
-                    première connexion.
-                  </p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+            <Button asChild variant="default" className="gap-2 rounded-xl shadow-sm bg-[#0B5ED7] hover:bg-[#094bb5] text-white">
+              <Link href="/dashboard/admin/users?action=new">
+                <UserPlus className="h-4 w-4" />
+                Nouvel utilisateur
+              </Link>
+            </Button>
           </div>
         </div>
 

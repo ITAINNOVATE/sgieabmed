@@ -362,7 +362,7 @@ export default function DocumentsClient({ initialDocuments, samplesList }: Docum
                 <div>
                   <h4 className="font-bold text-sm text-foreground">{viewingDoc.title}</h4>
                   <p className="text-muted-foreground text-xs mt-1">
-                    Document officiel archivé au registre sécurisé de l'ANRP Bénin (eGED ABMed).
+                    Document officiel archivé au registre sécurisé de l'ABMed Bénin (eGED ABMed).
                   </p>
                 </div>
                 <div className="p-2.5 bg-background border border-border/60 rounded-lg max-w-md mx-auto text-[11px] text-muted-foreground font-mono">

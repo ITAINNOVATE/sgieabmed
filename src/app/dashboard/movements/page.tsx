@@ -323,7 +323,7 @@ export default function MovementsPage() {
               Bordereau Officiel de Mouvement de Stock
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Référence eGED ANRP : <span className="font-mono font-semibold text-foreground">{selectedMovement?.mvt_number || selectedMovement?.id}</span>
+              Référence eGED ABMed : <span className="font-mono font-semibold text-foreground">{selectedMovement?.mvt_number || selectedMovement?.id}</span>
             </DialogDescription>
           </DialogHeader>
 

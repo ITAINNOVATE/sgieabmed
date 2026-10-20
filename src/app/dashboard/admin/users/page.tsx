@@ -83,6 +83,47 @@ export default function UsersAdminPage() {
       setDepartments(d)
       setRoles(r)
       setLoading(false)
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search)
+        const actionParam = params.get("action")
+        const searchParam = params.get("search")
+        const editParam = params.get("edit")
+
+        if (searchParam) {
+          setSearchTerm(searchParam)
+        }
+        if (actionParam === "new") {
+          setEditingUser(null)
+          setFirstName("")
+          setLastName("")
+          setMatricule("")
+          setFonction("")
+          setDeptId(d[0]?.id || "")
+          setRoleName(r[0]?.name || "")
+          setPhone("")
+          setEmail("")
+          setUsername("")
+          setStatus("Actif")
+          setShowModal(true)
+        } else if (editParam) {
+          const userToEdit = u.find(item => item.id === editParam)
+          if (userToEdit) {
+            setEditingUser(userToEdit)
+            setFirstName(userToEdit.first_name)
+            setLastName(userToEdit.last_name)
+            setMatricule(userToEdit.matricule)
+            setFonction(userToEdit.fonction)
+            setDeptId(userToEdit.department_id)
+            setRoleName(userToEdit.role)
+            setPhone(userToEdit.phone)
+            setEmail(userToEdit.email)
+            setUsername(userToEdit.username)
+            setStatus(userToEdit.status)
+            setShowModal(true)
+          }
+        }
+      }
     }
     load()
   }, [])
