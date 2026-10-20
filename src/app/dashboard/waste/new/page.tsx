@@ -237,11 +237,33 @@ export default function NewWasteReceptionPage() {
         }
       })
 
-      // 1. Sauvegarde locale garantie pour tous les lots
+      // 1. Sauvegarde locale garantie pour tous les lots et traçabilité des mouvements
       try {
+        localStorage.removeItem('all_data_wiped')
         const stored = localStorage.getItem("waste_batches_custom_v1")
         const currentList = stored ? JSON.parse(stored) : []
         localStorage.setItem("waste_batches_custom_v1", JSON.stringify([...newBatches, ...currentList]))
+
+        // Journal des mouvements de déchets
+        const currentMvts = JSON.parse(localStorage.getItem("waste_movements_custom_v1") || "[]")
+        const newMvts = newBatches.map((b) => ({
+          id: `mvt-rec-${b.batch_number}`,
+          mvt_number: `MVT-REC-${b.batch_number.replace('DEC-', '')}`,
+          date: `${values.reception_date}T${values.reception_time || '08:00'}:00.000Z`,
+          type: 'Entrée au local déchet',
+          batch: b.batch_number,
+          waste_type: b.waste_type,
+          commercial_name: b.commercial_name,
+          quantity: `${b.quantity} ${b.unit}`,
+          operator: values.recipient_agent || 'Marie ADANDE',
+          destination: b.current_location,
+          origin: `${values.source_structure} (${values.depositor_name})`,
+          reception_number: values.reception_number,
+          source_structure: values.source_structure,
+          depositor_name: values.depositor_name,
+          signature_hash: `SIG-REC-${b.batch_number.replace('DEC-', '')}`,
+        }))
+        localStorage.setItem("waste_movements_custom_v1", JSON.stringify([...newMvts, ...currentMvts]))
       } catch (localErr) {
         console.warn("Erreur sauvegarde locale déchets:", localErr)
       }

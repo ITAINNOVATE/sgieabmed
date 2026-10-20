@@ -89,11 +89,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchInventories = async () => {
-    if (typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true') {
-      setInventories([]);
-      setLoading(false);
-      return;
-    }
+    const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true';
 
     try {
       const supabase = createClient();
@@ -126,10 +122,10 @@ export default function InventoryPage() {
         }));
         setInventories(loaded);
       } else {
-        setInventories(MOCK_INVENTORIES);
+        setInventories(isWiped ? [] : MOCK_INVENTORIES);
       }
     } catch {
-      setInventories(MOCK_INVENTORIES);
+      setInventories(isWiped ? [] : MOCK_INVENTORIES);
     } finally {
       setLoading(false);
     }

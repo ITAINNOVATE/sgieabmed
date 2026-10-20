@@ -672,6 +672,7 @@ export default function NewReceptionPage() {
 
     // Toujours persister dans l'historique local pour affichage garanti dans l'historique
     try {
+      localStorage.removeItem('all_data_wiped')
       const existingHistory = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
       const newRecord = {
         id: values.rec_number,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,15 +20,26 @@ const MOCK_WASTE_INVENTORIES = [
 ]
 
 export default function WasteInventoryPage() {
+  const [inventories, setInventories] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedInventory, setSelectedInventory] = useState<any>(null)
   const [isNewInventoryOpen, setIsNewInventoryOpen] = useState(false)
+  const [newLocation, setNewLocation] = useState("Local Déchets A1")
 
-  const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
-  const list = isWiped ? [] : MOCK_WASTE_INVENTORIES
+  useEffect(() => {
+    const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
+    let customList: any[] = []
+    try {
+      const stored = localStorage.getItem('waste_inventories_custom_v1')
+      if (stored) customList = JSON.parse(stored)
+    } catch (e) {}
 
-  const filteredInventories = list.filter(inv => {
+    const baseList = isWiped ? [] : MOCK_WASTE_INVENTORIES
+    setInventories([...customList, ...baseList])
+  }, [])
+
+  const filteredInventories = inventories.filter(inv => {
     const matchesSearch = 
       inv.inv_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.location.toLowerCase().includes(searchTerm.toLowerCase())
@@ -268,7 +279,7 @@ export default function WasteInventoryPage() {
           <div className="space-y-3 pt-2 text-xs">
             <div>
               <label className="text-[11px] font-bold block mb-1">Zone de stockage à contrôler</label>
-              <Select defaultValue="Local Déchets A1">
+              <Select value={newLocation} onValueChange={(val) => setNewLocation(val || "Local Déchets A1")}>
                 <SelectTrigger className="h-8 text-xs bg-background">
                   <SelectValue placeholder="Choisir la zone" />
                 </SelectTrigger>
@@ -287,7 +298,26 @@ export default function WasteInventoryPage() {
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" onClick={() => setIsNewInventoryOpen(false)}>Annuler</Button>
               <Button size="sm" onClick={() => {
-                toast.success("Session d'inventaire déchet initialisée avec succès !")
+                const newInv = {
+                  id: `inv-w-${Date.now()}`,
+                  inv_number: `INV-W-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+                  date: new Date().toISOString(),
+                  location: newLocation,
+                  system_weight: 120,
+                  physical_weight: 120,
+                  diff: 0,
+                  status: 'En cours',
+                  items_count: 6,
+                  controller: 'Marie ADANDE',
+                  observations: `Contrôle contradictoire initié pour ${newLocation}. Comptage et pesée physique en cours.`,
+                }
+                const updated = [newInv, ...inventories]
+                setInventories(updated)
+                try {
+                  const stored = JSON.parse(localStorage.getItem('waste_inventories_custom_v1') || '[]')
+                  localStorage.setItem('waste_inventories_custom_v1', JSON.stringify([newInv, ...stored]))
+                } catch (e) {}
+                toast.success(`Session d'inventaire ${newInv.inv_number} initialisée avec succès !`)
                 setIsNewInventoryOpen(false)
               }} className="bg-red-600 hover:bg-red-700 text-white">
                 Valider & Générer la feuille

@@ -179,11 +179,7 @@ export default function SamplesDataTable() {
   const [locationSample, setLocationSample] = useState<Sample | null>(null)
 
   const fetchData = useCallback(async () => {
-    if (typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true') {
-      setData([])
-      setLoading(false)
-      return
-    }
+    const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
 
     let remoteSamples: Sample[] = []
     try {
@@ -251,9 +247,11 @@ export default function SamplesDataTable() {
         })
       }
 
-      DEFAULT_SAMPLES.forEach(s => {
-        if (!isDeleted(s)) sampleMap.set(s.id, s)
-      })
+      if (!isWiped) {
+        DEFAULT_SAMPLES.forEach(s => {
+          if (!isDeleted(s)) sampleMap.set(s.id, s)
+        })
+      }
       localSamples.forEach(s => {
         if (!isDeleted(s)) sampleMap.set(s.id, s)
       })
