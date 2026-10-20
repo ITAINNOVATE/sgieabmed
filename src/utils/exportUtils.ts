@@ -306,6 +306,17 @@ export function exportWasteReceptionSlipPDF(slipData: {
     item.location || 'Zone Quarantaine'
   ])
 
+  if (slipData.items && slipData.items.length > 1) {
+    const totalQty = slipData.items.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)
+    rows.push([
+      "TOTAL DÉPÔT",
+      `${slipData.items.length} lots de déchets apportés`,
+      "-",
+      `${totalQty.toFixed(2)} (Total)`,
+      "-"
+    ])
+  }
+
   autoTable(doc, {
     startY: 114,
     head: [headers],

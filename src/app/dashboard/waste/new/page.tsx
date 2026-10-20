@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
@@ -18,36 +18,20 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { 
   ArrowLeft, Save, Trash2, Box, Building2, User, Phone, 
-  FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, Calendar, Clock
+  FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, 
+  Plus, Layers, Scale, Sparkles
 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 
-const formSchema = z.object({
-  // 1. Informations Générales de Réception
-  reception_number: z.string().min(1, "N° de réception requis"),
-  reception_date: z.string().min(1, "Date de réception requise"),
-  reception_time: z.string().min(1, "Heure requise"),
-  delivery_slip_ref: z.string().optional(),
-  recipient_agent: z.string().min(1, "Agent récepteur requis"),
-
-  // 2. Structure Déposante / Provenance
-  source_structure: z.string().min(2, "Le nom de la structure apportrice est requis"),
-  source_type: z.string().min(1, "Type de structure requis"),
-  city: z.string().optional(),
-  depositor_name: z.string().min(2, "Nom de la personne ayant apporté les déchets requis"),
-  depositor_phone: z.string().min(6, "Numéro de téléphone requis"),
-  depositor_id_card: z.string().optional(),
-
-  // 3. Identification & Signalétique du Déchet
+// Schéma pour une ligne individuelle de déchet
+const wasteItemSchema = z.object({
   batch_number: z.string().min(1, "N° de lot déchet requis"),
   waste_type: z.string().min(1, "Type de déchet requis"),
   commercial_name: z.string().optional(),
   sample_id: z.string().optional(),
   original_batch: z.string().optional(),
-
-  // 4. Pesée & Conditionnement
   quantity: z.coerce.number().min(0.01, "Quantité ou poids invalide"),
   unit: z.string().min(1, "Unité requise"),
   packaging: z.string().min(1, "Type de conditionnement requis"),
@@ -57,6 +41,26 @@ const formSchema = z.object({
   observations: z.string().optional(),
 })
 
+const formSchema = z.object({
+  // 1. Informations Générales de Réception
+  reception_number: z.string().min(1, "N° de réception requis"),
+  reception_date: z.string().min(1, "Date de réception requise"),
+  reception_time: z.string().min(1, "Heure requise"),
+  delivery_slip_ref: z.string().optional(),
+  recipient_agent: z.string().min(1, "Agent récepteur requis"),
+
+  // 2. Structure Déposante / Provenance (Saisie une seule fois pour tout le dépôt)
+  source_structure: z.string().min(2, "Le nom de la structure apportrice est requis"),
+  source_type: z.string().min(1, "Type de structure requis"),
+  city: z.string().optional(),
+  depositor_name: z.string().min(2, "Nom de la personne ayant apporté les déchets requis"),
+  depositor_phone: z.string().min(6, "Numéro de téléphone requis"),
+  depositor_id_card: z.string().optional(),
+
+  // 3. Liste dynamique des Déchets apportés
+  waste_items: z.array(wasteItemSchema).min(1, "Veuillez renseigner au moins un déchet"),
+})
+
 type FormValues = z.infer<typeof formSchema>
 
 export default function NewWasteReceptionPage() {
@@ -64,6 +68,7 @@ export default function NewWasteReceptionPage() {
   const [samples, setSamples] = useState<any[]>([])
   const [savedSlipData, setSavedSlipData] = useState<any | null>(null)
   const [showSlipModal, setShowSlipModal] = useState(false)
+  const [baseLotPrefix, setBaseLotPrefix] = useState("")
   const router = useRouter()
   const supabase = createClient()
 
@@ -83,27 +88,39 @@ export default function NewWasteReceptionPage() {
       depositor_phone: "",
       depositor_id_card: "",
 
-      batch_number: "",
-      waste_type: "Médicaments périmés (Formes solides)",
-      commercial_name: "",
-      sample_id: "none",
-      original_batch: "",
-
-      quantity: 1,
-      unit: "Kg",
-      packaging: "Cartons fermés & scotchés",
-      packaging_condition: "Conforme et scellé",
-      current_location: "Zone de Quarantaine - Déchets",
-      destruction_motive: "Péremption",
-      observations: "",
+      waste_items: [
+        {
+          batch_number: "",
+          waste_type: "Médicaments périmés (Formes solides)",
+          commercial_name: "",
+          sample_id: "none",
+          original_batch: "",
+          quantity: 1,
+          unit: "Kg",
+          packaging: "Cartons fermés & scotchés",
+          packaging_condition: "Conforme et scellé",
+          current_location: "Zone de Quarantaine - Déchets",
+          destruction_motive: "Péremption",
+          observations: "",
+        },
+      ],
     },
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "waste_items",
   })
 
   useEffect(() => {
     const randomSuffix = Math.floor(1000 + Math.random() * 9000)
     const year = new Date().getFullYear()
-    form.setValue("reception_number", `REC-DECH-${year}-${randomSuffix}`)
-    form.setValue("batch_number", `DEC-${year}-${Math.floor(10000 + Math.random() * 90000)}`)
+    const recNum = `REC-DECH-${year}-${randomSuffix}`
+    const prefix = `DEC-${year}-${Math.floor(10000 + Math.random() * 90000)}`
+    
+    setBaseLotPrefix(prefix)
+    form.setValue("reception_number", recNum)
+    form.setValue("waste_items.0.batch_number", `${prefix}-1`)
 
     async function fetchSamples() {
       try {
@@ -149,56 +166,84 @@ export default function NewWasteReceptionPage() {
     fetchSamples()
   }, [supabase, form])
 
+  // Ajout d'une nouvelle ligne de déchet avec N° de lot incrémenté
+  const handleAddWasteItem = () => {
+    const nextIndex = fields.length + 1
+    const prefix = baseLotPrefix || `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
+    append({
+      batch_number: `${prefix}-${nextIndex}`,
+      waste_type: "Médicaments périmés (Formes solides)",
+      commercial_name: "",
+      sample_id: "none",
+      original_batch: "",
+      quantity: 1,
+      unit: "Kg",
+      packaging: "Cartons fermés & scotchés",
+      packaging_condition: "Conforme et scellé",
+      current_location: "Zone de Quarantaine - Déchets",
+      destruction_motive: "Péremption",
+      observations: "",
+    })
+    toast.success(`Nouveau déchet (#${nextIndex}) ajouté au bordereau`)
+  }
+
+  // Calcul du poids/quantité totale
+  const watchedItems = form.watch("waste_items") || []
+  const totalQuantity = watchedItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
+
   const onSubmit = async (values: FormValues) => {
     setIsSaving(true)
 
     try {
-      const selectedSample = samples.find((s) => s.id === values.sample_id)
-      const newBatch = {
-        id: "batch-" + Date.now(),
-        batch_number: values.batch_number,
-        reception_number: values.reception_number,
-        reception_date: values.reception_date,
-        reception_time: values.reception_time,
-        delivery_slip_ref: values.delivery_slip_ref || "",
-        recipient_agent: values.recipient_agent,
+      const timestamp = Date.now()
+      const newBatches = values.waste_items.map((item, idx) => {
+        const selectedSample = samples.find((s) => s.id === item.sample_id)
+        return {
+          id: `batch-${timestamp}-${idx}`,
+          batch_number: item.batch_number,
+          reception_number: values.reception_number,
+          reception_date: values.reception_date,
+          reception_time: values.reception_time,
+          delivery_slip_ref: values.delivery_slip_ref || "",
+          recipient_agent: values.recipient_agent,
 
-        source_structure: values.source_structure,
-        source_type: values.source_type,
-        city: values.city || "Cotonou",
-        depositor_name: values.depositor_name,
-        depositor_phone: values.depositor_phone,
-        depositor_id_card: values.depositor_id_card || "",
+          source_structure: values.source_structure,
+          source_type: values.source_type,
+          city: values.city || "Cotonou",
+          depositor_name: values.depositor_name,
+          depositor_phone: values.depositor_phone,
+          depositor_id_card: values.depositor_id_card || "",
 
-        waste_type: values.waste_type,
-        commercial_name: values.commercial_name || (selectedSample ? selectedSample.commercial_name : "Divers produits pharmaceutiques"),
-        original_batch: values.original_batch || (selectedSample ? selectedSample.batch_number : ""),
-        sample_id: values.sample_id && values.sample_id !== "none" ? values.sample_id : null,
-        sample: selectedSample
-          ? {
-              commercial_name: selectedSample.commercial_name,
-              batch_number: selectedSample.batch_number,
-            }
-          : null,
-        quantity: values.quantity,
-        unit: values.unit,
-        packaging: values.packaging,
-        packaging_condition: values.packaging_condition,
-        destruction_motive: values.destruction_motive,
-        current_location: values.current_location || "Zone de Quarantaine - Déchets",
-        status: "Déclaré",
-        observations: values.observations || "",
-        created_at: new Date().toISOString(),
-        creator: { first_name: "Marie", last_name: "ADANDE" },
-      }
+          waste_type: item.waste_type,
+          commercial_name: item.commercial_name || (selectedSample ? selectedSample.commercial_name : "Divers produits pharmaceutiques"),
+          original_batch: item.original_batch || (selectedSample ? selectedSample.batch_number : ""),
+          sample_id: item.sample_id && item.sample_id !== "none" ? item.sample_id : null,
+          sample: selectedSample
+            ? {
+                commercial_name: selectedSample.commercial_name,
+                batch_number: selectedSample.batch_number,
+              }
+            : null,
+          quantity: item.quantity,
+          unit: item.unit,
+          packaging: item.packaging,
+          packaging_condition: item.packaging_condition,
+          destruction_motive: item.destruction_motive,
+          current_location: item.current_location || "Zone de Quarantaine - Déchets",
+          status: "Déclaré",
+          observations: item.observations || "",
+          created_at: new Date().toISOString(),
+          creator: { first_name: "Marie", last_name: "ADANDE" },
+        }
+      })
 
-      // 1. Sauvegarde dans le stockage local garanti
+      // 1. Sauvegarde locale garantie pour tous les lots
       try {
         const stored = localStorage.getItem("waste_batches_custom_v1")
         const currentList = stored ? JSON.parse(stored) : []
-        localStorage.setItem("waste_batches_custom_v1", JSON.stringify([newBatch, ...currentList]))
+        localStorage.setItem("waste_batches_custom_v1", JSON.stringify([...newBatches, ...currentList]))
       } catch (localErr) {
-        console.warn("Erreur sauvegarde locale déchet:", localErr)
+        console.warn("Erreur sauvegarde locale déchets:", localErr)
       }
 
       // 2. Sauvegarde Supabase
@@ -206,30 +251,36 @@ export default function NewWasteReceptionPage() {
         const { data: userData } = await supabase.auth.getUser()
         const userId = userData?.user?.id
 
-        await supabase.from("waste_batches").insert({
-          batch_number: values.batch_number,
-          waste_type: values.waste_type,
-          sample_id: values.sample_id && values.sample_id !== "none" ? values.sample_id : null,
-          quantity: values.quantity,
-          unit: values.unit,
-          current_location: values.current_location,
-          status: "Déclaré",
-          created_by: userId,
-        })
+        for (const b of newBatches) {
+          await supabase.from("waste_batches").insert({
+            batch_number: b.batch_number,
+            waste_type: b.waste_type,
+            sample_id: b.sample_id,
+            quantity: b.quantity,
+            unit: b.unit,
+            current_location: b.current_location,
+            status: "Déclaré",
+            created_by: userId,
+          })
+        }
 
         if (userId) {
           await supabase.from("audit_logs").insert({
             user_id: userId,
-            action: "CREATE_WASTE_RECEPTION",
+            action: "CREATE_WASTE_RECEPTION_MULTI",
             entity_type: "waste_batches",
-            new_value: values,
+            new_value: {
+              reception_number: values.reception_number,
+              source_structure: values.source_structure,
+              items_count: values.waste_items.length,
+            },
           })
         }
       } catch (remoteErr) {
         console.warn("Échec insertion Supabase waste_batches (mode déconnecté):", remoteErr)
       }
 
-      // Préparer les données pour le bordereau & attestation
+      // 3. Préparer le document d'attestation consolidé pour tous les déchets
       const slipPayload = {
         reception_number: values.reception_number,
         reception_date: values.reception_date,
@@ -242,25 +293,26 @@ export default function NewWasteReceptionPage() {
         depositor_name: values.depositor_name,
         depositor_phone: values.depositor_phone,
         depositor_id_card: values.depositor_id_card,
-        general_observations: values.observations,
-        items: [
-          {
-            batch_number: values.batch_number,
-            waste_type: values.waste_type,
-            commercial_name: values.commercial_name || (selectedSample ? selectedSample.commercial_name : "Produits pharmaceutiques périmés"),
-            original_batch: values.original_batch || (selectedSample ? selectedSample.batch_number : ""),
-            quantity: values.quantity,
-            unit: values.unit,
-            packaging: values.packaging,
-            location: values.current_location,
-            observations: values.observations,
-          },
-        ],
+        general_observations: `Dépôt de ${values.waste_items.length} catégorie(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
+        items: values.waste_items.map((item) => {
+          const s = samples.find((x) => x.id === item.sample_id)
+          return {
+            batch_number: item.batch_number,
+            waste_type: item.waste_type,
+            commercial_name: item.commercial_name || (s ? s.commercial_name : ""),
+            original_batch: item.original_batch || (s ? s.batch_number : ""),
+            quantity: item.quantity,
+            unit: item.unit,
+            packaging: item.packaging,
+            location: item.current_location,
+            observations: item.observations,
+          }
+        }),
       }
 
       setSavedSlipData(slipPayload)
       setShowSlipModal(true)
-      toast.success("Réception des déchets enregistrée avec succès !")
+      toast.success(`${values.waste_items.length} déchet(s) enregistré(s) avec succès pour ${values.source_structure} !`)
     } catch (error: any) {
       console.error(error)
       toast.error(`Erreur: ${error.message}`)
@@ -281,7 +333,7 @@ export default function NewWasteReceptionPage() {
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-5xl mx-auto pb-16">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-5xl mx-auto pb-20">
       
       {/* BANDEAU EN-TÊTE COMPACT (MASQUÉ À L'IMPRESSION) */}
       <div className="print:hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-card p-4 rounded-2xl border border-border/70 shadow-sm">
@@ -293,11 +345,11 @@ export default function NewWasteReceptionPage() {
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold tracking-tight text-foreground">Réception de Déchets Pharmaceutiques</h2>
               <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">
-                PSQIF / ABMed
+                Multi-lots / PSQIF
               </Badge>
             </div>
             <p className="text-muted-foreground text-xs">
-              Enregistrement des déchets apportés par une structure et émission de l&apos;attestation officielle de réception.
+              Saisie unique de l&apos;apporteur avec ajout multiple de déchets et génération du bordereau officiel pour signature.
             </p>
           </div>
         </div>
@@ -312,7 +364,7 @@ export default function NewWasteReceptionPage() {
             disabled={isSaving} 
             className="h-9 text-xs font-bold px-4 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2"
           >
-            {isSaving ? "Enregistrement..." : <><Save className="h-4 w-4" /> Enregistrer & Générer l&apos;attestation</>}
+            {isSaving ? "Enregistrement..." : <><Save className="h-4 w-4" /> Valider ({fields.length} lot{fields.length > 1 ? 's' : ''}) & Signer</>}
           </Button>
         </div>
       </div>
@@ -378,7 +430,7 @@ export default function NewWasteReceptionPage() {
             </CardContent>
           </Card>
 
-          {/* SECTION 2 : PROVENANCE & STRUCTURE APPORTRICE (DEMANDE UTILISATEUR) */}
+          {/* SECTION 2 : PROVENANCE & STRUCTURE APPORTRICE (SAISIE UNIQUE) */}
           <Card className="shadow-sm border-2 border-primary/20 rounded-2xl bg-primary/[0.02]">
             <CardHeader className="p-4 pb-3 border-b border-border/50 bg-muted/20">
               <div className="flex items-center justify-between">
@@ -386,10 +438,12 @@ export default function NewWasteReceptionPage() {
                   <Building2 className="mr-2 h-4 w-4 text-primary" />
                   2. Provenance & Structure qui a apporté les Déchets
                 </CardTitle>
-                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Information Requise</Badge>
+                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
+                  Saisie unique pour tout le dépôt
+                </Badge>
               </div>
               <CardDescription className="text-xs">
-                Identité de l&apos;établissement émetteur et de la personne physique ayant déposé le colis.
+                Ces informations s&apos;appliquent automatiquement à tous les déchets ajoutés ci-dessous.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -482,213 +536,236 @@ export default function NewWasteReceptionPage() {
             </CardContent>
           </Card>
 
-          {/* SECTION 3 : SIGNALÉTIQUE & CLASSIFICATION DU DÉCHET */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* SECTION 3 : LISTE DES DÉCHETS APPORTÉS (MULTI-LIGNES AVEC BOUTON +) */}
+          <div className="space-y-3">
             
-            <Card className="shadow-sm border border-border/70 rounded-2xl bg-card">
-              <CardHeader className="p-4 pb-3 border-b border-border/50">
-                <CardTitle className="flex items-center text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  <Trash2 className="mr-2 h-4 w-4 text-red-600" />
-                  3. Signalétique & Désignation du Déchet
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                
-                <FormField control={form.control} name="batch_number" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">N° de Lot Déchet ABMed (Auto)</FormLabel>
-                    <FormControl><Input {...field} disabled className="font-mono bg-muted/40 h-9 text-xs" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-1">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-[#1B5C2E]" />
+                  3. Déchets & Produits Apportés ({fields.length} lot{fields.length > 1 ? 's' : ''})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Ajoutez autant de types de déchets que nécessaire apportés lors de cette même réception.
+                </p>
+              </div>
 
-                <FormField control={form.control} name="waste_type" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Classification Réglementaire</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Choisir la catégorie" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Médicaments périmés (Formes solides)">Médicaments périmés (Formes solides - comprimés, gélules)</SelectItem>
-                        <SelectItem value="Médicaments périmés (Formes liquides / sirops)">Médicaments périmés (Formes liquides / sirops)</SelectItem>
-                        <SelectItem value="Produits chimiques dangereux & solvants">Produits chimiques dangereux & solvants</SelectItem>
-                        <SelectItem value="Déchets infectieux (DASRI)">Déchets infectieux (DASRI)</SelectItem>
-                        <SelectItem value="Flacons cassés & piquant-tranchant">Flacons cassés & piquant-tranchant</SelectItem>
-                        <SelectItem value="Emballages & cartons souillés">Emballages & cartons souillés</SelectItem>
-                        <SelectItem value="Produits chaîne de froid dégradés">Produits chaîne de froid dégradés</SelectItem>
-                        <SelectItem value="Autres déchets pharmaceutiques">Autres déchets pharmaceutiques</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs font-mono font-bold bg-[#1B5C2E]/10 text-[#1B5C2E]">
+                  Poids total : {totalQuantity.toFixed(2)} Kg/Unités
+                </Badge>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  onClick={handleAddWasteItem}
+                  className="h-8 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Ajouter un autre déchet
+                </Button>
+              </div>
+            </div>
 
-                <FormField control={form.control} name="commercial_name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Désignation / Produits apportés</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Ex: Antibiotiques variés périmés, Solvants HPLC..." className="h-9 text-xs" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+            {/* BOUCLE SUR CHAQUE DÉCHET */}
+            <div className="space-y-3">
+              {fields.map((fieldItem, index) => (
+                <Card key={fieldItem.id} className="shadow-sm border border-border/80 rounded-2xl bg-card overflow-hidden">
+                  
+                  {/* EN-TÊTE DU LOT */}
+                  <div className="bg-muted/40 p-3 px-4 border-b border-border/50 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-foreground text-background text-[11px] font-bold">
+                        Déchet #{index + 1}
+                      </Badge>
+                      <span className="text-xs font-mono font-bold text-muted-foreground">
+                        {form.watch(`waste_items.${index}.batch_number`) || `DEC-LOT-${index + 1}`}
+                      </span>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <FormField control={form.control} name="original_batch" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-semibold">N° Lot Fabricant d&apos;origine</FormLabel>
-                      <FormControl><Input {...field} placeholder="Lot fabricant..." className="h-9 text-xs" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                    {fields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => remove(index)}
+                        className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 gap-1 px-2"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Supprimer ce déchet
+                      </Button>
+                    )}
+                  </div>
 
-                  <FormField control={form.control} name="destruction_motive" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-semibold">Motif du Dépôt</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Motif" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="Péremption">Péremption</SelectItem>
-                          <SelectItem value="Détérioration physique / Casse">Détérioration physique / Casse</SelectItem>
-                          <SelectItem value="Rupture de chaîne de froid">Rupture de chaîne de froid</SelectItem>
-                          <SelectItem value="Rappel de lot fabricant">Rappel de lot fabricant</SelectItem>
-                          <SelectItem value="Non-conformité analytique">Non-conformité analytique</SelectItem>
-                          <SelectItem value="Autre">Autre</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
+                  {/* FORMULAIRE DU LOT */}
+                  <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    
+                    <FormField control={form.control} name={`waste_items.${index}.batch_number`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">N° Lot Déchet (Auto)</FormLabel>
+                        <FormControl><Input {...field} disabled className="font-mono bg-muted/40 h-9 text-xs" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-                <FormField control={form.control} name="sample_id" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Liaison Échantillon interne (Optionnel)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Aucun (Déchet externe apporté)" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun lien (Déchet externe apporté)</SelectItem>
-                        {samples.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.sample_number} - {s.commercial_name} ({s.batch_number})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
+                    <FormField control={form.control} name={`waste_items.${index}.waste_type`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold">Classification Réglementaire <span className="text-red-500">*</span></FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Choisir la catégorie" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="Médicaments périmés (Formes solides)">Médicaments périmés (Formes solides - comprimés, gélules)</SelectItem>
+                            <SelectItem value="Médicaments périmés (Formes liquides / sirops)">Médicaments périmés (Formes liquides / sirops)</SelectItem>
+                            <SelectItem value="Produits chimiques dangereux & solvants">Produits chimiques dangereux & solvants</SelectItem>
+                            <SelectItem value="Déchets infectieux (DASRI)">Déchets infectieux (DASRI)</SelectItem>
+                            <SelectItem value="Flacons cassés & piquant-tranchant">Flacons cassés & piquant-tranchant</SelectItem>
+                            <SelectItem value="Emballages & cartons souillés">Emballages & cartons souillés</SelectItem>
+                            <SelectItem value="Produits chaîne de froid dégradés">Produits chaîne de froid dégradés</SelectItem>
+                            <SelectItem value="Autres déchets pharmaceutiques">Autres déchets pharmaceutiques</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-              </CardContent>
-            </Card>
+                    <FormField control={form.control} name={`waste_items.${index}.commercial_name`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">Désignation / Produits concernés</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Ex: Amoxicilline 500mg, Paracétamol..." className="h-9 text-xs bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-            {/* SECTION 4 : PESÉE, CONDITIONNEMENT & LOCALISATION */}
-            <Card className="shadow-sm border border-border/70 rounded-2xl bg-card">
-              <CardHeader className="p-4 pb-3 border-b border-border/50">
-                <CardTitle className="flex items-center text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  <Box className="mr-2 h-4 w-4 text-[#1B5C2E]" />
-                  4. Pesée, Conditionnement & Stockage
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <FormField control={form.control} name="quantity" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-semibold">Poids / Quantité Pesée</FormLabel>
-                      <FormControl><Input type="number" step="0.01" {...field} className="h-9 text-xs font-bold" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField control={form.control} name={`waste_items.${index}.quantity`} render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold text-foreground">Quantité / Poids <span className="text-red-500">*</span></FormLabel>
+                          <FormControl><Input type="number" step="0.01" {...field} className="h-9 text-xs font-bold bg-background" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
 
-                  <FormField control={form.control} name="unit" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-semibold">Unité de mesure</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="Kg">Kilogrammes (Kg)</SelectItem>
-                          <SelectItem value="Litres">Litres (L)</SelectItem>
-                          <SelectItem value="Cartons">Cartons</SelectItem>
-                          <SelectItem value="Boîtes">Boîtes</SelectItem>
-                          <SelectItem value="Fûts">Fûts</SelectItem>
-                          <SelectItem value="Unités">Unités</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
+                      <FormField control={form.control} name={`waste_items.${index}.unit`} render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold">Unité</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Kg">Kilogrammes (Kg)</SelectItem>
+                              <SelectItem value="Litres">Litres (L)</SelectItem>
+                              <SelectItem value="Cartons">Cartons</SelectItem>
+                              <SelectItem value="Boîtes">Boîtes</SelectItem>
+                              <SelectItem value="Fûts">Fûts</SelectItem>
+                              <SelectItem value="Unités">Unités</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
 
-                <FormField control={form.control} name="packaging" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Type de Conditionnement</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Conditionnement" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Cartons fermés & scotchés">Cartons fermés & scotchés</SelectItem>
-                        <SelectItem value="Fûts étanches scellés">Fûts étanches scellés</SelectItem>
-                        <SelectItem value="Boîtes jaunes DASRI sécurisées">Boîtes jaunes DASRI sécurisées</SelectItem>
-                        <SelectItem value="Bacs plastiques fermés">Bacs plastiques fermés</SelectItem>
-                        <SelectItem value="Sacs étanches plombés">Sacs étanches plombés</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                    <FormField control={form.control} name={`waste_items.${index}.packaging`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">Conditionnement</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Conditionnement" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="Cartons fermés & scotchés">Cartons fermés & scotchés</SelectItem>
+                            <SelectItem value="Fûts étanches scellés">Fûts étanches scellés</SelectItem>
+                            <SelectItem value="Boîtes jaunes DASRI sécurisées">Boîtes jaunes DASRI sécurisées</SelectItem>
+                            <SelectItem value="Bacs plastiques fermés">Bacs plastiques fermés</SelectItem>
+                            <SelectItem value="Sacs étanches plombés">Sacs étanches plombés</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-                <FormField control={form.control} name="packaging_condition" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">État du Colisage à la Réception</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="État colis" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Conforme et scellé">Conforme et scellé</SelectItem>
-                        <SelectItem value="Emballage détérioré / Avec réserves">Emballage détérioré / Avec réserves</SelectItem>
-                        <SelectItem value="Fuite constatée / Reconditionné">Fuite constatée / Reconditionné</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                    <FormField control={form.control} name={`waste_items.${index}.packaging_condition`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">État du Colisage</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="État colis" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="Conforme et scellé">Conforme et scellé</SelectItem>
+                            <SelectItem value="Emballage détérioré / Avec réserves">Emballage détérioré / Avec réserves</SelectItem>
+                            <SelectItem value="Fuite constatée / Reconditionné">Fuite constatée / Reconditionné</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-                <FormField control={form.control} name="current_location" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Localisation / Zone Affectée</FormLabel>
-                    <FormControl><Input {...field} className="h-9 text-xs" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                    <FormField control={form.control} name={`waste_items.${index}.original_batch`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">N° Lot Fabricant d&apos;origine</FormLabel>
+                        <FormControl><Input {...field} placeholder="Optionnel" className="h-9 text-xs bg-background" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-                <FormField control={form.control} name="observations" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold">Observations & Réserves constatées</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        className="h-16 min-h-[64px] text-xs resize-none" 
-                        placeholder="Précisions éventuelles sur l'état des colis..." 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                    <FormField control={form.control} name={`waste_items.${index}.destruction_motive`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">Motif du Dépôt</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Motif" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="Péremption">Péremption</SelectItem>
+                            <SelectItem value="Détérioration physique / Casse">Détérioration physique / Casse</SelectItem>
+                            <SelectItem value="Rupture de chaîne de froid">Rupture de chaîne de froid</SelectItem>
+                            <SelectItem value="Rappel de lot fabricant">Rappel de lot fabricant</SelectItem>
+                            <SelectItem value="Non-conformité analytique">Non-conformité analytique</SelectItem>
+                            <SelectItem value="Autre">Autre</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-              </CardContent>
-            </Card>
+                    <FormField control={form.control} name={`waste_items.${index}.current_location`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">Localisation Affectée</FormLabel>
+                        <FormControl><Input {...field} className="h-9 text-xs bg-background" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* BOUTON AJOUT SUPPLÉMENTAIRE EN BAS */}
+            <div className="flex justify-center pt-1">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={handleAddWasteItem}
+                className="gap-2 border-dashed border-[#1B5C2E]/40 text-[#1B5C2E] hover:bg-[#1B5C2E]/5 w-full sm:w-auto h-9 text-xs font-bold"
+              >
+                <Plus className="h-4 w-4" /> Ajouter un autre déchet pour cette même structure
+              </Button>
+            </div>
 
           </div>
 
           {/* BANDEAU BAS D'ACTION */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" asChild className="h-10 text-xs px-4">
-              <Link href="/dashboard/waste">Annuler</Link>
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={isSaving}
-              className="h-10 text-xs font-bold px-6 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2"
-            >
-              {isSaving ? "Traitement..." : <><Save className="h-4 w-4" /> Valider la réception & Générer le document à signer</>}
-            </Button>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-border/70">
+            <div className="text-xs text-muted-foreground">
+              Total à réceptionner : <strong className="text-foreground">{fields.length} lot(s)</strong> pour environ <strong className="text-foreground">{totalQuantity.toFixed(2)} Kg/Unités</strong>.
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <Button type="button" variant="outline" asChild className="h-10 text-xs px-4">
+                <Link href="/dashboard/waste">Annuler</Link>
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSaving}
+                className="h-10 text-xs font-bold px-6 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2"
+              >
+                {isSaving ? "Traitement..." : <><Save className="h-4 w-4" /> Enregistrer ({fields.length} lot{fields.length > 1 ? 's' : ''}) & Générer l&apos;Attestation</>}
+              </Button>
+            </div>
           </div>
 
         </form>
@@ -704,7 +781,7 @@ export default function NewWasteReceptionPage() {
                 Attestation de Réception de Déchets Prête à Imprimer
               </DialogTitle>
               <Badge className="bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/20 text-[10px]">
-                Document Officiel de Décharge
+                {savedSlipData?.items?.length || 1} lot(s) de déchets
               </Badge>
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
@@ -742,7 +819,7 @@ export default function NewWasteReceptionPage() {
                 </div>
 
                 {/* TITRE CENTRAL */}
-                <div className="text-center py-1 bg-slate-50 rounded border border-slate-200">
+                <div className="text-center py-1.5 bg-slate-50 rounded border border-slate-200">
                   <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
                     ATTESTATION & BORDEREAU DE RÉCEPTION DE DÉCHETS PHARMACEUTIQUES
                   </h2>
@@ -794,16 +871,16 @@ export default function NewWasteReceptionPage() {
                       {savedSlipData.delivery_slip_ref || "Remise directe sur site"}
                     </p>
                     <p>
-                      <span className="text-slate-500">Conditionnement :</span>{" "}
-                      {savedSlipData.items[0]?.packaging}
+                      <span className="text-slate-500">Nombre de lots :</span>{" "}
+                      <strong>{savedSlipData.items.length} lot(s)</strong>
                     </p>
                     <p>
-                      <span className="text-slate-500">État du colisage :</span>{" "}
-                      <strong>{savedSlipData.items[0]?.packaging_condition}</strong>
+                      <span className="text-slate-500">Poids total estimé :</span>{" "}
+                      <strong>{savedSlipData.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités</strong>
                     </p>
                     <p>
-                      <span className="text-slate-500">Zone de stockage :</span>{" "}
-                      {savedSlipData.items[0]?.location}
+                      <span className="text-slate-500">Statut initial :</span>{" "}
+                      <span className="text-blue-700 font-semibold">Déclaré / En attente de destruction</span>
                     </p>
                   </div>
 
@@ -812,13 +889,13 @@ export default function NewWasteReceptionPage() {
                 {/* TABLEAU RÉCAPITULATIF DES DÉCHETS REÇUS */}
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    3. Détail des Déchets Réceptionnés
+                    3. Détail des Déchets Réceptionnés ({savedSlipData.items.length} lots)
                   </p>
                   <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
                     <thead className="bg-[#1B5C2E] text-white text-[11px]">
                       <tr>
                         <th className="p-2 border-r border-[#1B5C2E]/30">N° Lot Déchet</th>
-                        <th className="p-2 border-r border-[#1B5C2E]/30">Désignation & Catégorie</th>
+                        <th className="p-2 border-r border-[#1B5C2E]/30">Désignation & Classification</th>
                         <th className="p-2 border-r border-[#1B5C2E]/30">Conditionnement</th>
                         <th className="p-2 text-right">Poids / Quantité</th>
                       </tr>
@@ -843,6 +920,16 @@ export default function NewWasteReceptionPage() {
                           </td>
                         </tr>
                       ))}
+                      {savedSlipData.items.length > 1 && (
+                        <tr className="bg-slate-100 font-bold">
+                          <td colSpan={3} className="p-2 text-right border-r border-slate-300">
+                            TOTAL DÉPÔT ({savedSlipData.items.length} lots) :
+                          </td>
+                          <td className="p-2 text-right font-black text-[#1B5C2E]">
+                            {savedSlipData.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -854,7 +941,7 @@ export default function NewWasteReceptionPage() {
                     Attestation & Décharge Réglementaire
                   </p>
                   <p>
-                    L&apos;Agence Béninoise du Médicament (ABMed) atteste par la présente avoir réceptionné et vérifié ce jour les déchets et produits pharmaceutiques ci-dessus décrits. Ils sont consignés sous la responsabilité de l&apos;ABMed pour être détruits conformément aux normes environnementales et de santé publique nationales. La structure apportrice est déchargée de la détention physique de ces produits.
+                    L&apos;Agence Béninoise du Médicament (ABMed) atteste par la présente avoir réceptionné et vérifié ce jour les {savedSlipData.items.length} lot(s) de déchets et produits pharmaceutiques ci-dessus décrits. Ils sont consignés sous la garde et la responsabilité de l&apos;ABMed pour être détruits conformément aux normes environnementales et sanitaires nationales. La structure apportrice est déchargée de la détention physique de ces produits.
                   </p>
                 </div>
 
