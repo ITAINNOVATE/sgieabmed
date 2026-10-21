@@ -318,8 +318,12 @@ export function exportWasteReceptionSlipPDF(slipData: {
     quantity: number
     unit: string
     packaging?: string
+    packaging_type?: string
+    packages_count?: number
     location?: string
+    storage_location?: string
     observations?: string
+    rejection_reason?: string
   }>
 }) {
   const doc = new jsPDF()

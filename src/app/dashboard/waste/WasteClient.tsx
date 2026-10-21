@@ -397,10 +397,9 @@ export default function WasteClient({
                                     original_batch: batch.original_batch || "-",
                                     quantity: Number(batch.quantity) || 0,
                                     unit: batch.unit || "Kg",
-                                    packaging_type: batch.packaging_type || "Carton scellé",
-                                    packages_count: Number(batch.packages_count) || 1,
-                                    storage_location: batch.current_location || "MAGASIN DES DECHETS",
-                                    rejection_reason: batch.rejection_reason || "Péremption / Non-conformité"
+                                    packaging: batch.packaging_type || batch.packaging || "Carton scellé",
+                                    location: batch.current_location || "MAGASIN DES DECHETS",
+                                    observations: batch.rejection_reason || batch.notes || "Péremption / Non-conformité"
                                   }
                                 ]
                               })
