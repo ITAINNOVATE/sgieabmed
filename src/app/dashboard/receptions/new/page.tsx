@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 
 import { Button } from "@/components/ui/button"
@@ -464,11 +464,12 @@ const DEFAULT_VALIDATORS = [
   { id: 'v5', name: 'Jean DUPONT (Inspecteur Général)' },
 ]
 
-export default function NewReceptionPage() {
+function NewReceptionContent() {
   // État local pour les listes DCI/Dosage par produit (index échantillon -> tableau)
   const [dciLists, setDciLists] = React.useState<{dci: string, dosage: string}[][]>([[{ dci: '', dosage: '' }]])
   const [isSaving, setIsSaving] = useState(false)
   const [isDrafting, setIsDrafting] = useState(false)
+  const [receptionStatus, setReceptionStatus] = useState<string>("En attente")
   const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string, size?: string }>>([])
   const [isUploadingFile, setIsUploadingFile] = useState(false)
   const [validators, setValidators] = useState<{id: string, name: string}[]>(DEFAULT_VALIDATORS)
@@ -498,6 +499,7 @@ export default function NewReceptionPage() {
   }, [])
 
   const router = useRouter()
+  const nextSearchParams = useSearchParams()
   const supabase = createClient()
 
   const form = useForm<FormValues>({
@@ -525,8 +527,9 @@ export default function NewReceptionPage() {
   })
 
   // ─── Chargement d'une réception existante ──────────────────────────────
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-  const editId = searchParams?.get("id")
+  const editId = nextSearchParams.get("id") || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get("id") : null)
+  const watchedStatus = form.watch("status")
+  const isValidated = ["Validée", "Finalisé", "Finalisée"].includes(receptionStatus) || ["Validée", "Finalisé", "Finalisée"].includes(watchedStatus)
 
   React.useEffect(() => {
     if (!editId) return
@@ -535,19 +538,37 @@ export default function NewReceptionPage() {
       try {
         let sourceData: any = null
         let savedDciLists: any = null
+        let localStatus: string | null = null
+        let localValidatorName: string | null = null
+        let localValidationDate: string | null = null
 
-        // 1. Tenter depuis localStorage d'abord (détails complets avec DCI multiples)
+        // 1. Tenter depuis localStorage d'abord (détails complets avec DCI multiples + historique)
         try {
           const rawDetails = localStorage.getItem('reception_draft_details_' + editId)
           if (rawDetails) {
             const parsed = JSON.parse(rawDetails)
             sourceData = parsed.formData
             savedDciLists = parsed.dciLists
+            localStatus = parsed.status || parsed.formData?.status || null
+            localValidatorName = parsed.formData?.validator_name || null
+            localValidationDate = parsed.formData?.validation_date || null
+          }
+
+          const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+          const histMatch = historyRecords.find((r: any) => r.rec_number === editId || r.id === editId)
+          if (histMatch) {
+            if (["Validée", "Finalisé", "Finalisée"].includes(histMatch.status)) {
+              localStatus = "Validée"
+            } else if (!localStatus && histMatch.status) {
+              localStatus = histMatch.status
+            }
+            if (histMatch.validator_name) localValidatorName = histMatch.validator_name
+            if (histMatch.validation_date) localValidationDate = histMatch.validation_date
           }
         } catch (e) {}
 
-        // 2. Sinon tenter depuis Supabase
-        if (!sourceData) {
+        // 2. Vérifier également dans Supabase pour récupérer le statut à jour ou les données si absentes en local
+        try {
           const { data } = await supabase
             .from('receptions')
             .select('*')
@@ -555,35 +576,51 @@ export default function NewReceptionPage() {
             .maybeSingle()
           
           if (data) {
-            sourceData = data
-            if (Array.isArray(data.samples_data) && data.samples_data.length > 0 && data.samples_data[0]?.commercial_name) {
-              sourceData.samples = data.samples_data
-            } else {
-              // Charger les échantillons Supabase associés
-              const { data: sData } = await supabase
-                .from('samples')
-                .select('*')
-                .eq('reception_ref', data.rec_number)
-              
-              if (sData && sData.length > 0) {
-                sourceData.samples = sData.map(s => ({
-                  commercial_name: s.commercial_name || "",
-                  dci: s.dci || "",
-                  form: s.form || "",
-                  dosage: s.dosage || "",
-                  batch: s.batch_number || "",
-                  exp_date: s.expiry_date || "",
-                  qty: s.quantity || 1,
-                  unit: s.unit || "",
-                  category: s.category || "",
-                }))
+            if (["Validée", "Finalisé", "Finalisée"].includes(data.status)) {
+              localStatus = "Validée"
+            } else if (!localStatus && data.status) {
+              localStatus = data.status
+            }
+            if (data.validator_name) localValidatorName = data.validator_name
+            if (data.validation_date) localValidationDate = data.validation_date
+
+            if (!sourceData) {
+              sourceData = data
+              if (Array.isArray(data.samples_data) && data.samples_data.length > 0 && data.samples_data[0]?.commercial_name) {
+                sourceData.samples = data.samples_data
+              } else {
+                // Charger les échantillons Supabase associés
+                const { data: sData } = await supabase
+                  .from('samples')
+                  .select('*')
+                  .eq('reception_ref', data.rec_number)
+                
+                if (sData && sData.length > 0) {
+                  sourceData.samples = sData.map(s => ({
+                    commercial_name: s.commercial_name || "",
+                    dci: s.dci || "",
+                    form: s.form || "",
+                    dosage: s.dosage || "",
+                    batch: s.batch_number || "",
+                    exp_date: s.expiry_date || "",
+                    qty: s.quantity || 1,
+                    unit: s.unit || "",
+                    category: s.category || "",
+                  }))
+                }
               }
             }
           }
-        }
+        } catch (e) {}
 
-        // 3. Pré-remplir le formulaire avec les données restaurées
+        // 3. Pré-remplir le formulaire avec les données restaurées et le statut exact
         if (sourceData) {
+          const finalStatus = ["Validée", "Finalisé", "Finalisée"].includes(localStatus || sourceData.status || "")
+            ? "Validée"
+            : (localStatus || sourceData.status || "En attente de validation")
+
+          setReceptionStatus(finalStatus)
+
           form.reset({
             rec_number: sourceData.rec_number || editId,
             date_reception: sourceData.date_reception || new Date().toISOString().split('T')[0],
@@ -591,6 +628,7 @@ export default function NewReceptionPage() {
             ref_document: sourceData.ref_document || "",
             type_reception: sourceData.type_reception || "",
             inspector: sourceData.inspector || "Marie ADANDE",
+            status: finalStatus,
             supplier: sourceData.supplier || "",
             manufacturer: sourceData.manufacturer || "",
             country: sourceData.country || "",
@@ -603,8 +641,8 @@ export default function NewReceptionPage() {
             check_conform: !!sourceData.check_conform,
             anomalies: sourceData.anomalies || "",
             measures: sourceData.measures || "",
-            validator_name: sourceData.validator_name || "",
-            validation_date: sourceData.validation_date || "",
+            validator_name: localValidatorName || sourceData.validator_name || "",
+            validation_date: localValidationDate || sourceData.validation_date || "",
             samples: sourceData.samples && sourceData.samples.length > 0
               ? sourceData.samples
               : [{ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 }],
@@ -637,6 +675,9 @@ export default function NewReceptionPage() {
   // ─── Insertion & Persistance des détails ──────────────────────────────────
   const saveReceptionToSupabase = async (status: string) => {
     const values = form.getValues()
+    values.status = status
+    setReceptionStatus(status)
+    form.setValue("status", status)
     
     // Sauvegarder les détails complets du formulaire pour restauration exacte
     try {
@@ -809,6 +850,10 @@ export default function NewReceptionPage() {
 
   // ─── Sauvegarder (En instance de validation) ──────────────────────────────
   const onDraft = async () => {
+    if (isValidated) {
+      toast.info("Cette réception est déjà validée et ne peut plus être modifiée.")
+      return
+    }
     setIsDrafting(true)
     try {
       await saveReceptionToSupabase("En attente de validation")
@@ -825,6 +870,10 @@ export default function NewReceptionPage() {
 
   // ─── Soumettre la réception pour validation ───────────────────────────────
   const onSubmit = async () => {
+    if (isValidated) {
+      toast.info("Cette réception est déjà validée et ne peut plus être soumise à nouveau.")
+      return
+    }
     setIsSaving(true)
     try {
       await saveReceptionToSupabase("En attente de validation")
@@ -841,6 +890,10 @@ export default function NewReceptionPage() {
 
   // ─── Validation officielle par le responsable ──────────────────────────────
   const onValidateByValidator = async () => {
+    if (isValidated) {
+      toast.info("Cette réception est déjà validée.")
+      return
+    }
     setIsSaving(true)
     try {
       await saveReceptionToSupabase("Validée")
@@ -928,8 +981,19 @@ export default function NewReceptionPage() {
             <Link href="/dashboard/receptions"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <h2 className="text-xl font-bold tracking-tight">Nouvelle Réception</h2>
-            <p className="text-muted-foreground text-xs">Formulaire de contrôle et d'enregistrement</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight">
+                {editId ? `Réception ${form.watch("rec_number") || editId}` : "Nouvelle Réception"}
+              </h2>
+              {isValidated && (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 text-xs font-bold">
+                  Validée / Finalisée
+                </Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {isValidated ? "Consultation d'une réception déjà validée (lecture seule)" : "Formulaire de contrôle et d'enregistrement"}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -939,27 +1003,44 @@ export default function NewReceptionPage() {
           <Button type="button" variant="ghost" onClick={handleExportPDF}>
             <Download className="mr-2 h-4 w-4" /> PDF
           </Button>
-          <Button type="button" variant="secondary" onClick={onDraft} disabled={isDrafting}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onDraft}
+            disabled={isDrafting || isValidated}
+            className={isValidated ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}
+            title={isValidated ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
+          >
             <Save className="mr-2 h-4 w-4" />
             {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
           </Button>
-          <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white">
+          <Button
+            type="button"
+            onClick={() => onSubmit()}
+            disabled={isSaving || isValidated}
+            className={
+              isValidated
+                ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
+                : "shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white"
+            }
+            title={isValidated ? "Cette réception est déjà validée et ne peut plus être soumise à nouveau." : ""}
+          >
             {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Soumettre la réception</>}
           </Button>
-          {form.watch("status") === "En attente de validation" || form.watch("status") === "Soumise" ? (
+          {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
             <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
               {isSaving ? "Validation..." : <><ShieldCheck className="mr-2 h-4 w-4" /> Valider la réception</>}
             </Button>
           ) : (
-            <Button type="button" disabled className="bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title="Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception.">
-              <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground/60" /> Valider la réception
+            <Button type="button" disabled className="bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title={isValidated ? "Cette réception est déjà validée." : "Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception."}>
+              <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground/60" /> {isValidated ? "Réception Validée" : "Valider la réception"}
             </Button>
           )}
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={(e) => { if (isValidated) { e.preventDefault(); return; } form.handleSubmit(onSubmit)(e) }} className="space-y-8">
           
           <div className="grid lg:grid-cols-2 gap-6">
             
@@ -1393,20 +1474,37 @@ export default function NewReceptionPage() {
 
           {/* BOUTONS EN BAS */}
           <div className="flex flex-wrap justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onDraft} disabled={isDrafting} className="gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onDraft}
+              disabled={isDrafting || isValidated}
+              className={`gap-2 ${isValidated ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
+              title={isValidated ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
+            >
               <Save className="h-4 w-4" />
               {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
             </Button>
-            <Button type="button" onClick={() => onSubmit()} disabled={isSaving} className="gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white">
+            <Button
+              type="button"
+              onClick={() => onSubmit()}
+              disabled={isSaving || isValidated}
+              className={
+                isValidated
+                  ? "gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
+                  : "gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white"
+              }
+              title={isValidated ? "Cette réception est déjà validée et ne peut plus être soumise à nouveau." : ""}
+            >
               {isSaving ? "Soumission..." : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
             </Button>
-            {form.watch("status") === "En attente de validation" || form.watch("status") === "Soumise" ? (
+            {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
               <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
                 {isSaving ? "Validation..." : <><ShieldCheck className="h-4 w-4" /> Valider la réception</>}
               </Button>
             ) : (
-              <Button type="button" disabled className="gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title="Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception.">
-                <ShieldCheck className="h-4 w-4 text-muted-foreground/60" /> Valider la réception
+              <Button type="button" disabled className="gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title={isValidated ? "Cette réception est déjà validée." : "Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception."}>
+                <ShieldCheck className="h-4 w-4 text-muted-foreground/60" /> {isValidated ? "Réception Validée" : "Valider la réception"}
               </Button>
             )}
           </div>
@@ -1416,3 +1514,12 @@ export default function NewReceptionPage() {
     </div>
   )
 }
+
+export default function NewReceptionPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Chargement de la réception...</div>}>
+      <NewReceptionContent />
+    </Suspense>
+  )
+}
+
