@@ -1,18 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Users, UserCheck, UserX, Shield, KeyRound,
-  FileText, Activity, ShieldCheck
+  Activity
 } from "lucide-react"
 import { 
   getUsers, getRoles, getLoginLogs,
   User, UserRole, LoginLog 
 } from "./adminMockData"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -20,20 +21,27 @@ export default function AdminDashboardPage() {
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      const [u, r, l] = await Promise.all([
-        getUsers(),
-        getRoles(),
-        getLoginLogs()
-      ])
-      setUsers(u)
-      setRoles(r)
-      setLoginLogs(l)
-      setLoading(false)
-    }
-    load()
+  const load = useCallback(async () => {
+    const [u, r, l] = await Promise.all([
+      getUsers(),
+      getRoles(),
+      getLoginLogs()
+    ])
+    setUsers(u)
+    setRoles(r)
+    setLoginLogs(l)
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  useRealtimeSync({
+    tables: ['profiles', 'audit_logs'],
+    onSync: load,
+    pollIntervalMs: 5000,
+  })
 
   if (loading) {
     return <div className="text-center py-6 text-xs text-muted-foreground">Chargement des données d'administration...</div>

@@ -3,15 +3,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { 
-  Box, Clock, Filter, Calendar, AlertTriangle, 
-  Inbox, ShieldAlert, Beaker
+  Box, Clock, AlertTriangle, 
+  Inbox, ShieldAlert, Beaker, RefreshCw
 } from "lucide-react"
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, Tooltip as RechartsTooltip
 } from "recharts"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const QRCodeScannerDialog = dynamic(
   () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
@@ -22,34 +24,152 @@ const STATUT_COLORS = ['#2E7D32', '#00897B', '#FB8C00', '#E53935']
 const CATEGORY_COLORS = ['#1B5C2E', '#1565C0', '#6A1B9A', '#E65100', '#00838F', '#C2185B']
 
 export default function DashboardClient({ 
-  samples, 
-  receptions,
+  samples: initialSamples = [], 
+  receptions: initialReceptions = [],
 }: { 
-  samples: any[], 
+  samples?: any[], 
   movements?: any[], 
   receptions?: any[],
   wasteBatches?: any[],
   destructions?: any[]
 }) {
   const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [samples, setSamples] = useState<any[]>(initialSamples)
+  const [receptions, setReceptions] = useState<any[]>(initialReceptions)
+  const [lastUpdated, setLastUpdated] = useState<string>("")
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  // ─── 1. CALCUL DES KPIs ÉCHANTILLONS SEULEMENT ──────────────────────────
-  const activeSamples = samples.filter(s => s.status !== 'Détruit')
+  const loadDashboardData = useCallback(async () => {
+    if (typeof window === "undefined") return
+    setIsSyncing(true)
+
+    const isWiped = localStorage.getItem('all_data_wiped') === 'true'
+    let sampleOverrides: Record<string, any> = {}
+    try {
+      const ov = localStorage.getItem('local_sample_overrides')
+      if (ov) sampleOverrides = JSON.parse(ov)
+    } catch (e) {}
+
+    // 1. Chargement immédiat depuis localStorage (0ms)
+    const sampleMap = new Map<string, any>()
+    const receptionMap = new Map<string, any>()
+
+    if (!isWiped) {
+      try {
+        const localRecs = JSON.parse(localStorage.getItem('local_receptions_history') || '[]')
+        if (Array.isArray(localRecs)) {
+          localRecs.forEach((r: any) => {
+            const rKey = r.reception_number || r.id
+            if (rKey) receptionMap.set(rKey, r)
+            const sList = Array.isArray(r.samples) ? r.samples : (Array.isArray(r.samples_data) ? r.samples_data : [])
+            sList.forEach((s: any, idx: number) => {
+              const sid = s.sample_number || s.id || `${rKey}-${idx}`
+              const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
+              sampleMap.set(sid, {
+                id: sid,
+                sample_number: sid,
+                commercial_name: s.commercial_name || "Échantillon",
+                category: s.category || s.dosage_form || "Médicaments",
+                quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                status: ov.status || s.status || "Disponible",
+                expiry_date: s.expiry_date || null,
+              })
+            })
+          })
+        }
+      } catch (e) {}
+
+      if (sampleMap.size > 0 || receptionMap.size > 0) {
+        setSamples(Array.from(sampleMap.values()))
+        setReceptions(Array.from(receptionMap.values()))
+      }
+    }
+
+    // 2. Synchronisation temps réel avec Supabase Cloud
+    try {
+      const supabase = createClient()
+      const [sRes, rRes] = await Promise.all([
+        supabase.from('samples').select('*'),
+        supabase.from('receptions').select('*')
+      ])
+
+      if (rRes.data && rRes.data.length > 0) {
+        if (isWiped) localStorage.removeItem('all_data_wiped')
+        rRes.data.forEach((r: any) => {
+          const rKey = r.reception_number || r.id
+          if (rKey) receptionMap.set(rKey, r)
+          if (Array.isArray(r.samples_data)) {
+            r.samples_data.forEach((s: any, idx: number) => {
+              const sid = s.sample_number || s.id || `${rKey}-${idx}`
+              if (!sampleMap.has(sid)) {
+                const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
+                sampleMap.set(sid, {
+                  id: sid,
+                  sample_number: sid,
+                  commercial_name: s.commercial_name || "Échantillon",
+                  category: s.category || s.dosage_form || "Médicaments",
+                  quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                  status: ov.status || s.status || "Disponible",
+                  expiry_date: s.expiry_date || null,
+                })
+              }
+            })
+          }
+        })
+      }
+
+      if (sRes.data && sRes.data.length > 0) {
+        if (isWiped) localStorage.removeItem('all_data_wiped')
+        sRes.data.forEach((s: any) => {
+          const sid = s.sample_number || s.id
+          const ov = sampleOverrides[sid] || sampleOverrides[s.id] || {}
+          sampleMap.set(sid, {
+            ...s,
+            category: s.category || s.dosage_form || "Médicaments",
+            quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? 1),
+            status: ov.status || s.status || "Disponible",
+          })
+        })
+      }
+
+      setSamples(Array.from(sampleMap.values()))
+      setReceptions(Array.from(receptionMap.values()))
+      setLastUpdated(new Date().toLocaleTimeString('fr-FR'))
+    } catch (err) {
+      console.warn("Supabase fetch fallback in DashboardClient:", err)
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [loadDashboardData])
+
+  useRealtimeSync({
+    tables: ['samples', 'receptions', 'movements', 'inventories'],
+    onSync: loadDashboardData,
+    pollIntervalMs: 3500,
+  })
+
+  // ─── 1. CALCUL DES KPIs ÉCHANTILLONS EN TEMPS RÉEL ──────────────────────
+  const activeSamples = samples.filter(s => s.status !== 'Détruit' && (Number(s.quantity) || 0) >= 0)
   const totalSamples = activeSamples.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
-  const quarantineCount = activeSamples.filter(s => s.status === 'En quarantaine').length
+  const totalLotsCount = activeSamples.length
+  const quarantineCount = activeSamples.filter(s => (s.status || '').toLowerCase().includes('quarantaine')).length
   const expiringCount = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000)).length
   const totalReceptions = receptions?.length || 0
 
   const KPIData = [
-    { title: "ÉCHANTILLONS EN STOCK", value: totalSamples, trend: "+0.0%", isUp: true, icon: Box, color: "text-[#2E7D32]", bg: "bg-[#2E7D32]/10", sparkline: [totalSamples, totalSamples] },
-    { title: "RÉCEPTIONS DU MOIS", value: totalReceptions, trend: "+0.0%", isUp: true, icon: Inbox, color: "text-[#1565C0]", bg: "bg-[#1565C0]/10", sparkline: [totalReceptions, totalReceptions] },
-    { title: "LOTS EN QUARANTAINE", value: quarantineCount, trend: "0.0%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [quarantineCount, quarantineCount] },
-    { title: "EXPIRATIONS PROCHES (<30J)", value: expiringCount, trend: "0.0%", isUp: false, icon: ShieldAlert, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [expiringCount, expiringCount] },
+    { title: "ÉCHANTILLONS EN STOCK", value: `${totalSamples} (${totalLotsCount} lot${totalLotsCount > 1 ? 's' : ''})`, trend: "Temps réel", isUp: true, icon: Box, color: "text-[#2E7D32]", bg: "bg-[#2E7D32]/10", sparkline: [totalSamples, totalSamples] },
+    { title: "RÉCEPTIONS ENREGISTRÉES", value: totalReceptions, trend: "Temps réel", isUp: true, icon: Inbox, color: "text-[#1565C0]", bg: "bg-[#1565C0]/10", sparkline: [totalReceptions, totalReceptions] },
+    { title: "LOTS EN QUARANTAINE", value: quarantineCount, trend: quarantineCount > 0 ? "À traiter" : "Conforme", isUp: quarantineCount === 0, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [quarantineCount, quarantineCount] },
+    { title: "EXPIRATIONS PROCHES (<30J)", value: expiringCount, trend: expiringCount > 0 ? "Alerte" : "OK", isUp: expiringCount === 0, icon: ShieldAlert, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [expiringCount, expiringCount] },
   ]
 
   // ─── 2. REPARTITION PAR STATUT ──────────────────────────────────────────
-  const availableCount = activeSamples.filter(s => s.status === 'Disponible' || !s.status).length
-  const inAnalysisCount = activeSamples.filter(s => s.status === 'En analyse').length
+  const availableCount = activeSamples.filter(s => s.status === 'Disponible' || s.status === 'En stock' || !s.status).length
+  const inAnalysisCount = activeSamples.filter(s => (s.status || '').toLowerCase().includes('analyse')).length
   const expiredCount = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) < new Date()).length
 
   const samplesByStatus = [
@@ -61,7 +181,7 @@ export default function DashboardClient({
 
   // ─── 3. REPARTITION PAR CATÉGORIE D'ÉCHANTILLONS (DYNAMIQUE) ───────────
   const categoryCounts = activeSamples.reduce((acc: Record<string, number>, s) => {
-    const cat = s.category || 'Autres'
+    const cat = s.category || s.dosage_form || 'Autres'
     acc[cat] = (acc[cat] || 0) + (Number(s.quantity) || 1)
     return acc
   }, {})
@@ -109,6 +229,15 @@ export default function DashboardClient({
             Tableau de Bord & Statistiques Échantillons
           </h2>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Temps réel {lastUpdated ? `(${lastUpdated})` : ""}
+          </span>
+          <Button variant="outline" size="sm" onClick={loadDashboardData} className="h-6 text-[10px] px-2 gap-1">
+            <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} /> Actualiser
+          </Button>
+        </div>
       </div>
 
       {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
@@ -121,7 +250,7 @@ export default function DashboardClient({
                   <kpi.icon className={`h-3.5 w-3.5 ${kpi.color}`} strokeWidth={2.2} />
                 </div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                  {kpi.isUp ? '▲' : '▼'} {kpi.trend}
+                  {kpi.isUp ? '●' : '▲'} {kpi.trend}
                 </span>
               </div>
               <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider mt-1 mb-0.5">{kpi.title}</p>
@@ -174,8 +303,8 @@ export default function DashboardClient({
               </div>
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
-              <span className="text-muted-foreground font-medium">Total Échantillons</span>
-              <span className="font-bold text-foreground">2 348</span>
+              <span className="text-muted-foreground font-medium">Total Échantillons (Unités / Lots)</span>
+              <span className="font-bold text-foreground">{totalSamples} u ({totalLotsCount} lot{totalLotsCount > 1 ? 's' : ''})</span>
             </div>
           </CardContent>
         </Card>
@@ -213,7 +342,7 @@ export default function DashboardClient({
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
               <span className="text-muted-foreground font-medium">Catégories d'échantillons</span>
-              <span className="font-bold text-foreground">6 Référencées</span>
+              <span className="font-bold text-foreground">{Object.keys(categoryCounts).length} Référencée(s)</span>
             </div>
           </CardContent>
         </Card>
@@ -249,3 +378,4 @@ export default function DashboardClient({
     </div>
   )
 }
+

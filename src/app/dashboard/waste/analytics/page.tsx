@@ -1,14 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { 
-  Trash2, Clock, Flame, ShieldAlert, AlertTriangle
+  Trash2, Clock, Flame, ShieldAlert, AlertTriangle, RefreshCw
 } from "lucide-react"
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, Tooltip as RechartsTooltip
 } from "recharts"
 import Link from "next/link"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const WASTE_CATEGORIES_COLORS = ['#E53935', '#FB8C00', '#1E88E5', '#43A047']
 const WASTE_STATUS_COLORS = ['#1E88E5', '#FB8C00', '#43A047', '#D81B60', '#E53935']
@@ -16,34 +19,103 @@ const WASTE_STATUS_COLORS = ['#1E88E5', '#FB8C00', '#43A047', '#D81B60', '#E5393
 export default function WasteAnalyticsPage() {
   const [batches, setBatches] = useState<any[]>([])
   const [plans, setPlans] = useState<any[]>([])
+  const [lastUpdated, setLastUpdated] = useState<string>("")
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  useEffect(() => {
+  const loadWasteDashboardData = useCallback(async () => {
+    if (typeof window === "undefined") return
+    setIsSyncing(true)
+
+    const isWiped = localStorage.getItem('all_data_wiped') === 'true'
+    const batchMap = new Map<string, any>()
+    const planMap = new Map<string, any>()
+
+    // 1. Chargement immédiat depuis localStorage (0ms)
+    if (!isWiped) {
+      try {
+        const storedBatches = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
+        if (Array.isArray(storedBatches)) {
+          storedBatches.forEach((b: any) => {
+            const key = b.batch_number || b.id
+            if (key) batchMap.set(key, b)
+          })
+        }
+        const storedPlans = JSON.parse(localStorage.getItem('destruction_plans_custom_v1') || '[]')
+        if (Array.isArray(storedPlans)) {
+          storedPlans.forEach((p: any) => {
+            const key = p.plan_number || p.id
+            if (key) planMap.set(key, p)
+          })
+        }
+      } catch (e) {}
+
+      if (batchMap.size > 0 || planMap.size > 0) {
+        setBatches(Array.from(batchMap.values()))
+        setPlans(Array.from(planMap.values()))
+      }
+    }
+
+    // 2. Synchronisation en temps réel avec Supabase Cloud
     try {
-      const storedBatches = localStorage.getItem('waste_batches_custom_v1')
-      if (storedBatches) {
-        setBatches(JSON.parse(storedBatches) || [])
+      const supabase = createClient()
+      const [bRes, pRes] = await Promise.all([
+        supabase.from('waste_batches').select('*'),
+        supabase.from('destruction_plans').select('*')
+      ])
+
+      if (bRes.data && bRes.data.length > 0) {
+        if (isWiped) localStorage.removeItem('all_data_wiped')
+        bRes.data.forEach((b: any) => {
+          const key = b.batch_number || b.id
+          if (key) batchMap.set(key, { ...(batchMap.get(key) || {}), ...b })
+        })
       }
-      const storedPlans = localStorage.getItem('destruction_plans_custom_v1')
-      if (storedPlans) {
-        setPlans(JSON.parse(storedPlans) || [])
+
+      if (pRes.data && pRes.data.length > 0) {
+        if (isWiped) localStorage.removeItem('all_data_wiped')
+        pRes.data.forEach((p: any) => {
+          const key = p.plan_number || p.id
+          if (key) planMap.set(key, { ...(planMap.get(key) || {}), ...p })
+        })
       }
-    } catch (e) {}
+
+      setBatches(Array.from(batchMap.values()))
+      setPlans(Array.from(planMap.values()))
+      setLastUpdated(new Date().toLocaleTimeString('fr-FR'))
+    } catch (err) {
+      console.warn("Supabase fetch fallback in WasteAnalyticsPage:", err)
+    } finally {
+      setIsSyncing(false)
+    }
   }, [])
 
-  const totalWasteWeight = batches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0)
-  const plannedDestructionsCount = plans.filter(p => p.status === 'En préparation' || p.status === 'Validation Qualité' || p.status === 'Validation Responsable').length
-  const completedDestructionsCount = plans.filter(p => p.status === 'Exécuté').length
+  useEffect(() => {
+    loadWasteDashboardData()
+  }, [loadWasteDashboardData])
+
+  useRealtimeSync({
+    tables: ['waste_batches', 'destruction_plans', 'waste_movements', 'inventories'],
+    onSync: loadWasteDashboardData,
+    pollIntervalMs: 3500,
+  })
+
+  const activeBatches = batches.filter(b => b.status !== 'Détruit' && b.status !== 'detruit')
+  const totalWasteWeight = Math.round(activeBatches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) * 100) / 100
+  const totalAllWasteWeight = Math.round(batches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) * 100) / 100
+  const plannedDestructionsCount = plans.filter(p => p.status !== 'Exécuté' && p.status !== 'execute').length
+  const completedDestructionsCount = plans.filter(p => p.status === 'Exécuté' || p.status === 'execute').length
+  const capacityPct = totalWasteWeight > 0 ? Math.min(Math.round((totalWasteWeight / 1000) * 100), 100) : 0
 
   const KPIData = [
-    { title: "DÉCHETS EN STOCK", value: `${totalWasteWeight} kg`, trend: "+0.0%", isUp: true, icon: Trash2, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [totalWasteWeight, totalWasteWeight] },
-    { title: "DESTRUCTIONS PLANIFIÉES", value: `${plannedDestructionsCount} Lot(s)`, trend: "0.0%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [plannedDestructionsCount, plannedDestructionsCount] },
-    { title: "DESTRUCTIONS RÉALISÉES", value: `${completedDestructionsCount} Réalisée(s)`, trend: "+0.0%", isUp: true, icon: Flame, color: "text-[#43A047]", bg: "bg-[#43A047]/10", sparkline: [completedDestructionsCount, completedDestructionsCount] },
-    { title: "CAPACITÉ STOCKAGE DÉCHETS", value: totalWasteWeight > 0 ? "12%" : "0%", trend: "0.0%", isUp: false, icon: ShieldAlert, color: "text-[#1E88E5]", bg: "bg-[#1E88E5]/10", sparkline: [0, 0] },
+    { title: "DÉCHETS EN STOCK", value: `${totalWasteWeight} kg (${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''})`, trend: "Temps réel", isUp: true, icon: Trash2, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [totalWasteWeight, totalWasteWeight] },
+    { title: "DESTRUCTIONS PLANIFIÉES", value: `${plannedDestructionsCount} Plan(s)`, trend: plannedDestructionsCount > 0 ? "En cours" : "Aucun", isUp: plannedDestructionsCount === 0, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [plannedDestructionsCount, plannedDestructionsCount] },
+    { title: "DESTRUCTIONS RÉALISÉES", value: `${completedDestructionsCount} Réalisée(s)`, trend: "Temps réel", isUp: true, icon: Flame, color: "text-[#43A047]", bg: "bg-[#43A047]/10", sparkline: [completedDestructionsCount, completedDestructionsCount] },
+    { title: "CAPACITÉ STOCKAGE DÉCHETS", value: `${capacityPct}%`, trend: capacityPct < 80 ? "Normal" : "Élevé", isUp: capacityPct < 80, icon: ShieldAlert, color: "text-[#1E88E5]", bg: "bg-[#1E88E5]/10", sparkline: [capacityPct, capacityPct] },
   ]
 
   const categoryMap = batches.reduce((acc: Record<string, number>, b) => {
     const t = b.waste_type || 'Autres'
-    acc[t] = (acc[t] || 0) + (Number(b.quantity) || 1)
+    acc[t] = Math.round(((acc[t] || 0) + (Number(b.quantity) || 1)) * 100) / 100
     return acc
   }, {})
 
@@ -57,7 +129,7 @@ export default function WasteAnalyticsPage() {
       ]
 
   const statusMap = batches.reduce((acc: Record<string, number>, b) => {
-    const s = b.status || 'Déclaré'
+    const s = b.status || 'En stockage'
     acc[s] = (acc[s] || 0) + 1
     return acc
   }, {})
@@ -65,7 +137,7 @@ export default function WasteAnalyticsPage() {
   const wasteByStatus = Object.keys(statusMap).length > 0
     ? Object.entries(statusMap).map(([name, value]) => ({ name, value }))
     : [
-        { name: 'Déclarés', value: 0 },
+        { name: 'En stockage', value: 0 },
         { name: 'En contrôle', value: 0 },
         { name: 'Validés', value: 0 },
         { name: 'En attente destruction', value: 0 },
@@ -78,6 +150,13 @@ export default function WasteAnalyticsPage() {
       text: `${plannedDestructionsCount} plan(s) de destruction en cours de validation`,
       date: new Date().toLocaleDateString('fr-FR'),
       type: "warning"
+    })
+  }
+  if (activeBatches.length > 0) {
+    wasteAlerts.push({
+      text: `${activeBatches.length} lot(s) de déchets (${totalWasteWeight} kg) actuellement en stockage`,
+      date: new Date().toLocaleDateString('fr-FR'),
+      type: "info"
     })
   }
   if (wasteAlerts.length === 0) {
@@ -99,6 +178,15 @@ export default function WasteAnalyticsPage() {
             Tableau de Bord & Statistiques Déchets
           </h2>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+            Temps réel {lastUpdated ? `(${lastUpdated})` : ""}
+          </span>
+          <Button variant="outline" size="sm" onClick={loadWasteDashboardData} className="h-6 text-[10px] px-2 gap-1">
+            <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} /> Actualiser
+          </Button>
+        </div>
       </div>
 
       {/* LIGNE 1 : KPIs DÉCHETS (4 CARTES COMPACTES) */}
@@ -111,7 +199,7 @@ export default function WasteAnalyticsPage() {
                   <kpi.icon className={`h-3.5 w-3.5 ${kpi.color}`} strokeWidth={2.2} />
                 </div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                  {kpi.isUp ? '▲' : '▼'} {kpi.trend}
+                  {kpi.isUp ? '●' : '▲'} {kpi.trend}
                 </span>
               </div>
               <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider mt-1 mb-0.5">{kpi.title}</p>
@@ -154,7 +242,7 @@ export default function WasteAnalyticsPage() {
                 {wasteByCategory.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between text-[9.5px]">
                     <div className="flex items-center gap-1 truncate">
-                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_CATEGORIES_COLORS[idx] }}></span>
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_CATEGORIES_COLORS[idx % WASTE_CATEGORIES_COLORS.length] }}></span>
                       <span className="text-muted-foreground truncate">{item.name}</span>
                     </div>
                     <span className="font-bold text-foreground ml-1">{item.value} kg</span>
@@ -164,7 +252,7 @@ export default function WasteAnalyticsPage() {
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
               <span className="text-muted-foreground font-medium">Masse Totale Déchets</span>
-              <span className="font-bold text-foreground">1 124 kg</span>
+              <span className="font-bold text-foreground">{totalAllWasteWeight} kg</span>
             </div>
           </CardContent>
         </Card>
@@ -192,7 +280,7 @@ export default function WasteAnalyticsPage() {
                 {wasteByStatus.slice(0, 4).map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between text-[9px]">
                     <div className="flex items-center gap-1 truncate">
-                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_STATUS_COLORS[idx] }}></span>
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_STATUS_COLORS[idx % WASTE_STATUS_COLORS.length] }}></span>
                       <span className="text-muted-foreground truncate">{item.name}</span>
                     </div>
                     <span className="font-bold text-foreground ml-1">{item.value}</span>
@@ -202,7 +290,7 @@ export default function WasteAnalyticsPage() {
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
               <span className="text-muted-foreground font-medium">Lots de Déchets Enregistrés</span>
-              <span className="font-bold text-foreground">65 Lots</span>
+              <span className="font-bold text-foreground">{batches.length} Lot(s)</span>
             </div>
           </CardContent>
         </Card>
@@ -233,3 +321,4 @@ export default function WasteAnalyticsPage() {
     </div>
   )
 }
+

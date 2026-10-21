@@ -1,4 +1,8 @@
-import { createClient } from "@/utils/supabase/server"
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,10 +14,9 @@ import {
   Trash2,
   CheckCircle2,
   Eye,
+  RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
-
-export const dynamic = "force-dynamic"
 
 type AlertSeverity = "critique" | "avertissement" | "info"
 
@@ -85,63 +88,204 @@ function AlertCard({ alert }: { alert: AlertItem }) {
   )
 }
 
-export default async function AlertsPage() {
-  let alerts: AlertItem[] = []
-  
-  try {
-    const supabase = await createClient()
-    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    const nowIso = new Date().toISOString()
+export default function AlertsPage() {
+  const [alerts, setAlerts] = useState<AlertItem[]>([])
+  const [resolvedCount, setResolvedCount] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
 
-    const [{ data: expiredSamples }, { data: expiringSamples }, { data: quarantineSamples }] = await Promise.all([
-      supabase.from('samples').select('*').lt('expiry_date', nowIso).limit(10),
-      supabase.from('samples').select('*').gte('expiry_date', nowIso).lte('expiry_date', thirtyDaysLater).limit(10),
-      supabase.from('samples').select('*').eq('status', 'En quarantaine').limit(10),
-    ])
+  const loadAlerts = useCallback(async () => {
+    if (typeof window === "undefined") return
+    setIsSyncing(true)
 
-    if (expiredSamples && expiredSamples.length > 0) {
-      expiredSamples.forEach(s => {
-        alerts.push({
-          id: `exp-${s.id}`,
-          severity: 'critique',
-          icon: CalendarX,
-          title: `Échantillon périmé : ${s.commercial_name}`,
-          description: `Le lot N°${s.batch_number || 'N/A'} est périmé depuis le ${s.expiry_date} et doit être isolé.`,
-          time: 'Aujourd\'hui',
-          badgeLabel: 'Péremption',
-          href: '/dashboard/samples'
-        })
-      })
+    const isWiped = localStorage.getItem('all_data_wiped') === 'true'
+    let sampleOverrides: Record<string, any> = {}
+    try {
+      const ov = localStorage.getItem('local_sample_overrides')
+      if (ov) sampleOverrides = JSON.parse(ov)
+    } catch (e) {}
+
+    const sampleMap = new Map<string, any>()
+    const wasteMap = new Map<string, any>()
+    const planMap = new Map<string, any>()
+
+    if (!isWiped) {
+      try {
+        const localRecs = JSON.parse(localStorage.getItem('local_receptions_history') || '[]')
+        if (Array.isArray(localRecs)) {
+          localRecs.forEach((r: any) => {
+            const sList = Array.isArray(r.samples) ? r.samples : (Array.isArray(r.samples_data) ? r.samples_data : [])
+            sList.forEach((s: any, idx: number) => {
+              const sid = s.sample_number || s.id || `${r.id}-${idx}`
+              const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
+              sampleMap.set(sid, {
+                id: sid,
+                sample_number: sid,
+                commercial_name: s.commercial_name || "Échantillon",
+                batch_number: s.batch_number || "N/A",
+                status: ov.status || s.status || "Disponible",
+                expiry_date: s.expiry_date || null,
+              })
+            })
+          })
+        }
+        const localWaste = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
+        if (Array.isArray(localWaste)) {
+          localWaste.forEach((w: any) => {
+            const k = w.batch_number || w.id
+            if (k) wasteMap.set(k, w)
+          })
+        }
+        const localPlans = JSON.parse(localStorage.getItem('destruction_plans_custom_v1') || '[]')
+        if (Array.isArray(localPlans)) {
+          localPlans.forEach((p: any) => {
+            const k = p.plan_number || p.id
+            if (k) planMap.set(k, p)
+          })
+        }
+      } catch (e) {}
     }
 
-    if (expiringSamples && expiringSamples.length > 0) {
-      alerts.push({
+    try {
+      const supabase = createClient()
+      const [sRes, rRes, wRes, dRes] = await Promise.all([
+        supabase.from('samples').select('*'),
+        supabase.from('receptions').select('*'),
+        supabase.from('waste_batches').select('*'),
+        supabase.from('destruction_plans').select('*'),
+      ])
+
+      if (rRes.data && rRes.data.length > 0) {
+        rRes.data.forEach((r: any) => {
+          if (Array.isArray(r.samples_data)) {
+            r.samples_data.forEach((s: any, idx: number) => {
+              const sid = s.sample_number || s.id || `${r.id}-${idx}`
+              if (!sampleMap.has(sid)) {
+                const ov = sampleOverrides[sid] || {}
+                sampleMap.set(sid, {
+                  id: sid,
+                  sample_number: sid,
+                  commercial_name: s.commercial_name || "Échantillon",
+                  batch_number: s.batch_number || "N/A",
+                  status: ov.status || s.status || "Disponible",
+                  expiry_date: s.expiry_date || null,
+                })
+              }
+            })
+          }
+        })
+      }
+
+      if (sRes.data && sRes.data.length > 0) {
+        sRes.data.forEach((s: any) => {
+          const sid = s.sample_number || s.id
+          const ov = sampleOverrides[sid] || sampleOverrides[s.id] || {}
+          sampleMap.set(sid, {
+            ...s,
+            status: ov.status || s.status || "Disponible",
+          })
+        })
+      }
+
+      if (wRes.data && wRes.data.length > 0) {
+        wRes.data.forEach((w: any) => {
+          const k = w.batch_number || w.id
+          if (k) wasteMap.set(k, w)
+        })
+      }
+
+      if (dRes.data && dRes.data.length > 0) {
+        dRes.data.forEach((d: any) => {
+          const k = d.plan_number || d.id
+          if (k) planMap.set(k, d)
+        })
+      }
+    } catch (err) {
+      console.warn("Erreur chargement alertes:", err)
+    }
+
+    const allSamples = Array.from(sampleMap.values()).filter(s => s.status !== 'Détruit')
+    const allWaste = Array.from(wasteMap.values())
+    const allPlans = Array.from(planMap.values())
+
+    const now = Date.now()
+    const thirtyDaysLater = now + 30 * 24 * 60 * 60 * 1000
+    const nextAlerts: AlertItem[] = []
+
+    const expiredSamples = allSamples.filter(s => s.expiry_date && new Date(s.expiry_date).getTime() < now)
+    expiredSamples.slice(0, 10).forEach(s => {
+      nextAlerts.push({
+        id: `exp-${s.id}`,
+        severity: 'critique',
+        icon: CalendarX,
+        title: `Échantillon périmé : ${s.commercial_name}`,
+        description: `Le lot N°${s.batch_number || 'N/A'} est périmé depuis le ${s.expiry_date} et doit être isolé.`,
+        time: "Aujourd'hui",
+        badgeLabel: 'Péremption',
+        href: '/dashboard/samples'
+      })
+    })
+
+    const expiringSamples = allSamples.filter(s => {
+      if (!s.expiry_date) return false
+      const t = new Date(s.expiry_date).getTime()
+      return t >= now && t <= thirtyDaysLater
+    })
+    if (expiringSamples.length > 0) {
+      nextAlerts.push({
         id: 'expiring-soon',
         severity: 'avertissement',
         icon: CalendarClock,
         title: `${expiringSamples.length} lot(s) arrivent à péremption sous 30 jours`,
         description: 'Veuillez planifier leur réévaluation ou mise en destruction prochaine.',
-        time: 'Aujourd\'hui',
+        time: "Aujourd'hui",
         badgeLabel: 'J-30',
         href: '/dashboard/samples'
       })
     }
 
-    if (quarantineSamples && quarantineSamples.length > 0) {
-      alerts.push({
+    const quarantineSamples = allSamples.filter(s => (s.status || '').toLowerCase().includes('quarantaine'))
+    if (quarantineSamples.length > 0) {
+      nextAlerts.push({
         id: 'quarantine-active',
         severity: 'critique',
         icon: ShieldAlert,
-        title: `${quarantineSamples.length} lot(s) placés en quarantaine`,
+        title: `${quarantineSamples.length} lot(s) d'échantillons placés en quarantaine`,
         description: 'En attente de libération ou décision du responsable qualité.',
         time: 'En cours',
         badgeLabel: 'Quarantaine',
         href: '/dashboard/samples'
       })
     }
-  } catch (err) {
-    console.warn("Erreur chargement alertes:", err)
-  }
+
+    const pendingWaste = allWaste.filter(w => w.status !== 'Détruit' && w.status !== 'detruit')
+    if (pendingWaste.length > 0) {
+      nextAlerts.push({
+        id: 'waste-pending',
+        severity: 'info',
+        icon: Trash2,
+        title: `${pendingWaste.length} lot(s) de déchets en stockage`,
+        description: 'En attente de planification ou d\'exécution de destruction.',
+        time: 'En cours',
+        badgeLabel: 'Déchets',
+        href: '/dashboard/waste'
+      })
+    }
+
+    const executedPlans = allPlans.filter(p => p.status === 'Exécuté' || p.status === 'execute').length
+    setResolvedCount(executedPlans)
+    setAlerts(nextAlerts)
+    setIsSyncing(false)
+  }, [])
+
+  useEffect(() => {
+    loadAlerts()
+  }, [loadAlerts])
+
+  useRealtimeSync({
+    tables: ['samples', 'receptions', 'waste_batches', 'destruction_plans', 'movements'],
+    onSync: loadAlerts,
+    pollIntervalMs: 4000,
+  })
 
   const critiques = alerts.filter(a => a.severity === 'critique')
   const avertissements = alerts.filter(a => a.severity === 'avertissement')
@@ -159,6 +303,9 @@ export default async function AlertsPage() {
           </h2>
           <p className="text-muted-foreground text-xs">Surveillance en temps réel des anomalies, échéances et non-conformités réglementaires.</p>
         </div>
+        <Button variant="outline" size="sm" onClick={loadAlerts} className="h-7 text-xs gap-1">
+          <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} /> Actualiser
+        </Button>
       </div>
 
       {/* KPIS COMPACTS SANS SCROLL */}
@@ -197,8 +344,8 @@ export default async function AlertsPage() {
           <CardContent className="p-2.5 flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></div>
             <div>
-              <p className="text-[9px] font-bold uppercase text-muted-foreground">Total Traitées</p>
-              <h3 className="text-lg font-black text-foreground">18</h3>
+              <p className="text-[9px] font-bold uppercase text-muted-foreground">Destructions Exécutées</p>
+              <h3 className="text-lg font-black text-foreground">{resolvedCount}</h3>
             </div>
           </CardContent>
         </Card>
@@ -222,3 +369,4 @@ export default async function AlertsPage() {
     </div>
   )
 }
+

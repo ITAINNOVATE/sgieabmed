@@ -27,6 +27,7 @@ import {
   getLocalShelves, saveLocalShelf, updateLocalShelf, deleteLocalShelf,
   StorageRoom, StorageZone, StorageCabinet, StorageShelf
 } from "@/utils/locations-storage"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 interface Room    { id: string; name: string; description?: string }
 interface Zone    { id: string; name: string; room_id: string }
@@ -435,7 +436,7 @@ export default function LocationsPage() {
         supabase.from('zones').select('*').order('name'),
         supabase.from('cabinets').select('*').order('name'),
         supabase.from('shelves').select('*').order('name'),
-        supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id').neq('is_deleted', true),
+        supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id, storage_location'),
       ])
       if (r) remoteR = r
       if (z) remoteZ = z
@@ -492,6 +493,17 @@ export default function LocationsPage() {
 
     if (typeof window !== "undefined") {
       try {
+        const localRecs = JSON.parse(localStorage.getItem('local_receptions_history') || '[]')
+        localRecs.forEach((rec: any) => {
+          const sList = Array.isArray(rec.samples) ? rec.samples : (Array.isArray(rec.samples_data) ? rec.samples_data : [])
+          sList.forEach((smp: any) => {
+            const sid = smp.id || smp.sample_number
+            if (sid && !sampleMap.has(sid)) {
+              sampleMap.set(sid, smp)
+            }
+          })
+        })
+
         const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
         historyRecords.forEach((rec: any) => {
           if (rec.samples && Array.isArray(rec.samples)) {
@@ -508,7 +520,7 @@ export default function LocationsPage() {
         Object.entries(overrides).forEach(([key, val]: [string, any]) => {
           if (sampleMap.has(key)) {
             sampleMap.set(key, { ...sampleMap.get(key), ...val })
-          } else if (val.shelf_id) {
+          } else if (val.shelf_id || val.storage_location) {
             sampleMap.set(key, { id: key, ...val })
           }
         })
@@ -562,6 +574,12 @@ export default function LocationsPage() {
   }, [supabase])
 
   useEffect(() => { loadData() }, [loadData])
+
+  useRealtimeSync({
+    tables: ['rooms', 'zones', 'cabinets', 'shelves', 'samples', 'receptions'],
+    onSync: loadData,
+    pollIntervalMs: 4000,
+  })
 
   const globalSamples  = rooms.reduce((a, r) => a + r.totalSamples, 0)
   const globalCapacity = rooms.reduce((a, r) => a + r.totalCapacity, 0)

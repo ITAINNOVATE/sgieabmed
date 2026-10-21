@@ -19,7 +19,7 @@ interface UseRealtimeSyncOptions {
 export function useRealtimeSync({
   tables,
   onSync,
-  pollIntervalMs = 8000,
+  pollIntervalMs = 4000,
   enabled = true,
 }: UseRealtimeSyncOptions) {
   const onSyncRef = useRef(onSync)
@@ -54,11 +54,13 @@ export function useRealtimeSync({
       }
     })
 
-    // 2. Polling périodique de sécurité (pour les environnements avec proxy/firewall limitant les WebSockets)
+    // 2. Polling périodique rapide (4s par défaut) pour garantir l'actualisation continue en temps réel
     const intervalId = setInterval(() => {
-      try {
-        onSyncRef.current()
-      } catch (e) {}
+      if (document.visibilityState === "visible") {
+        try {
+          onSyncRef.current()
+        } catch (e) {}
+      }
     }, pollIntervalMs)
 
     // 3. Réactualisation automatique quand l'utilisateur change d'onglet ou revient sur la fenêtre
@@ -75,25 +77,44 @@ export function useRealtimeSync({
       } catch (e) {}
     }
 
-    // 4. Écoute inter-onglets du même poste
+    // 4. Écoute inter-onglets et intra-application
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key && (e.key.includes("reception") || e.key.includes("waste") || e.key.includes("sample") || e.key.includes("destruction") || e.key.includes("mvt"))) {
+      if (
+        !e.key ||
+        e.key.includes("reception") ||
+        e.key.includes("waste") ||
+        e.key.includes("sample") ||
+        e.key.includes("destruction") ||
+        e.key.includes("mvt") ||
+        e.key.includes("movement") ||
+        e.key.includes("invent") ||
+        e.key.includes("sgie")
+      ) {
         try {
           onSyncRef.current()
         } catch (e) {}
       }
     }
 
+    const handleCustomUpdate = () => {
+      try {
+        onSyncRef.current()
+      } catch (e) {}
+    }
+
     window.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("focus", handleFocus)
     window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("eged-data-updated", handleCustomUpdate)
 
     return () => {
       clearInterval(intervalId)
       window.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("focus", handleFocus)
       window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("eged-data-updated", handleCustomUpdate)
       supabase.removeChannel(channel)
     }
   }, [tables.join(","), pollIntervalMs, enabled])
 }
+

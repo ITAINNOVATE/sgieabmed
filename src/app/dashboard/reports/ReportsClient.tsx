@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   BarChart,
@@ -47,8 +47,11 @@ import {
   FileSpreadsheet,
   FileOutput,
   TrendingUp,
+  RefreshCw,
 } from 'lucide-react'
 import { exportToCSV, exportToExcel, exportToPDF } from "@/utils/exportUtils"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 interface Sample {
   id: string
@@ -85,22 +88,180 @@ const PIE_COLORS = ['#1B5C2E', '#22c55e', '#f59e0b', '#ef4444']
 
 const MOCK_REPORTS: any[] = []
 
-export default function ReportsClient({ samples, movements, wasteBatches, destructions }: Props) {
+export default function ReportsClient({
+  samples: initialSamples = [],
+  movements: initialMovements = [],
+  wasteBatches: initialWaste = [],
+  destructions: initialDestructions = []
+}: Props) {
   const [reportType, setReportType] = useState('stock')
   const [period, setPeriod] = useState('month')
+  const [samples, setSamples] = useState<any[]>(initialSamples)
+  const [movements, setMovements] = useState<any[]>(initialMovements)
+  const [wasteBatches, setWasteBatches] = useState<any[]>(initialWaste)
+  const [destructions, setDestructions] = useState<any[]>(initialDestructions)
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  const totalStock = samples.length
+  const loadReportsData = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    setIsSyncing(true)
+
+    const isWiped = localStorage.getItem('all_data_wiped') === 'true'
+    let sampleOverrides: Record<string, any> = {}
+    try {
+      const ov = localStorage.getItem('local_sample_overrides')
+      if (ov) sampleOverrides = JSON.parse(ov)
+    } catch (e) {}
+
+    const sampleMap = new Map<string, any>()
+    const mvtMap = new Map<string, any>()
+    const wasteMap = new Map<string, any>()
+    const destMap = new Map<string, any>()
+
+    if (!isWiped) {
+      try {
+        const localRecs = JSON.parse(localStorage.getItem('local_receptions_history') || '[]')
+        if (Array.isArray(localRecs)) {
+          localRecs.forEach((r: any) => {
+            const sList = Array.isArray(r.samples) ? r.samples : (Array.isArray(r.samples_data) ? r.samples_data : [])
+            sList.forEach((s: any, idx: number) => {
+              const sid = s.sample_number || s.id || `${r.id}-${idx}`
+              const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
+              sampleMap.set(sid, {
+                id: sid,
+                sample_number: sid,
+                commercial_name: s.commercial_name || 'Échantillon',
+                quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                status: ov.status || s.status || 'Disponible',
+                storage_location: ov.storage_location || s.storage_location || 'Non assigné',
+              })
+            })
+          })
+        }
+        const localMvts = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+        if (Array.isArray(localMvts)) {
+          localMvts.forEach((m: any) => {
+            if (m.id) mvtMap.set(m.id, m)
+          })
+        }
+        const localWaste = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
+        if (Array.isArray(localWaste)) {
+          localWaste.forEach((w: any) => {
+            const k = w.batch_number || w.id
+            if (k) wasteMap.set(k, w)
+          })
+        }
+        const localDest = JSON.parse(localStorage.getItem('destruction_plans_custom_v1') || '[]')
+        if (Array.isArray(localDest)) {
+          localDest.forEach((d: any) => {
+            const k = d.plan_number || d.id
+            if (k) destMap.set(k, d)
+          })
+        }
+      } catch (e) {}
+
+      setSamples(Array.from(sampleMap.values()))
+      setMovements(Array.from(mvtMap.values()))
+      setWasteBatches(Array.from(wasteMap.values()))
+      setDestructions(Array.from(destMap.values()))
+    }
+
+    try {
+      const supabase = createClient()
+      const [sRes, rRes, mRes, wRes, dRes] = await Promise.all([
+        supabase.from('samples').select('*'),
+        supabase.from('receptions').select('*'),
+        supabase.from('movements').select('*'),
+        supabase.from('waste_batches').select('*'),
+        supabase.from('destruction_plans').select('*'),
+      ])
+
+      if (rRes.data && rRes.data.length > 0) {
+        rRes.data.forEach((r: any) => {
+          if (Array.isArray(r.samples_data)) {
+            r.samples_data.forEach((s: any, idx: number) => {
+              const sid = s.sample_number || s.id || `${r.id}-${idx}`
+              if (!sampleMap.has(sid)) {
+                const ov = sampleOverrides[sid] || {}
+                sampleMap.set(sid, {
+                  id: sid,
+                  sample_number: sid,
+                  commercial_name: s.commercial_name || 'Échantillon',
+                  quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                  status: ov.status || s.status || 'Disponible',
+                  storage_location: ov.storage_location || s.storage_location || 'Non assigné',
+                })
+              }
+            })
+          }
+        })
+      }
+
+      if (sRes.data && sRes.data.length > 0) {
+        sRes.data.forEach((s: any) => {
+          const sid = s.sample_number || s.id
+          const ov = sampleOverrides[sid] || sampleOverrides[s.id] || {}
+          sampleMap.set(sid, {
+            ...s,
+            quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? 1),
+            status: ov.status || s.status || 'Disponible',
+          })
+        })
+      }
+
+      if (mRes.data && mRes.data.length > 0) {
+        mRes.data.forEach((m: any) => {
+          if (m.id) mvtMap.set(m.id, m)
+        })
+      }
+
+      if (wRes.data && wRes.data.length > 0) {
+        wRes.data.forEach((w: any) => {
+          const k = w.batch_number || w.id
+          if (k) wasteMap.set(k, w)
+        })
+      }
+
+      if (dRes.data && dRes.data.length > 0) {
+        dRes.data.forEach((d: any) => {
+          const k = d.plan_number || d.id
+          if (k) destMap.set(k, d)
+        })
+      }
+
+      setSamples(Array.from(sampleMap.values()))
+      setMovements(Array.from(mvtMap.values()))
+      setWasteBatches(Array.from(wasteMap.values()))
+      setDestructions(Array.from(destMap.values()))
+    } catch (err) {
+      console.warn("Supabase fetch fallback in ReportsClient:", err)
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadReportsData()
+  }, [loadReportsData])
+
+  useRealtimeSync({
+    tables: ['samples', 'receptions', 'movements', 'waste_batches', 'destruction_plans', 'inventories'],
+    onSync: loadReportsData,
+    pollIntervalMs: 4000,
+  })
+
+  const totalStock = samples.reduce((acc, s) => acc + (Number(s.quantity) || 1), 0)
   const pendingWaste = wasteBatches.filter(w => w.status !== 'Détruit' && w.status !== 'detruit').length
   const completedDestructions = destructions.filter(d => d.status === 'Exécuté' || d.status === 'execute').length
-  const quarantineCount = samples.filter(s => s.status === 'Quarantaine' || s.status === 'quarantaine' || s.status === 'En quarantaine').length
-  const conformityRate = totalStock === 0 ? 100 : Math.round(((totalStock - quarantineCount) / totalStock) * 100)
+  const quarantineCount = samples.filter(s => (s.status || '').toLowerCase().includes('quarantaine')).length
+  const conformityRate = samples.length === 0 ? 100 : Math.round(((samples.length - quarantineCount) / samples.length) * 100)
 
   const movementsChartData = useMemo(() => {
     const counts = {
-      'Entrée': movements.filter(m => m.movement_type === 'Entrée').length,
-      'Sortie': movements.filter(m => m.movement_type === 'Sortie').length,
-      'Transfert': movements.filter(m => m.movement_type === 'Transfert').length,
-      'Quarantaine': movements.filter(m => (m.movement_type || '').includes('quarantaine')).length,
+      'Entrée': movements.filter(m => (m.movement_type || '').includes('Entrée') || (m.movement_type || '').includes('Réception')).length,
+      'Sortie': movements.filter(m => (m.movement_type || '').includes('Sortie') || (m.movement_type || '').includes('Prélèvement')).length,
+      'Transfert': movements.filter(m => (m.movement_type || '').includes('Transfert') || (m.movement_type || '').includes('Attribution') || (m.movement_type || '').includes('Correction')).length,
+      'Quarantaine': movements.filter(m => (m.movement_type || '').toLowerCase().includes('quarantaine')).length,
       'Destruction': movements.filter(m => (m.movement_type || '').includes('Destruction')).length,
     }
     return [
@@ -113,7 +274,7 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
   }, [movements])
 
   const sampleStatusData = useMemo(() => {
-    const inStock = samples.filter(s => s.status === 'Disponible' || !s.status).length
+    const inStock = samples.filter(s => s.status === 'Disponible' || s.status === 'En stock' || !s.status).length
     const quar = samples.filter(s => (s.status || '').toLowerCase().includes('quarantaine')).length
     const analysis = samples.filter(s => (s.status || '').toLowerCase().includes('analyse')).length
     const expired = samples.filter(s => (s.status || '').toLowerCase().includes('périmé') || (s.status || '').toLowerCase().includes('expire')).length
@@ -127,9 +288,46 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
   }, [samples])
 
   const handleExport = (format: string) => {
-    let exportData = [{ "Type": reportType, "Date": new Date().toLocaleDateString('fr-FR') }]
-    let headers = ["Type", "Date"]
-    let pdfRows = [[reportType, new Date().toLocaleDateString('fr-FR')]]
+    let headers: string[] = []
+    let exportData: Record<string, any>[] = []
+    let pdfRows: string[][] = []
+
+    if (reportType === 'stock') {
+      headers = ["N° Échantillon", "Produit", "Quantité", "Statut", "Emplacement"]
+      exportData = samples.map(s => ({
+        "N° Échantillon": s.sample_number || s.id,
+        "Produit": s.commercial_name || "-",
+        "Quantité": String(s.quantity ?? 1),
+        "Statut": s.status || "Disponible",
+        "Emplacement": s.storage_location || "Non assigné"
+      }))
+      pdfRows = exportData.map(r => headers.map(h => String(r[h] || '')))
+    } else if (reportType === 'movements') {
+      headers = ["Type", "Quantité", "Origine", "Destination", "Date"]
+      exportData = movements.map(m => ({
+        "Type": m.movement_type || "-",
+        "Quantité": String(m.quantity ?? 1),
+        "Origine": m.from_location || "-",
+        "Destination": m.to_location || "-",
+        "Date": m.created_at ? new Date(m.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')
+      }))
+      pdfRows = exportData.map(r => headers.map(h => String(r[h] || '')))
+    } else {
+      headers = ["N° Plan / Lot", "Statut", "Méthode / Type", "Quantité / Poids"]
+      exportData = destructions.map(d => ({
+        "N° Plan / Lot": d.plan_number || d.id,
+        "Statut": d.status || "-",
+        "Méthode / Type": d.destruction_method || "Incinération",
+        "Quantité / Poids": `${d.total_weight || 0} kg`
+      }))
+      pdfRows = exportData.map(r => headers.map(h => String(r[h] || '')))
+    }
+
+    if (exportData.length === 0) {
+      headers = ["Type", "Date", "Observation"]
+      exportData = [{ "Type": reportType, "Date": new Date().toLocaleDateString('fr-FR'), "Observation": "Aucune donnée sur la période" }]
+      pdfRows = [[reportType, new Date().toLocaleDateString('fr-FR'), "Aucune donnée sur la période"]]
+    }
 
     if (format === 'CSV') exportToCSV(exportData, headers, `rapport_${reportType}`)
     else if (format === 'Excel') exportToExcel(exportData, headers, `rapport_${reportType}`)
@@ -148,9 +346,12 @@ export default function ReportsClient({ samples, movements, wasteBatches, destru
             <BarChart3 className="h-5 w-5 text-[#1B5C2E]" />
             Générateur de Rapports & Statistiques
           </h2>
-          <p className="text-muted-foreground text-xs">Configuration, génération instantanée et synthèses graphiques de performance.</p>
+          <p className="text-muted-foreground text-xs">Configuration, génération instantanée et synthèses graphiques de performance en temps réel.</p>
         </div>
         <div className="flex items-center gap-1.5">
+          <Button variant="ghost" size="sm" onClick={loadReportsData} className="h-7 text-xs font-bold gap-1">
+            <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} /> Actualiser
+          </Button>
           <Button variant="outline" size="sm" onClick={() => handleExport('CSV')} className="h-7 text-xs font-bold gap-1">
             <Download className="h-3 w-3" /> CSV
           </Button>
