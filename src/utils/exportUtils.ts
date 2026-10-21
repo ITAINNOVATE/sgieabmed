@@ -269,9 +269,12 @@ export function exportWasteReceptionSlipPDF(slipData: {
   doc.text(`Contact : ${slipData.depositor_phone || 'N/A'} (ID: ${slipData.depositor_id_card || 'N/A'})`, 18, 92)
 
   // Section 2 : Réception ABMed & Transport (Cadre droit)
+  doc.setDrawColor(203, 213, 225)
+  doc.setFillColor(248, 250, 252)
   doc.roundedRect(108, 52, 88, 48, 2, 2, "FD")
 
   doc.setFontSize(9)
+  doc.setTextColor(15, 23, 42)
   doc.setFont("helvetica", "bold")
   doc.text("2. PRISE EN CHARGE ABMed", 112, 59)
   doc.line(112, 61, 192, 61)
@@ -365,8 +368,10 @@ export function exportWasteReceptionSlipPDF(slipData: {
   doc.text("Date & Signature :", 18, sigY + 26)
 
   // Signature ABMed
+  doc.setDrawColor(148, 163, 184)
   doc.roundedRect(110, sigY, 86, 38, 2, 2, "D")
   doc.setFontSize(8.5)
+  doc.setTextColor(15, 23, 42)
   doc.setFont("helvetica", "bold")
   doc.text("POUR L'ABMed (AGENT RÉCEPTEUR)", 114, sigY + 7)
   doc.setFontSize(7.5)
@@ -452,9 +457,12 @@ export function exportDestructionCertificatePDF(certData: {
   doc.text(`Réf. Dossier : ${certData.plan_number || 'DES-2026-0001'}`, 18, 86)
 
   // Section 2 : Détails de l'Opération de Destruction (Cadre droit)
+  doc.setDrawColor(203, 213, 225)
+  doc.setFillColor(248, 250, 252)
   doc.roundedRect(108, 52, 88, 46, 2, 2, "FD")
 
   doc.setFontSize(9)
+  doc.setTextColor(15, 23, 42)
   doc.setFont("helvetica", "bold")
   doc.text("2. DÉTAILS DE L'OPÉRATION", 112, 59)
   doc.line(112, 61, 192, 61)
