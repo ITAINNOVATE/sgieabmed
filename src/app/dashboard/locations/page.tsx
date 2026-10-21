@@ -18,12 +18,12 @@ import {
 } from "@/components/ui/accordion"
 import {
   MapPin, Plus, Building2, Layers3, Package, BookOpen,
-  AlertTriangle, CheckCircle2, TrendingUp, Loader2, RefreshCw, Lock, Trash2
+  AlertTriangle, CheckCircle2, TrendingUp, Loader2, RefreshCw, Lock, Trash2, Pencil
 } from "lucide-react"
 import {
-  getLocalRooms, saveLocalRoom, deleteLocalRoom,
-  getLocalZones, saveLocalZone, deleteLocalZone,
-  getLocalCabinets, saveLocalCabinet, deleteLocalCabinet,
+  getLocalRooms, saveLocalRoom, updateLocalRoom, deleteLocalRoom,
+  getLocalZones, saveLocalZone, updateLocalZone, deleteLocalZone,
+  getLocalCabinets, saveLocalCabinet, updateLocalCabinet, deleteLocalCabinet,
   getLocalShelves, saveLocalShelf, updateLocalShelf, deleteLocalShelf,
   StorageRoom, StorageZone, StorageCabinet, StorageShelf
 } from "@/utils/locations-storage"
@@ -585,6 +585,97 @@ export default function LocationsPage() {
   const globalCapacity = rooms.reduce((a, r) => a + r.totalCapacity, 0)
   const globalFull     = rooms.reduce((a, r) => a + r.fullShelves, 0)
 
+  const [editTarget, setEditTarget] = useState<{
+    type: 'room' | 'zone' | 'cabinet' | 'shelf'
+    id: string
+    name: string
+    description?: string
+    capacity_max?: string
+    is_full?: boolean
+  } | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openEditRoom = (e: React.MouseEvent, room: Room) => {
+    e.stopPropagation()
+    setEditTarget({
+      type: 'room',
+      id: room.id,
+      name: room.name,
+      description: room.description || '',
+    })
+  }
+
+  const openEditZone = (e: React.MouseEvent, zone: Zone) => {
+    e.stopPropagation()
+    setEditTarget({
+      type: 'zone',
+      id: zone.id,
+      name: zone.name,
+    })
+  }
+
+  const openEditCabinet = (cabinet: Cabinet) => {
+    setEditTarget({
+      type: 'cabinet',
+      id: cabinet.id,
+      name: cabinet.name,
+    })
+  }
+
+  const openEditShelf = (shelf: Shelf) => {
+    setEditTarget({
+      type: 'shelf',
+      id: shelf.id,
+      name: shelf.name,
+      capacity_max: shelf.capacity_max ? String(shelf.capacity_max) : '',
+      is_full: !!shelf.is_full,
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editTarget || !editTarget.name.trim()) return
+    setEditSaving(true)
+
+    const trimmedName = editTarget.name.trim()
+
+    if (editTarget.type === 'room') {
+      const trimmedDesc = editTarget.description?.trim() || undefined
+      updateLocalRoom(editTarget.id, { name: trimmedName, description: trimmedDesc })
+      Promise.race([
+        supabase.from('rooms').update({ name: trimmedName, description: trimmedDesc || null }).eq('id', editTarget.id),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+      toast.success(`Salle "${trimmedName}" modifiée avec succès`)
+    } else if (editTarget.type === 'zone') {
+      updateLocalZone(editTarget.id, { name: trimmedName })
+      Promise.race([
+        supabase.from('zones').update({ name: trimmedName }).eq('id', editTarget.id),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+      toast.success(`Zone "${trimmedName}" modifiée avec succès`)
+    } else if (editTarget.type === 'cabinet') {
+      updateLocalCabinet(editTarget.id, { name: trimmedName })
+      Promise.race([
+        supabase.from('cabinets').update({ name: trimmedName }).eq('id', editTarget.id),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+      toast.success(`Armoire "${trimmedName}" modifiée avec succès`)
+    } else if (editTarget.type === 'shelf') {
+      const cap = editTarget.capacity_max ? parseInt(editTarget.capacity_max) : null
+      const isFull = !!editTarget.is_full
+      updateLocalShelf(editTarget.id, { name: trimmedName, capacity_max: cap, is_full: isFull })
+      Promise.race([
+        supabase.from('shelves').update({ name: trimmedName, capacity_max: cap, is_full: isFull }).eq('id', editTarget.id),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+      ]).catch(() => {})
+      toast.success(`Étagère "${trimmedName}" modifiée avec succès`)
+    }
+
+    setEditSaving(false)
+    setEditTarget(null)
+    loadData()
+  }
+
   const handleDeleteRoom = (e: React.MouseEvent, roomId: string, name: string) => {
     e.stopPropagation()
     if (confirm(`Êtes-vous sûr de vouloir supprimer la salle "${name}" et tout son contenu ?`)) {
@@ -711,10 +802,19 @@ export default function LocationsPage() {
                       <h3 className="font-bold text-base">{room.name}</h3>
                       {room.description && <p className="text-xs text-muted-foreground">{room.description}</p>}
                     </div>
-                    <div className="flex items-center gap-3 mr-4">
+                    <div className="flex items-center gap-2 mr-4">
                       <Badge variant="outline" className="text-xs">{room.totalSamples} échantillons</Badge>
                       {room.fullShelves > 0 && <Badge variant="secondary" className="text-xs bg-red-50 text-red-700 border-red-200">{room.fullShelves} étagère{room.fullShelves > 1 ? 's' : ''} pleine{room.fullShelves > 1 ? 's' : ''}</Badge>}
                       <Badge variant="secondary" className="text-xs">{room.totalShelves} étagère{room.totalShelves !== 1 ? 's' : ''}</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
+                        title="Modifier la salle"
+                        onClick={(e) => openEditRoom(e, room)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -737,8 +837,17 @@ export default function LocationsPage() {
                           <div className="bg-muted/30 px-4 py-2.5 flex items-center gap-2">
                             <Layers3 className="h-4 w-4 text-muted-foreground" />
                             <span className="font-semibold text-sm">{zone.name}</span>
-                            <div className="ml-auto flex items-center gap-2">
+                            <div className="ml-auto flex items-center gap-1.5">
                               <Badge variant="outline" className="text-xs">{zone.cabinets.length} armoire{zone.cabinets.length !== 1 ? 's' : ''}</Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary rounded"
+                                title="Modifier la zone"
+                                onClick={(e) => openEditZone(e, zone)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -759,8 +868,17 @@ export default function LocationsPage() {
                                   <div className="flex items-center gap-2 mb-2">
                                     <Package className="h-4 w-4 text-blue-600" />
                                     <span className="font-medium text-sm">{cabinet.name}</span>
-                                    <div className="ml-auto flex items-center gap-2">
+                                    <div className="ml-auto flex items-center gap-1.5">
                                       <span className="text-xs text-muted-foreground">{cabinet.shelves.length} étagère{cabinet.shelves.length !== 1 ? 's' : ''}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-primary rounded"
+                                        title="Modifier l'armoire"
+                                        onClick={() => openEditCabinet(cabinet)}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -786,15 +904,26 @@ export default function LocationsPage() {
                                             </div>
                                             <ShelfOccupancyBar shelf={shelf} />
                                           </div>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 text-muted-foreground hover:text-red-600 rounded opacity-60 hover:opacity-100"
-                                            title="Supprimer l'étagère"
-                                            onClick={() => handleDeleteShelf(shelf.id, shelf.name)}
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
+                                          <div className="flex items-center gap-1">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 text-muted-foreground hover:text-primary rounded opacity-70 hover:opacity-100"
+                                              title="Modifier l'étagère"
+                                              onClick={() => openEditShelf(shelf)}
+                                            >
+                                              <Pencil className="h-3 w-3" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 text-muted-foreground hover:text-red-600 rounded opacity-60 hover:opacity-100"
+                                              title="Supprimer l'étagère"
+                                              onClick={() => handleDeleteShelf(shelf.id, shelf.name)}
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                          </div>
                                         </div>
                                       ))
                                     )}
@@ -813,6 +942,83 @@ export default function LocationsPage() {
           ))}
         </Accordion>
       )}
+
+      {/* Modal de modification (Salle, Zone, Armoire, Étagère) */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {editTarget?.type === 'room' && "Modifier la salle de stockage"}
+              {editTarget?.type === 'zone' && "Modifier la zone"}
+              {editTarget?.type === 'cabinet' && "Modifier l'armoire / réfrigérateur"}
+              {editTarget?.type === 'shelf' && "Modifier l'étagère / niveau"}
+            </DialogTitle>
+            <DialogDescription>
+              Mettez à jour les informations de cet emplacement.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editTarget && (
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label>Nom *</Label>
+                <Input
+                  value={editTarget.name}
+                  onChange={(e) => setEditTarget({ ...editTarget, name: e.target.value })}
+                  placeholder="Nom de l'emplacement"
+                />
+              </div>
+
+              {editTarget.type === 'room' && (
+                <div className="space-y-1">
+                  <Label>Description</Label>
+                  <Input
+                    value={editTarget.description || ''}
+                    onChange={(e) => setEditTarget({ ...editTarget, description: e.target.value })}
+                    placeholder="Description de la salle"
+                  />
+                </div>
+              )}
+
+              {editTarget.type === 'shelf' && (
+                <>
+                  <div className="space-y-1">
+                    <Label>Capacité maximale (optionnel)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editTarget.capacity_max || ''}
+                      onChange={(e) => setEditTarget({ ...editTarget, capacity_max: e.target.value })}
+                      placeholder="Ex: 50"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="shelf-is-full"
+                      checked={!!editTarget.is_full}
+                      onChange={(e) => setEditTarget({ ...editTarget, is_full: e.target.checked })}
+                      className="h-4 w-4 rounded border-border cursor-pointer"
+                    />
+                    <Label htmlFor="shelf-is-full" className="cursor-pointer text-xs font-medium">
+                      Marquer cette étagère comme complète (verrouillée)
+                    </Label>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Annuler</Button>
+            <Button onClick={handleSaveEdit} disabled={!editTarget?.name.trim() || editSaving}>
+              {editSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-﻿// src/utils/locations-storage.ts
+// src/utils/locations-storage.ts
 
 export interface StorageRoom {
   id: string
@@ -104,6 +104,13 @@ export function saveLocalRoom(name: string, description?: string): StorageRoom {
   return newRoom
 }
 
+export function updateLocalRoom(roomId: string, updates: Partial<StorageRoom>): void {
+  if (typeof window === "undefined") return
+  const current = getLocalRooms()
+  const updated = current.map(r => r.id === roomId ? { ...r, ...updates } : r)
+  localStorage.setItem(STORAGE_ROOMS_KEY, JSON.stringify(updated))
+}
+
 export function deleteLocalRoom(roomId: string): void {
   if (typeof window === "undefined") return
   const current = getLocalRooms().filter(r => r.id !== roomId)
@@ -145,6 +152,13 @@ export function saveLocalZone(name: string, roomId: string): StorageZone {
   return newZone
 }
 
+export function updateLocalZone(zoneId: string, updates: Partial<StorageZone>): void {
+  if (typeof window === "undefined") return
+  const current = getLocalZones()
+  const updated = current.map(z => z.id === zoneId ? { ...z, ...updates } : z)
+  localStorage.setItem(STORAGE_ZONES_KEY, JSON.stringify(updated))
+}
+
 export function deleteLocalZone(zoneId: string): void {
   if (typeof window === "undefined") return
   const current = getLocalZones().filter(z => z.id !== zoneId)
@@ -184,6 +198,13 @@ export function saveLocalCabinet(name: string, zoneId: string): StorageCabinet {
     localStorage.setItem(STORAGE_CABINETS_KEY, JSON.stringify(updated))
   }
   return newCabinet
+}
+
+export function updateLocalCabinet(cabinetId: string, updates: Partial<StorageCabinet>): void {
+  if (typeof window === "undefined") return
+  const current = getLocalCabinets()
+  const updated = current.map(c => c.id === cabinetId ? { ...c, ...updates } : c)
+  localStorage.setItem(STORAGE_CABINETS_KEY, JSON.stringify(updated))
 }
 
 export function deleteLocalCabinet(cabinetId: string): void {
