@@ -107,7 +107,7 @@ export default function WasteClient({
         packaging: lb.packaging || 'Carton',
         packaging_condition: lb.packaging_condition || 'Conforme',
         destruction_motive: lb.destruction_motive || 'Péremption',
-        current_location: lb.current_location || 'Zone de Quarantaine - Déchets',
+        current_location: lb.current_location || 'MAGASIN DES DECHETS',
         status: lb.status || 'Déclaré',
         observations: lb.observations || '',
       }))

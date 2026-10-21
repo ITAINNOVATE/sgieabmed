@@ -69,7 +69,7 @@ export default function WasteMovementsPage() {
           commercial_name: batch.commercial_name || '',
           quantity: `${batch.quantity} ${batch.unit || 'Kg'}`,
           operator: batch.recipient_agent || (batch.creator ? `${batch.creator.first_name} ${batch.creator.last_name}` : 'Marie ADANDE'),
-          destination: batch.current_location || 'Zone de Quarantaine - Déchets',
+          destination: batch.current_location || 'MAGASIN DES DECHETS',
           origin: batch.source_structure ? `${batch.source_structure} (${batch.depositor_name || 'Apporteur'})` : 'Établissement déposant',
           signature_hash: `SIG-REC-${batch.batch_number?.replace('DEC-', '') || 'VALIDATED'}`,
           reception_number: batch.reception_number || 'REC-DECH-2026',

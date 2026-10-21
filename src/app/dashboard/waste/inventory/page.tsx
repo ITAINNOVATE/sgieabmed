@@ -22,7 +22,7 @@ export default function WasteInventoryPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedInventory, setSelectedInventory] = useState<any>(null)
   const [isNewInventoryOpen, setIsNewInventoryOpen] = useState(false)
-  const [newLocation, setNewLocation] = useState("Zone de Quarantaine - Déchets")
+  const [newLocation, setNewLocation] = useState("MAGASIN DES DECHETS")
   const [newPhysicalWeight, setNewPhysicalWeight] = useState<string>("")
   const [newObservations, setNewObservations] = useState<string>("")
   const supabase = createClient()
@@ -317,11 +317,12 @@ export default function WasteInventoryPage() {
           <div className="space-y-3 pt-2 text-xs">
             <div>
               <label className="text-[11px] font-bold block mb-1">Zone de stockage à contrôler</label>
-              <Select value={newLocation} onValueChange={(val) => setNewLocation(val || "Zone de Quarantaine - Déchets")}>
+              <Select value={newLocation} onValueChange={(val) => setNewLocation(val || "MAGASIN DES DECHETS")}>
                 <SelectTrigger className="h-8 text-xs bg-background">
                   <SelectValue placeholder="Choisir la zone" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="MAGASIN DES DECHETS">MAGASIN DES DECHETS</SelectItem>
                   <SelectItem value="Zone de Quarantaine - Déchets">Zone de Quarantaine - Déchets</SelectItem>
                   <SelectItem value="Local Déchets A1">Local Déchets A1</SelectItem>
                   <SelectItem value="Local Déchets A2">Local Déchets A2</SelectItem>

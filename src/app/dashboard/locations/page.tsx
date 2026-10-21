@@ -503,6 +503,33 @@ export default function LocationsPage() {
             sampleMap.set(key, { id: key, ...val })
           }
         })
+
+        // Intégrer les lots de déchets stockés dans MAGASIN DES DECHETS
+        const wasteRoom = roomsData.find(r => r.id === 'room-magasin-dechets' || r.name.toUpperCase().includes('DECHET') || r.name.toUpperCase().includes('DÉCHET'))
+        let defaultWasteShelfId = 'shelf-dechets-1'
+        if (wasteRoom) {
+          const wZone = zonesData.find(z => z.room_id === wasteRoom.id)
+          const wCab = wZone ? cabinetsData.find(c => c.zone_id === wZone.id) : null
+          const wShelf = wCab ? shelvesData.find(sh => sh.cabinet_id === wCab.id) : null
+          if (wShelf) defaultWasteShelfId = wShelf.id
+        }
+
+        const localWaste = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
+        if (Array.isArray(localWaste)) {
+          localWaste.forEach((wb: any) => {
+            if (wb.status === 'Détruit' || wb.status === 'detruit') return
+            const wid = wb.batch_number || wb.id
+            if (wid && !sampleMap.has(wid)) {
+              sampleMap.set(wid, {
+                id: wid,
+                sample_number: wid,
+                commercial_name: wb.commercial_name || wb.waste_type || 'Lot Déchet',
+                status: wb.status || 'Déclaré',
+                shelf_id: wb.shelf_id || defaultWasteShelfId,
+              })
+            }
+          })
+        }
       } catch {}
     }
 
@@ -563,13 +590,23 @@ export default function LocationsPage() {
 
     // 2. Synchronisation silencieuse en arrière-plan depuis Supabase
     try {
-      const [{ data: r }, { data: z }, { data: c }, { data: s }, { data: samples }] = await Promise.all([
+      const [{ data: r }, { data: z }, { data: c }, { data: s }, { data: samples }, { data: waste }] = await Promise.all([
         supabase.from('rooms').select('*').order('name'),
         supabase.from('zones').select('*').order('name'),
         supabase.from('cabinets').select('*').order('name'),
         supabase.from('shelves').select('*').order('name'),
         supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id, storage_location'),
+        supabase.from('waste_batches').select('id, batch_number, commercial_name, waste_type, status, current_location'),
       ])
+      const mappedWaste = (waste || [])
+        .filter((wb: any) => wb.status !== 'Détruit' && wb.status !== 'detruit')
+        .map((wb: any) => ({
+          id: wb.batch_number || wb.id,
+          sample_number: wb.batch_number || wb.id,
+          commercial_name: wb.commercial_name || wb.waste_type || 'Lot Déchet',
+          status: wb.status || 'Déclaré',
+          shelf_id: 'shelf-dechets-1',
+        }))
       buildAndApplyHierarchy(
         localR,
         localZ,
@@ -579,7 +616,7 @@ export default function LocationsPage() {
         z || [],
         c || [],
         s || [],
-        samples || []
+        [...(samples || []), ...mappedWaste]
       )
     } catch {
       // Supabase inaccessible ou tables manquantes
@@ -589,7 +626,7 @@ export default function LocationsPage() {
   useEffect(() => { loadData() }, [loadData])
 
   useRealtimeSync({
-    tables: ['rooms', 'zones', 'cabinets', 'shelves', 'samples', 'receptions'],
+    tables: ['rooms', 'zones', 'cabinets', 'shelves', 'samples', 'receptions', 'waste_batches'],
     onSync: loadData,
     pollIntervalMs: 6000,
   })

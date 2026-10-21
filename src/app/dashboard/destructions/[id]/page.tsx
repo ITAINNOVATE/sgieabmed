@@ -316,7 +316,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           commercial_name: wb.commercial_name || '',
           quantity: `${item.quantity || wb.quantity || 1} ${wb.unit || 'Kg'}`,
           operator: plan.supervisor_name || 'Marie ADANDE (Resp. Déchets)',
-          origin: wb.current_location || 'Zone de Quarantaine - Déchets',
+          origin: wb.current_location || 'MAGASIN DES DECHETS',
           destination: plan.destruction_site || 'Centre d\'Incinération Agréé',
           certificate_number: certNum,
           source_structure: wb.source_structure || '',

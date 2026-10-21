@@ -40,21 +40,21 @@ export const STORAGE_SHELVES_KEY = "local_storage_shelves"
 export const DEFAULT_ROOMS: StorageRoom[] = [
   { id: "room-magasin-central", name: "Magasin Central", description: "Stockage principal à température ambiante" },
   { id: "room-chambre-froide", name: "Chambre Froide", description: "Stockage réfrigéré (2-8°C)" },
-  { id: "room-zone-quarantaine", name: "Zone Quarantaine", description: "Isolement et contrôle qualité" },
+  { id: "room-magasin-dechets", name: "MAGASIN DES DECHETS", description: "Stockage sécurisé et quarantaine des déchets pharmaceutiques" },
 ]
 
 export const DEFAULT_ZONES: StorageZone[] = [
   { id: "zone-mag-a", name: "Zone A (Réception)", room_id: "room-magasin-central" },
   { id: "zone-mag-b", name: "Zone B (Longue durée)", room_id: "room-magasin-central" },
   { id: "zone-froid-1", name: "Zone Froide 1", room_id: "room-chambre-froide" },
-  { id: "zone-quar-1", name: "Zone Contrôle", room_id: "room-zone-quarantaine" },
+  { id: "zone-dechets-1", name: "Zone Stockage Déchets", room_id: "room-magasin-dechets" },
 ]
 
 export const DEFAULT_CABINETS: StorageCabinet[] = [
   { id: "cab-mag-a1", name: "Armoire A1", zone_id: "zone-mag-a" },
   { id: "cab-mag-b1", name: "Armoire B1", zone_id: "zone-mag-b" },
   { id: "cab-ref-r1", name: "Réfrigérateur R1", zone_id: "zone-froid-1" },
-  { id: "cab-quar-q1", name: "Armoire Quarantaine Q1", zone_id: "zone-quar-1" },
+  { id: "cab-dechets-d1", name: "Casier Déchets D1", zone_id: "zone-dechets-1" },
 ]
 
 export const DEFAULT_SHELVES: StorageShelf[] = [
@@ -63,7 +63,7 @@ export const DEFAULT_SHELVES: StorageShelf[] = [
   { id: "shelf-b1-1", name: "Étagère B1-1", cabinet_id: "cab-mag-b1", capacity_max: 60, is_full: false },
   { id: "shelf-r1-1", name: "Niveau 1", cabinet_id: "cab-ref-r1", capacity_max: 30, is_full: false },
   { id: "shelf-r1-2", name: "Niveau 2", cabinet_id: "cab-ref-r1", capacity_max: 30, is_full: false },
-  { id: "shelf-q1-1", name: "Niveau Q1", cabinet_id: "cab-quar-q1", capacity_max: 25, is_full: false },
+  { id: "shelf-dechets-1", name: "Emplacement Déchets 1", cabinet_id: "cab-dechets-d1", capacity_max: 100, is_full: false },
 ]
 
 function generateId(prefix: string): string {
@@ -73,9 +73,74 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
 }
 
+function ensureMagasinDechetsMigrated(): void {
+  if (typeof window === "undefined") return
+  try {
+    if (localStorage.getItem("magasin_dechets_migrated_v1") === "true") return
+    const rawR = localStorage.getItem(STORAGE_ROOMS_KEY)
+    if (rawR) {
+      let rooms: StorageRoom[] = JSON.parse(rawR)
+      if (Array.isArray(rooms)) {
+        const idxQuar = rooms.findIndex(r => r.id === "room-zone-quarantaine")
+        const hasDechets = rooms.some(r => r.id === "room-magasin-dechets" || r.name.toUpperCase().includes("DECHET") || r.name.toUpperCase().includes("DÉCHET"))
+        if (idxQuar !== -1) {
+          rooms[idxQuar] = { id: "room-magasin-dechets", name: "MAGASIN DES DECHETS", description: "Stockage sécurisé et quarantaine des déchets pharmaceutiques" }
+        } else if (!hasDechets) {
+          rooms.push({ id: "room-magasin-dechets", name: "MAGASIN DES DECHETS", description: "Stockage sécurisé et quarantaine des déchets pharmaceutiques" })
+        }
+        localStorage.setItem(STORAGE_ROOMS_KEY, JSON.stringify(rooms))
+      }
+    }
+    const rawZ = localStorage.getItem(STORAGE_ZONES_KEY)
+    if (rawZ) {
+      let zones: StorageZone[] = JSON.parse(rawZ)
+      if (Array.isArray(zones)) {
+        const idxZ = zones.findIndex(z => z.id === "zone-quar-1" || z.room_id === "room-zone-quarantaine")
+        const hasZ = zones.some(z => z.id === "zone-dechets-1" || z.room_id === "room-magasin-dechets")
+        if (idxZ !== -1) {
+          zones[idxZ] = { id: "zone-dechets-1", name: "Zone Stockage Déchets", room_id: "room-magasin-dechets" }
+        } else if (!hasZ) {
+          zones.push({ id: "zone-dechets-1", name: "Zone Stockage Déchets", room_id: "room-magasin-dechets" })
+        }
+        localStorage.setItem(STORAGE_ZONES_KEY, JSON.stringify(zones))
+      }
+    }
+    const rawC = localStorage.getItem(STORAGE_CABINETS_KEY)
+    if (rawC) {
+      let cabs: StorageCabinet[] = JSON.parse(rawC)
+      if (Array.isArray(cabs)) {
+        const idxC = cabs.findIndex(c => c.id === "cab-quar-q1" || c.zone_id === "zone-quar-1")
+        const hasC = cabs.some(c => c.id === "cab-dechets-d1" || c.zone_id === "zone-dechets-1")
+        if (idxC !== -1) {
+          cabs[idxC] = { id: "cab-dechets-d1", name: "Casier Déchets D1", zone_id: "zone-dechets-1" }
+        } else if (!hasC) {
+          cabs.push({ id: "cab-dechets-d1", name: "Casier Déchets D1", zone_id: "zone-dechets-1" })
+        }
+        localStorage.setItem(STORAGE_CABINETS_KEY, JSON.stringify(cabs))
+      }
+    }
+    const rawS = localStorage.getItem(STORAGE_SHELVES_KEY)
+    if (rawS) {
+      let shelves: StorageShelf[] = JSON.parse(rawS)
+      if (Array.isArray(shelves)) {
+        const idxS = shelves.findIndex(s => s.id === "shelf-q1-1" || s.cabinet_id === "cab-quar-q1")
+        const hasS = shelves.some(s => s.id === "shelf-dechets-1" || s.cabinet_id === "cab-dechets-d1")
+        if (idxS !== -1) {
+          shelves[idxS] = { id: "shelf-dechets-1", name: "Emplacement Déchets 1", cabinet_id: "cab-dechets-d1", capacity_max: 100, is_full: false }
+        } else if (!hasS) {
+          shelves.push({ id: "shelf-dechets-1", name: "Emplacement Déchets 1", cabinet_id: "cab-dechets-d1", capacity_max: 100, is_full: false })
+        }
+        localStorage.setItem(STORAGE_SHELVES_KEY, JSON.stringify(shelves))
+      }
+    }
+    localStorage.setItem("magasin_dechets_migrated_v1", "true")
+  } catch {}
+}
+
 // ---- ROOMS ----
 export function getLocalRooms(): StorageRoom[] {
   if (typeof window === "undefined") return DEFAULT_ROOMS
+  ensureMagasinDechetsMigrated()
   try {
     const raw = localStorage.getItem(STORAGE_ROOMS_KEY)
     if (!raw) {
