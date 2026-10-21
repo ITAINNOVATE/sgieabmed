@@ -22,9 +22,9 @@ export default function WasteAnalyticsPage() {
   const [lastUpdated, setLastUpdated] = useState<string>("")
   const [isSyncing, setIsSyncing] = useState(false)
 
-  const loadWasteDashboardData = useCallback(async () => {
+  const loadWasteDashboardData = useCallback(async (manual = false) => {
     if (typeof window === "undefined") return
-    setIsSyncing(true)
+    if (manual === true) setIsSyncing(true)
 
     const isWiped = localStorage.getItem('all_data_wiped') === 'true'
     const batchMap = new Map<string, any>()
@@ -183,7 +183,7 @@ export default function WasteAnalyticsPage() {
             <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
             Temps réel {lastUpdated ? `(${lastUpdated})` : ""}
           </span>
-          <Button variant="outline" size="sm" onClick={loadWasteDashboardData} className="h-6 text-[10px] px-2 gap-1">
+          <Button variant="outline" size="sm" onClick={() => loadWasteDashboardData(true)} className="h-6 text-[10px] px-2 gap-1">
             <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} /> Actualiser
           </Button>
         </div>

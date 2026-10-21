@@ -39,9 +39,9 @@ export default function DashboardClient({
   const [lastUpdated, setLastUpdated] = useState<string>("")
   const [isSyncing, setIsSyncing] = useState(false)
 
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async (manual = false) => {
     if (typeof window === "undefined") return
-    setIsSyncing(true)
+    if (manual === true) setIsSyncing(true)
 
     const isWiped = localStorage.getItem('all_data_wiped') === 'true'
     let sampleOverrides: Record<string, any> = {}
@@ -234,7 +234,7 @@ export default function DashboardClient({
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Temps réel {lastUpdated ? `(${lastUpdated})` : ""}
           </span>
-          <Button variant="outline" size="sm" onClick={loadDashboardData} className="h-6 text-[10px] px-2 gap-1">
+          <Button variant="outline" size="sm" onClick={() => loadDashboardData(true)} className="h-6 text-[10px] px-2 gap-1">
             <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} /> Actualiser
           </Button>
         </div>

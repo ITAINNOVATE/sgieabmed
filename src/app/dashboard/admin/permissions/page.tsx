@@ -36,8 +36,8 @@ export default function PermissionsAdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [selectedRoleCode, setSelectedRoleCode] = useState("")
   const [selectedUserId, setSelectedUserId] = useState("")
-  const [permissions, setPermissions] = useState<DetailedPermissionRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [permissions, setPermissions] = useState<DetailedPermissionRow[]>(DEFAULT_DETAILED_PERMISSIONS)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // Filters & Search
@@ -62,7 +62,6 @@ export default function PermissionsAdminPage() {
   // Charge les permissions dès que la cible (rôle ou utilisateur) change
   useEffect(() => {
     async function loadPerms() {
-      setLoading(true)
       const targetId = targetType === 'role' ? selectedRoleCode : selectedUserId
       if (targetId) {
         const perms = await getDetailedPermissions(targetType, targetId)

@@ -44,10 +44,6 @@ export default function SecuritySettingsPage() {
     load()
   }, [])
 
-  if (!settings) {
-    return <div className="text-center py-10">Chargement...</div>
-  }
-
   const handleSave = async () => {
     setIsSaving(true)
 

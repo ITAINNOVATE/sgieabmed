@@ -41,8 +41,8 @@ export default function RolesAdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [selectedUserId, setSelectedUserId] = useState("")
   const [selectedRoleCode, setSelectedRoleCode] = useState("")
-  const [permissions, setPermissions] = useState<DetailedPermissionRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [permissions, setPermissions] = useState<DetailedPermissionRow[]>(DEFAULT_DETAILED_PERMISSIONS)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // Filters & Search for permissions table

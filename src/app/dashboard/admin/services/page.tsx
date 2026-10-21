@@ -11,7 +11,7 @@ import { toast } from "sonner"
 
 export default function DepartmentsAdminPage() {
   const [departments, setDepartments] = useState<Department[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   // Form states
   const [showModal, setShowModal] = useState(false)

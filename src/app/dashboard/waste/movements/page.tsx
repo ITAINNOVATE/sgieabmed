@@ -23,7 +23,7 @@ const MOCK_WASTE_MOVEMENTS = [
 
 export default function WasteMovementsPage() {
   const [movements, setMovements] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [selectedMovement, setSelectedMovement] = useState<any>(null)

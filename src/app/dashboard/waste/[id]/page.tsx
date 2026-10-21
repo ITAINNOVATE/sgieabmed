@@ -103,8 +103,40 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     async function fetchWasteBatch() {
+      // 1. Affichage instantané (0ms) depuis localStorage ou fallback
+      let foundLocal: any = null
       try {
-        const { data, error } = await supabase
+        const stored = localStorage.getItem('waste_batches_custom_v1')
+        if (stored) {
+          const list = JSON.parse(stored)
+          foundLocal = list.find((b: any) => b.id === resolvedParams.id || b.batch_number === resolvedParams.id)
+        }
+      } catch (e) {}
+
+      const initialBatch = foundLocal || MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id] || {
+        id: resolvedParams.id,
+        batch_number: `DEC-2026-${resolvedParams.id.substring(0, 5).toUpperCase()}`,
+        waste_type: 'Déchet Pharmaceutique Standard',
+        quantity: 50,
+        unit: 'Kg',
+        current_location: 'Local Déchets A1',
+        status: 'Déclaré',
+        observations: 'Lot enregistré dans le cadre du suivi réglementaire ABMed.',
+        created_at: new Date().toISOString(),
+        creator: { first_name: 'Marie', last_name: 'ADANDE' },
+        sample: null,
+        sample_id: null
+      }
+      setWasteBatch(initialBatch)
+      setLoading(false)
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+      const url = `${origin}/dashboard/waste/${resolvedParams.id}`
+      generateQRCodeDataUrl(url).then(qrUrl => setQrCodeUrl(qrUrl)).catch(() => {})
+
+      // 2. Synchronisation avec Supabase en arrière-plan
+      try {
+        const { data } = await supabase
           .from('waste_batches')
           .select(`
             *,
@@ -116,76 +148,8 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
         
         if (data) {
           setWasteBatch(data)
-        } else if (MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id]) {
-          setWasteBatch(MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id])
-        } else {
-          // Vérifier si présent dans le localStorage
-          let foundLocal: any = null
-          try {
-            const stored = localStorage.getItem('waste_batches_custom_v1')
-            if (stored) {
-              const list = JSON.parse(stored)
-              foundLocal = list.find((b: any) => b.id === resolvedParams.id || b.batch_number === resolvedParams.id)
-            }
-          } catch (e) {}
-
-          if (foundLocal) {
-            setWasteBatch(foundLocal)
-          } else {
-            // Fallback dynamique générique pour tout ID testé
-            setWasteBatch({
-              id: resolvedParams.id,
-              batch_number: `DEC-2026-${resolvedParams.id.substring(0, 5).toUpperCase()}`,
-              waste_type: 'Déchet Pharmaceutique Standard',
-              quantity: 50,
-              unit: 'Kg',
-              current_location: 'Local Déchets A1',
-              status: 'Déclaré',
-              observations: 'Lot enregistré dans le cadre du suivi réglementaire ABMed.',
-              created_at: new Date().toISOString(),
-              creator: { first_name: 'Marie', last_name: 'ADANDE' },
-              sample: null,
-              sample_id: null
-            })
-          }
         }
-      } catch (err) {
-        let foundLocal: any = null
-        try {
-          const stored = localStorage.getItem('waste_batches_custom_v1')
-          if (stored) {
-            const list = JSON.parse(stored)
-            foundLocal = list.find((b: any) => b.id === resolvedParams.id || b.batch_number === resolvedParams.id)
-          }
-        } catch (e) {}
-
-        if (foundLocal) {
-          setWasteBatch(foundLocal)
-        } else if (MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id]) {
-          setWasteBatch(MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id])
-        } else {
-          setWasteBatch({
-            id: resolvedParams.id,
-            batch_number: `DEC-2026-${resolvedParams.id.substring(0, 5).toUpperCase()}`,
-            waste_type: 'Déchet Pharmaceutique Standard',
-            quantity: 50,
-            unit: 'Kg',
-            current_location: 'Local Déchets A1',
-            status: 'Déclaré',
-            observations: 'Lot enregistré dans le cadre du suivi réglementaire ABMed.',
-            created_at: new Date().toISOString(),
-            creator: { first_name: 'Marie', last_name: 'ADANDE' },
-            sample: null,
-            sample_id: null
-          })
-        }
-      }
-
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-      const url = `${origin}/dashboard/waste/${resolvedParams.id}`
-      const qrUrl = await generateQRCodeDataUrl(url)
-      setQrCodeUrl(qrUrl)
-      setLoading(false)
+      } catch (err) {}
     }
     fetchWasteBatch()
   }, [resolvedParams.id, supabase])

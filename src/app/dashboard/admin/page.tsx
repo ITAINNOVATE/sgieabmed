@@ -19,7 +19,7 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<UserRole[]>([])
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
     const [u, r, l] = await Promise.all([

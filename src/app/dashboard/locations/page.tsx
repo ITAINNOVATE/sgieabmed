@@ -412,41 +412,20 @@ export default function LocationsPage() {
   const [rawRooms,    setRawRooms]    = useState<Room[]>([])
   const [rawZones,    setRawZones]    = useState<Zone[]>([])
   const [rawCabinets, setRawCabinets] = useState<Cabinet[]>([])
-  const [loading,  setLoading]  = useState(true)
+  const [loading,  setLoading]  = useState(false)
   const [search,   setSearch]   = useState("")
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-
-    // Charger d'abord les données locales garanties
-    const localR = getLocalRooms()
-    const localZ = getLocalZones()
-    const localC = getLocalCabinets()
-    const localS = getLocalShelves()
-
-    let remoteR: Room[] = []
-    let remoteZ: Zone[] = []
-    let remoteC: Cabinet[] = []
-    let remoteS: Shelf[] = []
-    let remoteSamples: any[] = []
-
-    try {
-      const [{ data: r }, { data: z }, { data: c }, { data: s }, { data: samples }] = await Promise.all([
-        supabase.from('rooms').select('*').order('name'),
-        supabase.from('zones').select('*').order('name'),
-        supabase.from('cabinets').select('*').order('name'),
-        supabase.from('shelves').select('*').order('name'),
-        supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id, storage_location'),
-      ])
-      if (r) remoteR = r
-      if (z) remoteZ = z
-      if (c) remoteC = c
-      if (s) remoteS = s
-      if (samples) remoteSamples = samples
-    } catch {
-      // Supabase inaccessible ou tables manquantes
-    }
-
+  const buildAndApplyHierarchy = useCallback((
+    localR: Room[],
+    localZ: Zone[],
+    localC: Cabinet[],
+    localS: any[],
+    remoteR: Room[],
+    remoteZ: Zone[],
+    remoteC: Cabinet[],
+    remoteS: Shelf[],
+    remoteSamples: any[]
+  ) => {
     // Fusionner les salles
     const roomMap = new Map<string, Room>()
     localR.forEach(item => roomMap.set(item.id, item))
@@ -571,14 +550,48 @@ export default function LocationsPage() {
 
     setRooms(enrichedRooms)
     setLoading(false)
-  }, [supabase])
+  }, [])
+
+  const loadData = useCallback(async () => {
+    const localR = getLocalRooms()
+    const localZ = getLocalZones()
+    const localC = getLocalCabinets()
+    const localS = getLocalShelves()
+
+    // 1. Affichage instantané (0ms) depuis localStorage
+    buildAndApplyHierarchy(localR, localZ, localC, localS, [], [], [], [], [])
+
+    // 2. Synchronisation silencieuse en arrière-plan depuis Supabase
+    try {
+      const [{ data: r }, { data: z }, { data: c }, { data: s }, { data: samples }] = await Promise.all([
+        supabase.from('rooms').select('*').order('name'),
+        supabase.from('zones').select('*').order('name'),
+        supabase.from('cabinets').select('*').order('name'),
+        supabase.from('shelves').select('*').order('name'),
+        supabase.from('samples').select('id, sample_number, commercial_name, status, shelf_id, storage_location'),
+      ])
+      buildAndApplyHierarchy(
+        localR,
+        localZ,
+        localC,
+        localS,
+        r || [],
+        z || [],
+        c || [],
+        s || [],
+        samples || []
+      )
+    } catch {
+      // Supabase inaccessible ou tables manquantes
+    }
+  }, [buildAndApplyHierarchy, supabase])
 
   useEffect(() => { loadData() }, [loadData])
 
   useRealtimeSync({
     tables: ['rooms', 'zones', 'cabinets', 'shelves', 'samples', 'receptions'],
     onSync: loadData,
-    pollIntervalMs: 4000,
+    pollIntervalMs: 6000,
   })
 
   const globalSamples  = rooms.reduce((a, r) => a + r.totalSamples, 0)

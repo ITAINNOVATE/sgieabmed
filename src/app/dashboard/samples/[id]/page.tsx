@@ -140,68 +140,37 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     async function fetchSample() {
+      const initialSample = MOCK_SAMPLES_MAP[resolvedParams.id] || {
+        id: resolvedParams.id,
+        sample_number: `ECH-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
+        reception_ref: 'REC-2026-001',
+        commercial_name: 'Échantillon Pharmaceutique',
+        dci: 'Principe Actif Standard',
+        batch_number: 'LOT-STD-2026',
+        quantity: 100,
+        status: 'Disponible',
+        expiry_date: '2028-12-31',
+        current_location: 'Magasin Central - Zone A',
+        category: 'Médicament',
+      }
+      setSample(initialSample)
+      setMovements(MOCK_SAMPLE_MOVEMENTS[resolvedParams.id] || [
+        { id: 'mvt-def', mvt_number: 'MVT-2026-001', movement_date: new Date().toISOString(), movement_type: 'Entrée', quantity: 100, reason: 'Enregistrement de stock initial' }
+      ])
+      setLoading(false)
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+      const url = `${origin}/dashboard/samples/${resolvedParams.id}`
+      generateQRCodeDataUrl(url).then(qrUrl => setQrCodeUrl(qrUrl)).catch(() => {})
+
       try {
         const [sampleRes, mvtRes] = await Promise.all([
           supabase.from('samples').select('*').eq('id', resolvedParams.id).single(),
           supabase.from('movements').select('*').eq('sample_id', resolvedParams.id).order('movement_date', { ascending: false })
         ])
-        
-        if (sampleRes.data) {
-          setSample(sampleRes.data)
-        } else if (MOCK_SAMPLES_MAP[resolvedParams.id]) {
-          setSample(MOCK_SAMPLES_MAP[resolvedParams.id])
-        } else {
-          // Fallback générique dynamique pour tout ID
-          setSample({
-            id: resolvedParams.id,
-            sample_number: `ECH-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
-            reception_ref: 'REC-2026-001',
-            commercial_name: 'Échantillon Pharmaceutique',
-            dci: 'Principe Actif Standard',
-            batch_number: 'LOT-STD-2026',
-            quantity: 100,
-            status: 'Disponible',
-            expiry_date: '2028-12-31',
-            current_location: 'Magasin Central - Zone A',
-            category: 'Médicament',
-          })
-        }
-
-        if (mvtRes.data && mvtRes.data.length > 0) {
-          setMovements(mvtRes.data)
-        } else if (MOCK_SAMPLE_MOVEMENTS[resolvedParams.id]) {
-          setMovements(MOCK_SAMPLE_MOVEMENTS[resolvedParams.id])
-        } else {
-          setMovements([
-            { id: 'mvt-def', mvt_number: 'MVT-2026-001', movement_date: new Date().toISOString(), movement_type: 'Entrée', quantity: 100, reason: 'Enregistrement de stock initial' }
-          ])
-        }
-      } catch (e) {
-        if (MOCK_SAMPLES_MAP[resolvedParams.id]) {
-          setSample(MOCK_SAMPLES_MAP[resolvedParams.id])
-          setMovements(MOCK_SAMPLE_MOVEMENTS[resolvedParams.id] || [])
-        } else {
-          setSample({
-            id: resolvedParams.id,
-            sample_number: `ECH-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
-            reception_ref: 'REC-2026-001',
-            commercial_name: 'Échantillon Pharmaceutique',
-            dci: 'Principe Actif Standard',
-            batch_number: 'LOT-STD-2026',
-            quantity: 100,
-            status: 'Disponible',
-            expiry_date: '2028-12-31',
-            current_location: 'Magasin Central - Zone A',
-            category: 'Médicament',
-          })
-        }
-      }
-
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-      const url = `${origin}/dashboard/samples/${resolvedParams.id}`
-      const qrUrl = await generateQRCodeDataUrl(url)
-      setQrCodeUrl(qrUrl)
-      setLoading(false)
+        if (sampleRes.data) setSample(sampleRes.data)
+        if (mvtRes.data && mvtRes.data.length > 0) setMovements(mvtRes.data)
+      } catch (e) {}
     }
     fetchSample()
   }, [resolvedParams.id, supabase])

@@ -168,7 +168,7 @@ export default function SamplesDataTable() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [data, setData] = useState<Sample[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [globalSearch, setGlobalSearch] = useState("")
   const [rowSelection, setRowSelection] = useState({})
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)

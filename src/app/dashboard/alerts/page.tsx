@@ -93,9 +93,9 @@ export default function AlertsPage() {
   const [resolvedCount, setResolvedCount] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
 
-  const loadAlerts = useCallback(async () => {
+  const loadAlerts = useCallback(async (manual = false) => {
     if (typeof window === "undefined") return
-    setIsSyncing(true)
+    if (manual === true) setIsSyncing(true)
 
     const isWiped = localStorage.getItem('all_data_wiped') === 'true'
     let sampleOverrides: Record<string, any> = {}
@@ -303,7 +303,7 @@ export default function AlertsPage() {
           </h2>
           <p className="text-muted-foreground text-xs">Surveillance en temps réel des anomalies, échéances et non-conformités réglementaires.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadAlerts} className="h-7 text-xs gap-1">
+        <Button variant="outline" size="sm" onClick={() => loadAlerts(true)} className="h-7 text-xs gap-1">
           <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} /> Actualiser
         </Button>
       </div>

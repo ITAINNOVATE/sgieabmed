@@ -83,7 +83,7 @@ const MOCK_SAMPLES_EDIT_FALLBACK: Record<string, any> = {
 export default function EditSamplePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const [isSaving, setIsSaving] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [sampleNumber, setSampleNumber] = useState("")
   const router = useRouter()
   const supabase = createClient()
@@ -103,47 +103,43 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     async function fetchSample() {
-      let sampleData: any = null
-      try {
-        const { data, error } = await supabase.from('samples').select('*').eq('id', resolvedParams.id).single()
-        if (data) sampleData = data
-      } catch (err) {
-        console.warn("Could not query Supabase for sample edit, falling back to mock:", err)
+      const fallbackData = MOCK_SAMPLES_EDIT_FALLBACK[resolvedParams.id] || {
+        sample_number: `SMP-${resolvedParams.id.toUpperCase()}`,
+        commercial_name: `Échantillon ${resolvedParams.id}`,
+        dci: "Principe Actif Démonstration",
+        batch_number: "LOT-DEMO-2024",
+        expiry_date: "2026-12-31",
+        status: "Conforme",
+        quantity: 100,
+        category: "Médicaments",
       }
-
-      if (!sampleData && MOCK_SAMPLES_EDIT_FALLBACK[resolvedParams.id]) {
-        sampleData = MOCK_SAMPLES_EDIT_FALLBACK[resolvedParams.id]
-      }
-
-      if (!sampleData) {
-        // Fallback générique pour tout autre ID
-        sampleData = {
-          sample_number: `SMP-${resolvedParams.id.toUpperCase()}`,
-          commercial_name: `Échantillon ${resolvedParams.id}`,
-          dci: "Principe Actif Démonstration",
-          batch_number: "LOT-DEMO-2024",
-          expiry_date: "2026-12-31",
-          status: "Conforme",
-          quantity: 100,
-          category: "Médicaments",
-        }
-      }
-
-      if (sampleData) {
-        setSampleNumber(sampleData.sample_number)
-        form.reset({
-          commercial_name: sampleData.commercial_name || "",
-          dci: sampleData.dci || "",
-          batch_number: sampleData.batch_number || "",
-          expiry_date: sampleData.expiry_date || "",
-          status: sampleData.status || "Conforme",
-          quantity: sampleData.quantity ?? 0,
-          category: sampleData.category || "Autres",
-        })
-      } else {
-        toast.error("Impossible de charger l'échantillon.")
-      }
+      setSampleNumber(fallbackData.sample_number)
+      form.reset({
+        commercial_name: fallbackData.commercial_name || "",
+        dci: fallbackData.dci || "",
+        batch_number: fallbackData.batch_number || "",
+        expiry_date: fallbackData.expiry_date || "",
+        status: fallbackData.status || "Conforme",
+        quantity: fallbackData.quantity ?? 0,
+        category: fallbackData.category || "Autres",
+      })
       setLoading(false)
+
+      try {
+        const { data } = await supabase.from('samples').select('*').eq('id', resolvedParams.id).single()
+        if (data) {
+          setSampleNumber(data.sample_number)
+          form.reset({
+            commercial_name: data.commercial_name || "",
+            dci: data.dci || "",
+            batch_number: data.batch_number || "",
+            expiry_date: data.expiry_date || "",
+            status: data.status || "Conforme",
+            quantity: data.quantity ?? 0,
+            category: data.category || "Autres",
+          })
+        }
+      } catch (err) {}
     }
     fetchSample()
   }, [resolvedParams.id, form, supabase])

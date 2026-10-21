@@ -102,9 +102,9 @@ export default function ReportsClient({
   const [destructions, setDestructions] = useState<any[]>(initialDestructions)
   const [isSyncing, setIsSyncing] = useState(false)
 
-  const loadReportsData = useCallback(async () => {
+  const loadReportsData = useCallback(async (manual = false) => {
     if (typeof window === 'undefined') return
-    setIsSyncing(true)
+    if (manual === true) setIsSyncing(true)
 
     const isWiped = localStorage.getItem('all_data_wiped') === 'true'
     let sampleOverrides: Record<string, any> = {}
@@ -349,7 +349,7 @@ export default function ReportsClient({
           <p className="text-muted-foreground text-xs">Configuration, génération instantanée et synthèses graphiques de performance en temps réel.</p>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" onClick={loadReportsData} className="h-7 text-xs font-bold gap-1">
+          <Button variant="ghost" size="sm" onClick={() => loadReportsData(true)} className="h-7 text-xs font-bold gap-1">
             <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} /> Actualiser
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleExport('CSV')} className="h-7 text-xs font-bold gap-1">

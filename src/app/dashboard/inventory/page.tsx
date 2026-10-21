@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import {
   ClipboardList,
-  Loader2,
+  Clock,
   CheckCircle2,
   AlertTriangle,
   Plus,
@@ -68,7 +68,7 @@ function getStatusBadge(status: string) {
     case 'En cours':
       return (
         <Badge className="bg-blue-100 text-blue-800 border-blue-200 gap-1 shrink-0 whitespace-nowrap text-[10px]">
-          <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+          <Clock className="h-3 w-3 shrink-0" />
           En cours
         </Badge>
       );
@@ -88,7 +88,7 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 export default function InventoryPage() {
   const [inventories, setInventories] = useState<Inventory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const parseInventoryRecord = (inv: any): Inventory => {
     let items: InventoryItem[] = Array.isArray(inv.items) ? inv.items : [];
@@ -233,7 +233,7 @@ export default function InventoryPage() {
 
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600"><Loader2 className="h-4 w-4 animate-spin" /></div>
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600"><Clock className="h-4 w-4" /></div>
             <div>
               <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">En cours</p>
               <h3 className="text-xl font-black text-foreground">{inProgress}</h3>

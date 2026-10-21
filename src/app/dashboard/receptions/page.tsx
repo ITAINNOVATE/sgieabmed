@@ -20,7 +20,7 @@ function ReceptionsContent() {
   const statusParam = searchParams.get('status')
 
   const [receptions, setReceptions] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const supabase = createClient()

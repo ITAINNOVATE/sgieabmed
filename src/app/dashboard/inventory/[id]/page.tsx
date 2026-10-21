@@ -175,6 +175,23 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
         }
       } catch (e) {}
 
+      if (!invData && MOCK_INVENTORIES_DETAIL[resolvedParams.id]) {
+        invData = MOCK_INVENTORIES_DETAIL[resolvedParams.id]
+      }
+
+      if (invData) {
+        setInventory(invData as Inventory)
+        const initialLocal: Record<string, { physical_quantity: number | null, discrepancy_reason: string }> = {}
+        ;(invData.items || []).forEach((item: any) => {
+          initialLocal[item.id] = {
+            physical_quantity: item.physical_quantity !== undefined ? item.physical_quantity : item.system_quantity,
+            discrepancy_reason: item.discrepancy_reason || ''
+          }
+        })
+        setLocalItems(initialLocal)
+        setLoading(false)
+      }
+
       // 2. Lecture depuis Supabase Cloud (public.inventories)
       try {
         const { data } = await supabase
@@ -204,26 +221,21 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
             completed_at: completedAt,
             items: parsedItems,
           }
+          setInventory(invData as Inventory)
+          const initialLocal: Record<string, { physical_quantity: number | null, discrepancy_reason: string }> = {}
+          ;(invData.items || []).forEach((item: any) => {
+            initialLocal[item.id] = {
+              physical_quantity: item.physical_quantity !== undefined ? item.physical_quantity : item.system_quantity,
+              discrepancy_reason: item.discrepancy_reason || ''
+            }
+          })
+          setLocalItems(initialLocal)
         }
       } catch (err: any) {
         console.warn("Could not query Supabase for inventory:", err)
       }
 
-      if (!invData && MOCK_INVENTORIES_DETAIL[resolvedParams.id]) {
-        invData = MOCK_INVENTORIES_DETAIL[resolvedParams.id]
-      }
-
-      if (invData) {
-        setInventory(invData as Inventory)
-        const initialLocal: Record<string, { physical_quantity: number | null, discrepancy_reason: string }> = {}
-        ;(invData.items || []).forEach((item: any) => {
-          initialLocal[item.id] = {
-            physical_quantity: item.physical_quantity !== undefined ? item.physical_quantity : item.system_quantity,
-            discrepancy_reason: item.discrepancy_reason || ''
-          }
-        })
-        setLocalItems(initialLocal)
-      } else {
+      if (!invData) {
         toast.error("Impossible de récupérer les détails de l'inventaire.")
       }
       setLoading(false)

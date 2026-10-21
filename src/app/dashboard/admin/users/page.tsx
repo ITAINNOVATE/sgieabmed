@@ -28,7 +28,7 @@ export default function UsersAdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [roles, setRoles] = useState<UserRole[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   // Credentials modal state (pour afficher le mot de passe initial généré)
   const [createdCredentials, setCreatedCredentials] = useState<{

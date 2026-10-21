@@ -119,18 +119,33 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
   const fetchPlan = useCallback(async () => {
     let localFound: any = null
-    // 1. Affichage instantané (0ms) depuis localStorage si présent
+    // 1. Affichage instantané (0ms) depuis localStorage ou fallback
     try {
       const stored = localStorage.getItem('destruction_plans_custom_v1')
       if (stored) {
         const list = JSON.parse(stored)
         localFound = list.find((p: any) => p.id === resolvedParams.id || p.plan_number === resolvedParams.id)
-        if (localFound) {
-          setPlan(localFound)
-          setLoading(false)
-        }
       }
     } catch (e) {}
+
+    if (localFound) {
+      setPlan(localFound)
+    } else if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
+      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
+    } else {
+      setPlan({
+        id: resolvedParams.id,
+        plan_number: `DES-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
+        planned_date: '2026-04-15',
+        execution_date: null,
+        status: 'En préparation',
+        items: [
+          { id: 'item-def', quantity: 75, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
+        ],
+        validations: []
+      })
+    }
+    setLoading(false)
 
     // 2. Vérifier dans Supabase Cloud pour la cohérence multi-postes
     try {
@@ -148,32 +163,10 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           validations: localFound?.validations || data.validations || [],
         }
         setPlan(formatted)
-        setLoading(false)
-        return
       }
     } catch (err) {
       console.warn("Supabase fetch destruction plan warning:", err)
     }
-
-    if (localFound) return
-
-    // 3. Fallback mock ou dynamique
-    if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
-      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
-    } else {
-      setPlan({
-        id: resolvedParams.id,
-        plan_number: `DES-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
-        planned_date: '2026-04-15',
-        execution_date: null,
-        status: 'En préparation',
-        items: [
-          { id: 'item-def', quantity: 75, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
-        ],
-        validations: []
-      })
-    }
-    setLoading(false)
   }, [resolvedParams.id, supabase])
 
   useEffect(() => {

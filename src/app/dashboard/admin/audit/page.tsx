@@ -16,7 +16,7 @@ export default function AuditAdminPage() {
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([])
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([])
   const [activeTab, setActiveTab] = useState<"connections" | "audit">("connections")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   const [searchUsername, setSearchUsername] = useState("")
   const [eventTypeFilter, setEventTypeFilter] = useState("all")
