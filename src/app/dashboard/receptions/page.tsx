@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck } from "lucide-react"
+import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck, Download } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useEffect, useState, Suspense, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 
 function ReceptionsContent() {
   const router = useRouter()
@@ -24,6 +25,52 @@ function ReceptionsContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const supabase = createClient()
+
+  const handleDownloadAttestation = (rec: any) => {
+    try {
+      let fullRecData: any = { ...rec }
+      let samplesList: any[] = []
+
+      // Chercher d'abord les détails complets en cache local
+      const savedDraft = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft)
+        if (parsed?.formData) {
+          fullRecData = { ...fullRecData, ...parsed.formData, status: rec.status || parsed.status }
+          if (Array.isArray(parsed.formData.samples) && parsed.formData.samples.length > 0) {
+            samplesList = parsed.formData.samples
+          }
+        }
+      }
+
+      if (samplesList.length === 0 && Array.isArray(rec.samples_data) && rec.samples_data.length > 0) {
+        samplesList = rec.samples_data
+      }
+
+      if (samplesList.length === 0) {
+        const count = Array.isArray(rec.samples)
+          ? (rec.samples[0]?.count ?? rec.samples.length)
+          : (rec.samples?.count ?? (typeof rec.samples === 'number' ? rec.samples : 1))
+        samplesList = [
+          {
+            commercial_name: rec.commercial_name || `Lot d'échantillons (${rec.supplier || 'ABMed'})`,
+            dci: rec.dci || "Contrôle Qualité Réglementaire",
+            category: rec.category || "Médicament",
+            batch: rec.batch_number || `LOT-${(rec.rec_number || '2026').slice(-4)}`,
+            exp_date: rec.expiry_date || "-",
+            qty: count || 1,
+            unit: "Échantillon(s)"
+          }
+        ]
+      }
+
+      exportReceptionVoucherPDF(fullRecData, samplesList)
+      toast.success(`Attestation ${rec.rec_number} téléchargée (PDF)`)
+    } catch (err) {
+      console.error("Erreur téléchargement attestation:", err)
+      toast.error("Erreur lors de la génération de l'attestation PDF")
+    }
+  }
 
   const handleDeleteReception = async (rec: any) => {
     if (!confirm(`Voulez-vous vraiment supprimer la réception ${rec.rec_number} ?`)) return
@@ -550,7 +597,17 @@ function ReceptionsContent() {
                             {statusLabel}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1">
+                        <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2.5 bg-white hover:bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30 font-bold gap-1 shadow-2xs cursor-pointer"
+                            onClick={() => handleDownloadAttestation(rec)}
+                            title="Télécharger l'attestation de réception en PDF"
+                          >
+                            <Download className="h-3.5 w-3.5 text-[#1B5C2E]" />
+                            Attestation
+                          </Button>
                           {isPendingValidation && (
                             <Button
                               variant="outline"

@@ -1000,8 +1000,13 @@ function NewReceptionContent() {
           <Button type="button" variant="ghost" onClick={handlePrint}>
             <Printer className="mr-2 h-4 w-4" /> Imprimer
           </Button>
-          <Button type="button" variant="ghost" onClick={handleExportPDF}>
-            <Download className="mr-2 h-4 w-4" /> PDF
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleExportPDF}
+            className="border-[#1B5C2E] text-[#1B5C2E] bg-[#1B5C2E]/5 hover:bg-[#1B5C2E]/15 font-bold cursor-pointer"
+          >
+            <Download className="mr-2 h-4 w-4" /> Télécharger l&apos;Attestation (PDF)
           </Button>
           <Button
             type="button"

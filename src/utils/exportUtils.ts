@@ -95,103 +95,205 @@ export function exportToPDF(title: string, headers: string[], rows: any[][], fil
   doc.save(`${filename}.pdf`)
 }
 
-// 4. Export Reception Voucher PDF (Inspection Report)
+// 4. Export Reception Voucher PDF (Attestation & Bon de Réception d'Échantillons)
 export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   const doc = new jsPDF()
-  
-  // Company Header
-  doc.setFillColor(79, 70, 229) // Indigo banner
-  doc.rect(0, 0, 210, 32, "F")
-  
-  doc.setFontSize(18)
+  const nowStr = new Date().toLocaleDateString("fr-FR")
+
+  // Official ABMed Green Header Banner
+  doc.setFillColor(27, 92, 46) // #1B5C2E ABMed Green
+  doc.rect(0, 0, 210, 36, "F")
+
+  doc.setFontSize(14)
+  doc.setFont("helvetica", "bold")
   doc.setTextColor(255, 255, 255)
-  doc.text("BON DE RÉCEPTION & CONTRÔLE ÉCHANTILLONS", 14, 18)
-  doc.setFontSize(9)
-  doc.text("AUTORITÉ BÉNINOISE DE RÉGLEMENTATION PHARMACEUTIQUE (ABMed) - SGIE", 14, 25)
-  
-  // General Info Section
-  doc.setFontSize(12)
-  doc.setTextColor(30, 41, 59)
-  doc.text("1. Informations de la Réception", 14, 42)
-  doc.setLineWidth(0.3)
-  doc.line(14, 44, 196, 44)
-  
-  doc.setFontSize(9)
-  doc.text(`Réf Réception : ${reception.rec_number || 'N/A'}`, 14, 50)
-  doc.text(`Date & Heure : ${reception.date_reception || 'N/A'} ${reception.time_reception || ''}`, 14, 56)
-  doc.text(`Agent de réception : ${reception.inspector || 'N/A'}`, 14, 62)
-  doc.text(`Réf. lettre de transmission : ${reception.ref_document || 'N/A'}`, 14, 68)
-  doc.text(`Type de demande : ${reception.type_reception || 'N/A'}`, 14, 74)
-  
-  doc.text(`Demandeur/Donnateur/Objet : ${reception.supplier || 'N/A'}`, 110, 50)
-  doc.text(`Fabricant : ${reception.manufacturer || 'N/A'}`, 110, 56)
-  doc.text(`Pays d'origine : ${reception.country || 'N/A'}`, 110, 62)
-  doc.text(`Mode Transport : ${reception.transport_mode || 'N/A'}`, 110, 68)
-  
-  // Conformity Section
-  doc.setFontSize(12)
-  doc.text("2. Contrôle de Conformité", 14, 86)
-  doc.line(14, 88, 196, 88)
-  
-  const getConformSymbol = (val: boolean) => val ? "[X] Conforme" : "[ ] Non conforme"
-  
-  doc.setFontSize(9)
-  doc.text(`Emballage : ${getConformSymbol(reception.check_packaging)}`, 14, 94)
-  doc.text(`Boîtes/Colis : ${getConformSymbol(reception.check_boxes)}`, 14, 100)
-  doc.text(`Scellés : ${getConformSymbol(reception.check_seals)}`, 14, 106)
-  
-  doc.text(`Quantité reçue : ${getConformSymbol(reception.check_qty)}`, 110, 94)
-  doc.text(`Documents joints : ${getConformSymbol(reception.check_docs)}`, 110, 100)
-  doc.text(`Intégrité physique : ${getConformSymbol(reception.check_damage)}`, 110, 106)
-  
+  doc.text("ATTESTATION & BON DE RÉCEPTION D'ÉCHANTILLONS", 14, 15)
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(220, 252, 231)
+  doc.text("AUTORITÉ BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed)", 14, 22)
+  doc.text("Système de Gestion Intégrée des Échantillons (SGIE) — Certificat Officiel de Réception", 14, 28)
+
+  // Reference Badge in Header
+  doc.setFillColor(255, 255, 255)
+  doc.roundedRect(145, 9, 51, 18, 2, 2, "F")
+  doc.setTextColor(27, 92, 46)
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "bold")
+  doc.text("N° DE RÉCEPTION", 170.5, 15, { align: "center" })
   doc.setFontSize(10)
-  doc.text(`CONFORMITÉ GLOBALE : ${reception.check_conform ? "CONFORME" : "NON CONFORME / RÉSERVES"}`, 14, 114)
-  
-  if (reception.anomalies) {
-    doc.setFontSize(9)
-    doc.text(`Anomalies constatées : ${reception.anomalies}`, 14, 120)
-  }
-  
-  // Samples List Section
-  doc.setFontSize(12)
-  doc.text("3. Produits et Échantillons Reçus", 14, 132)
-  doc.line(14, 134, 196, 134)
-  
-  const tableHeaders = ["Nom commercial / DCI", "Catégorie", "N° Lot", "Date Péremption", "Quantité"]
-  const tableRows = (samples || []).map(s => [
-    `${s.commercial_name || ''}\n(${s.dci || ''})`,
-    s.category || 'N/A',
-    s.batch || s.batch_number || 'N/A',
-    s.exp_date || s.expiry_date || 'N/A',
-    `${s.qty || s.quantity || 0} ${s.unit || 'unités'}`
+  doc.setTextColor(15, 23, 42)
+  doc.text(reception.rec_number || "REC-N/A", 170.5, 22, { align: "center" })
+
+  // Two side-by-side summary boxes
+  // Box 1: Structure / Demandeur (Light Slate tint + Dark border)
+  doc.setFillColor(248, 250, 252)
+  doc.setDrawColor(148, 163, 184)
+  doc.setLineWidth(0.35)
+  doc.roundedRect(14, 43, 88, 42, 2, 2, "FD")
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(27, 92, 46)
+  doc.text("1. DEMANDEUR / STRUCTURE DÉPOSANTE", 18, 50)
+  doc.setDrawColor(203, 213, 225)
+  doc.line(18, 52, 98, 52)
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(15, 23, 42)
+  doc.text(`Demandeur : ${(reception.supplier || "N/A").substring(0, 34)}`, 18, 58)
+  doc.text(`Fabricant : ${(reception.manufacturer || "N/A").substring(0, 34)}`, 18, 64)
+  doc.text(`Pays / Transport : ${reception.country || "Bénin"} (${reception.transport_mode || "Standard"})`, 18, 70)
+  doc.text(`Type demande : ${reception.type_reception || "Enregistrement / Contrôle"}`, 18, 76)
+  doc.text(`Réf. Courrier : ${reception.ref_document || "N/A"}`, 18, 82)
+
+  // Box 2: Réception & Conformité ABMed (Light Emerald tint + Green border)
+  doc.setFillColor(240, 253, 244)
+  doc.setDrawColor(27, 92, 46)
+  doc.setLineWidth(0.35)
+  doc.roundedRect(108, 43, 88, 42, 2, 2, "FD")
+
+  doc.setFontSize(8.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(27, 92, 46)
+  doc.text("2. PRISE EN CHARGE & VALIDATION ABMed", 112, 50)
+  doc.setDrawColor(187, 247, 208)
+  doc.line(112, 52, 192, 52)
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(15, 23, 42)
+  doc.text(`Date & Heure : ${reception.date_reception || nowStr} ${reception.time_reception || ""}`, 112, 58)
+  doc.text(`Agent Réception : ${(reception.inspector || "Agent ABMed").substring(0, 30)}`, 112, 64)
+  doc.text(`Statut Dossier : ${reception.status || "Validée / Finalisée"}`, 112, 70)
+  doc.text(`Conformité : ${reception.check_conform !== false ? "CONFORME" : "NON CONFORME / RÉSERVES"}`, 112, 76)
+  doc.text(`Décision : ${reception.decision || "Accepté pour analyse / archivage"}`, 112, 82)
+
+  // Section 3: Contrôle de Conformité Physique
+  doc.setFontSize(9.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("3. CONTRÔLE DE CONFORMITÉ À LA RÉCEPTION", 14, 94)
+
+  const getConformSymbol = (val: boolean) => (val !== false ? "[X] Conforme" : "[ ] Non conforme")
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(51, 65, 85)
+  doc.text(`Emballage : ${getConformSymbol(reception.check_packaging)}`, 14, 100)
+  doc.text(`Boîtes/Colis : ${getConformSymbol(reception.check_boxes)}`, 80, 100)
+  doc.text(`Scellés : ${getConformSymbol(reception.check_seals)}`, 145, 100)
+  doc.text(`Quantité reçue : ${getConformSymbol(reception.check_qty)}`, 14, 106)
+  doc.text(`Documents joints : ${getConformSymbol(reception.check_docs)}`, 80, 106)
+  doc.text(`Intégrité physique : ${getConformSymbol(reception.check_damage)}`, 145, 106)
+
+  // Section 4: Table of received samples
+  doc.setFontSize(9.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("4. DÉTAIL DES PRODUITS ET ÉCHANTILLONS RÉCEPTIONNÉS", 14, 116)
+
+  const safeSamples = Array.isArray(samples) && samples.length > 0 ? samples : [
+    {
+      commercial_name: reception.commercial_name || "Échantillon pharmaceutique",
+      dci: reception.dci || "Contrôle Qualité ABMed",
+      category: reception.category || "Médicament",
+      batch: reception.batch_number || "LOT-STD",
+      exp_date: reception.expiry_date || "-",
+      qty: typeof reception.samples === "number" ? reception.samples : 1,
+      unit: "Boîtes"
+    }
+  ]
+
+  const tableHeaders = ["#", "Désignation Commerciale / DCI", "Catégorie / Forme", "N° de Lot", "Péremption", "Quantité"]
+  const tableRows = safeSamples.map((s, idx) => [
+    String(idx + 1),
+    `${s.commercial_name || "Échantillon"}${s.dci ? ` (${s.dci})` : ""}`,
+    `${s.category || "Médicament"}${s.dosage ? ` - ${s.dosage}` : ""}`,
+    s.batch || s.batch_number || "N/A",
+    s.exp_date || s.expiry_date || "N/A",
+    `${s.qty || s.quantity || 1} ${s.unit || "Boîtes"}`
   ])
-  
+
   autoTable(doc, {
-    startY: 138,
+    startY: 120,
     head: [tableHeaders],
     body: tableRows,
     theme: "grid",
-    headStyles: { fillColor: [79, 70, 229] },
-    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [27, 92, 46], textColor: [255, 255, 255], fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 2.5 },
     margin: { left: 14, right: 14 }
   })
-  
-  // Validation / Signature Section
-  const finalY = (doc as any).lastAutoTable.finalY + 12
-  
-  doc.setFontSize(12)
-  doc.text("4. Validation de la Réception", 14, finalY)
-  doc.line(14, finalY + 2, 196, finalY + 2)
-  
-  doc.setFontSize(9)
-  doc.text(`Décision finale : ${reception.decision || 'En attente'}`, 14, finalY + 8)
-  if (reception.decision_reason) {
-    doc.text(`Motif de la décision : ${reception.decision_reason}`, 14, finalY + 14)
+
+  let finalY = (doc as any).lastAutoTable.finalY + 8
+
+  if (reception.anomalies || reception.observations) {
+    doc.setFontSize(8.5)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(15, 23, 42)
+    doc.text("Observations / Réserves :", 14, finalY)
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8)
+    doc.setTextColor(71, 85, 105)
+    doc.text(String(reception.anomalies || reception.observations), 55, finalY)
+    finalY += 8
   }
-  doc.text(`Signataire : ${reception.validator_name || reception.inspector || 'N/A'}`, 110, finalY + 8)
-  doc.text(`Date de signature : ${reception.validation_date || reception.date_reception || 'N/A'}`, 110, finalY + 14)
-  
-  doc.save(`${reception.rec_number || 'reception'}.pdf`)
+
+  // Legal attestation paragraph
+  doc.setFillColor(248, 250, 252)
+  doc.setDrawColor(203, 213, 225)
+  doc.roundedRect(14, finalY, 182, 16, 1.5, 1.5, "FD")
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "italic")
+  doc.setTextColor(30, 41, 59)
+  doc.text(
+    "La présente attestation certifie que les échantillons ci-dessus ont été réceptionnés et enregistrés par l'ABMed",
+    18,
+    finalY + 6
+  )
+  doc.text(
+    "dans le Système de Gestion Intégrée des Échantillons (SGIE) conformément aux procédures réglementaires en vigueur.",
+    18,
+    finalY + 11.5
+  )
+
+  // Signatures block
+  const sigY = finalY + 24
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8.5)
+  doc.setTextColor(15, 23, 42)
+
+  // Left signature: Depositing party
+  doc.rect(14, sigY, 85, 28)
+  doc.text("LE DÉPOSANT / REPRÉSENTANT", 56.5, sigY + 6, { align: "center" })
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(7.5)
+  doc.setTextColor(100, 116, 139)
+  doc.text(reception.supplier || "Signature précédée de la mention Lu et Approuvé", 56.5, sigY + 11, { align: "center" })
+
+  // Right signature: ABMed Agent / Validator
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8.5)
+  doc.setTextColor(15, 23, 42)
+  doc.rect(111, sigY, 85, 28)
+  doc.text("POUR L'ABMed (RÉCEPTION & VALIDATION)", 153.5, sigY + 6, { align: "center" })
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(7.5)
+  doc.setTextColor(100, 116, 139)
+  doc.text(reception.validator_name || reception.inspector || "Cachet et Signature de l'Agent", 153.5, sigY + 11, { align: "center" })
+
+  // Footer
+  doc.setFontSize(7)
+  doc.setTextColor(148, 163, 184)
+  doc.text(
+    `Document généré électroniquement via ABMed-SGIE le ${nowStr} — Réf : ${reception.rec_number || "N/A"}`,
+    105,
+    287,
+    { align: "center" }
+  )
+
+  doc.save(`Attestation_Reception_${reception.rec_number || "ABMed"}.pdf`)
 }
 
 // 5. Export Waste Reception Slip & Attestation PDF (Bordereau / Attestation de Réception de Déchets)

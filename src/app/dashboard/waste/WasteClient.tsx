@@ -5,7 +5,7 @@ import Link from "next/link"
 import { 
   Plus, Trash2, Search, Filter, Flame, Eye, Printer, 
   Clock, ShieldAlert, AlertTriangle, ArrowLeftRight, 
-  CheckCircle2, Box, LayoutDashboard, List, FileText
+  CheckCircle2, Box, LayoutDashboard, List, FileText, Download
 } from "lucide-react"
 import { toast } from "sonner"
 import { 
@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 
 const MOCK_WASTE_BATCHES: any[] = []
 
@@ -369,7 +370,47 @@ export default function WasteClient({
                             {batch.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2 text-right pr-4">
+                        <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2.5 bg-white hover:bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30 font-bold gap-1 shadow-2xs cursor-pointer"
+                            onClick={() => {
+                              exportWasteReceptionSlipPDF({
+                                reception_number: batch.reception_number || `BORD-${batch.batch_number || "DEC"}`,
+                                reception_date: batch.reception_date ? new Date(batch.reception_date).toLocaleDateString("fr-FR") : new Date().toLocaleDateString("fr-FR"),
+                                reception_time: batch.reception_time || "",
+                                delivery_slip_ref: batch.delivery_slip_ref || "N/A",
+                                recipient_agent: batch.recipient_agent || "Agent ABMed",
+                                source_structure: batch.source_structure || "Interne ABMed",
+                                source_type: batch.source_type || "Établissement Pharmaceutique",
+                                city: batch.city || "Cotonou",
+                                depositor_name: batch.depositor_name || "N/A",
+                                depositor_phone: batch.depositor_phone || "N/A",
+                                depositor_id_card: batch.depositor_id_card || "N/A",
+                                general_observations: batch.notes || "Lot réceptionné conformément aux procédures ABMed.",
+                                items: [
+                                  {
+                                    batch_number: batch.batch_number,
+                                    waste_type: batch.waste_type || "Médicaments Périmés",
+                                    commercial_name: batch.commercial_name || batch.waste_type || "Déchets Pharmaceutiques",
+                                    original_batch: batch.original_batch || "-",
+                                    quantity: Number(batch.quantity) || 0,
+                                    unit: batch.unit || "Kg",
+                                    packaging_type: batch.packaging_type || "Carton scellé",
+                                    packages_count: Number(batch.packages_count) || 1,
+                                    storage_location: batch.current_location || "MAGASIN DES DECHETS",
+                                    rejection_reason: batch.rejection_reason || "Péremption / Non-conformité"
+                                  }
+                                ]
+                              })
+                              toast.success(`Attestation ${batch.batch_number} téléchargée (PDF)`)
+                            }}
+                            title="Télécharger l'attestation de réception des déchets en PDF"
+                          >
+                            <Download className="h-3.5 w-3.5 text-[#1B5C2E]" />
+                            Attestation
+                          </Button>
                           <Button variant="ghost" size="sm" asChild className="h-7 text-xs px-2 text-red-600 font-bold hover:bg-red-50">
                             <Link href={`/dashboard/waste/${batch.id}`}>
                               <Eye className="h-3.5 w-3.5 mr-1" /> Voir
