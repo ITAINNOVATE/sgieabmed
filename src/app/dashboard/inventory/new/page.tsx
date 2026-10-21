@@ -38,53 +38,159 @@ export default function NewInventoryPage() {
 
   const onSubmit = async (values: FormValues) => {
     setIsSaving(true)
-    const toastId = toast.loading("Lancement de l'inventaire en cours...")
 
     try {
-      // 1. Obtenir l'utilisateur ou ID de secours
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id || '00000000-0000-0000-0000-000000000000'
+      const nowIso = new Date().toISOString()
+      const year = new Date().getFullYear()
+      const rand = Math.floor(1000 + Math.random() * 9000)
+      const invId = `inv-${Date.now()}`
+      const invNumber = `INV-ECH-${year}-${rand}`
 
-      // 2. Créer la session d'inventaire
-      const { data: inventory, error: invError } = await supabase
-        .from('inventories')
-        .insert({
-          name: values.name,
-          inventory_type: values.inventory_type,
-          status: 'En cours',
-          created_by: userId,
+      // 1. Récupérer tous les échantillons actifs (locaux + Supabase Cloud)
+      let deletedIds: string[] = []
+      let overrides: Record<string, any> = {}
+      const sampleMap = new Map<string, any>()
+
+      try {
+        deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
+        overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+
+        historyRecords.forEach((rec: any) => {
+          if (deletedIds.includes(rec.rec_number) || deletedIds.includes(rec.id)) return
+          const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+          if (rawDetails) {
+            const parsed = JSON.parse(rawDetails)
+            if (Array.isArray(parsed.formData?.samples)) {
+              parsed.formData.samples.forEach((s: any, idx: number) => {
+                if (s.commercial_name && s.commercial_name.trim() !== '') {
+                  const sNum = `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`
+                  sampleMap.set(sNum, {
+                    id: sNum,
+                    sample_number: sNum,
+                    commercial_name: s.commercial_name.toUpperCase(),
+                    dci: (s.dci || s.commercial_name).toUpperCase(),
+                    batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
+                    quantity: Number(s.qty) || 1,
+                  })
+                }
+              })
+            }
+          }
         })
-        .select()
-        .single()
+      } catch (e) {}
 
-      if (invError) {
-        console.warn("Erreur création BD (fallback local activé):", invError.message)
+      try {
+        const { data: remoteSamples } = await supabase
+          .from('samples')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (Array.isArray(remoteSamples)) {
+          remoteSamples.forEach((s: any) => {
+            if (s.reception_ref && deletedIds.includes(s.reception_ref)) return
+            if (deletedIds.includes(s.sample_number) || deletedIds.includes(s.id)) return
+            const key = s.sample_number || s.id
+            sampleMap.set(key, {
+              id: s.id || key,
+              sample_number: s.sample_number || key,
+              commercial_name: (s.commercial_name || 'ÉCHANTILLON').toUpperCase(),
+              dci: (s.dci || '').toUpperCase(),
+              batch_number: (s.batch_number || 'LOT-TEMP').toUpperCase(),
+              quantity: Number(s.quantity) || 1,
+            })
+          })
+        }
+      } catch (e) {
+        console.warn("Supabase samples fetch notice:", e)
       }
 
-      // 3. Importer les échantillons ou notifier
-      const { data: samples } = await supabase
-        .from('samples')
-        .select('id, quantity')
-        .eq('is_deleted', false)
-
-      if (inventory && samples && samples.length > 0) {
-        const itemsToInsert = samples.map((sample) => ({
-          inventory_id: inventory.id,
-          sample_id: sample.id,
-          system_quantity: sample.quantity || 0,
-          physical_quantity: null,
-        }))
-
-        await supabase.from('inventory_items').insert(itemsToInsert)
+      // Si aucun échantillon trouvé dans samples, vérifier samples_data des réceptions Cloud
+      if (sampleMap.size === 0) {
+        try {
+          const { data: recs } = await supabase.from('receptions').select('*')
+          if (Array.isArray(recs)) {
+            recs.forEach((r: any) => {
+              if (deletedIds.includes(r.rec_number)) return
+              const sList = Array.isArray(r.samples_data) ? r.samples_data : []
+              sList.forEach((s: any, idx: number) => {
+                if (s.commercial_name) {
+                  const sNum = `ECH-${r.rec_number.replace('REC-', '')}-${idx + 1}`
+                  sampleMap.set(sNum, {
+                    id: sNum,
+                    sample_number: sNum,
+                    commercial_name: s.commercial_name.toUpperCase(),
+                    dci: (s.dci || '').toUpperCase(),
+                    batch_number: (s.batch || s.batch_number || 'LOT-TEMP').toUpperCase(),
+                    quantity: Number(s.qty || s.quantity) || 1,
+                  })
+                }
+              })
+            })
+          }
+        } catch (e) {}
       }
 
-      toast.success("Nouvelle session d'inventaire démarrée avec succès !", { id: toastId })
-      router.push('/dashboard/inventory')
-      router.refresh()
+      // Construire les lignes de comptage de l'inventaire
+      const items = Array.from(sampleMap.values()).map((s, idx) => {
+        const ov = overrides[s.sample_number] || overrides[s.id] || overrides[s.commercial_name]
+        const sysQty = ov?.quantity !== undefined ? Number(ov.quantity) : (Number(s.quantity) || 0)
+        return {
+          id: `item-${invId}-${idx + 1}`,
+          system_quantity: sysQty,
+          physical_quantity: sysQty,
+          discrepancy_reason: null,
+          sample: {
+            id: s.id,
+            commercial_name: s.commercial_name,
+            batch_number: s.batch_number,
+            sample_number: s.sample_number,
+            quantity: sysQty,
+            dci: s.dci || '',
+          },
+        }
+      })
+
+      const newInventory = {
+        id: invId,
+        inv_number: invNumber,
+        name: values.name,
+        inventory_type: values.inventory_type,
+        status: 'En cours',
+        created_at: nowIso,
+        completed_at: null,
+        items,
+      }
+
+      // 2. Sauvegarde locale immédiate (0ms)
+      try {
+        localStorage.removeItem('all_data_wiped')
+        const stored = JSON.parse(localStorage.getItem('sample_inventories_custom_v1') || '[]')
+        localStorage.setItem('sample_inventories_custom_v1', JSON.stringify([newInventory, ...stored]))
+      } catch (e) {}
+
+      // 3. Synchronisation Supabase Cloud (colonnes SQL valides de public.inventories)
+      const syncPromise = supabase.from('inventories').upsert({
+        id: invId,
+        inv_number: invNumber,
+        name: values.name,
+        date: nowIso,
+        location: 'Magasin Central Échantillons',
+        inventory_type: values.inventory_type,
+        status: 'En cours',
+        items_count: items.length,
+        controller: 'Marie ADANDE',
+        observations: JSON.stringify({ items, completed_at: null }),
+        created_at: nowIso,
+      }, { onConflict: 'inv_number' })
+
+      await Promise.race([syncPromise, new Promise(r => setTimeout(r, 600))])
+
+      toast.success(`Session "${values.name}" démarrée avec ${items.length} échantillon(s) !`)
+      router.push(`/dashboard/inventory/${invId}`)
     } catch (error: any) {
       console.error(error)
-      toast.success("Session d'inventaire initialisée !", { id: toastId })
-      router.push('/dashboard/inventory')
+      toast.error("Erreur lors de l'initialisation de l'inventaire")
     } finally {
       setIsSaving(false)
     }

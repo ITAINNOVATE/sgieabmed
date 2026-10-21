@@ -84,56 +84,99 @@ function getStatusBadge(status: string) {
   }
 }
 
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+
 export default function InventoryPage() {
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const parseInventoryRecord = (inv: any): Inventory => {
+    let items: InventoryItem[] = Array.isArray(inv.items) ? inv.items : [];
+    let completed_at: string | null = inv.completed_at || null;
+
+    if (typeof inv.observations === 'string' && inv.observations.trim().startsWith('{')) {
+      try {
+        const parsedObs = JSON.parse(inv.observations);
+        if (Array.isArray(parsedObs.items)) items = parsedObs.items;
+        if (parsedObs.completed_at) completed_at = parsedObs.completed_at;
+      } catch (e) {}
+    }
+
+    return {
+      id: inv.id || inv.inv_number,
+      name: inv.name || inv.inv_number || 'Session d\'inventaire',
+      inventory_type: inv.inventory_type || 'Périodique',
+      status: inv.status || 'En cours',
+      created_at: inv.created_at || inv.date || new Date().toISOString(),
+      completed_at,
+      items,
+    };
+  };
+
   const fetchInventories = async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true';
 
+    let localList: Inventory[] = [];
+    try {
+      const stored = localStorage.getItem('sample_inventories_custom_v1');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          localList = parsed.map(parseInventoryRecord);
+          if (localList.length > 0) {
+            setInventories(localList);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {}
+
+    let remoteList: Inventory[] = [];
     try {
       const supabase = createClient();
-      const fetchPromise = supabase
+      const { data, error } = await supabase
         .from('inventories')
-        .select(`
-          id, name, inventory_type, status, created_at, completed_at,
-          inventory_items ( id, system_quantity, physical_quantity, discrepancy_reason, samples ( commercial_name, batch_number, sample_number ) )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      const timeoutPromise = new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 1500));
-      const res = await Promise.race([fetchPromise, timeoutPromise]);
-
-      if (res && res.data && res.data.length > 0) {
-        const loaded = res.data.map((inv: any) => ({
-          id: inv.id,
-          name: inv.name,
-          inventory_type: inv.inventory_type,
-          status: inv.status,
-          created_at: inv.created_at,
-          completed_at: inv.completed_at,
-          items: (inv.inventory_items ?? []).map((item: any) => ({
-            id: item.id,
-            system_quantity: item.system_quantity,
-            physical_quantity: item.physical_quantity,
-            discrepancy_reason: item.discrepancy_reason,
-            sample: item.samples ? (Array.isArray(item.samples) ? item.samples[0] : item.samples) : null,
-          })),
-        }));
-        setInventories(loaded);
-      } else {
-        setInventories(isWiped ? [] : MOCK_INVENTORIES);
+      if (!error && Array.isArray(data)) {
+        remoteList = data
+          .filter((row: any) => !row.inv_number?.startsWith('INV-W-'))
+          .map(parseInventoryRecord);
       }
-    } catch {
-      setInventories(isWiped ? [] : MOCK_INVENTORIES);
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.warn("Supabase fetch inventories notice:", e);
     }
+
+    const invMap = new Map<string, Inventory>();
+    localList.forEach((inv) => invMap.set(inv.id, inv));
+    remoteList.forEach((inv) => {
+      const existing = invMap.get(inv.id);
+      invMap.set(inv.id, {
+        ...existing,
+        ...inv,
+        status: existing?.status === 'Validé' || inv.status === 'Validé' ? 'Validé' : inv.status,
+        items: inv.items && inv.items.length > 0 ? inv.items : (existing?.items || []),
+      });
+    });
+
+    const merged = Array.from(invMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    setInventories(merged.length > 0 ? merged : (isWiped ? [] : MOCK_INVENTORIES));
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchInventories();
   }, []);
+
+  useRealtimeSync({
+    tables: ['inventories', 'samples'],
+    onSync: fetchInventories,
+    pollIntervalMs: 6000,
+  });
 
   const total = inventories.length;
   const inProgress = inventories.filter((i) => i.status === 'En cours').length;

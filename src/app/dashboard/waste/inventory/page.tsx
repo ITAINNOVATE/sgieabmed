@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,13 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ClipboardCheck, AlertTriangle, CheckCircle2, Search, Trash2, Plus, Eye, Printer, MapPin, Scale } from "lucide-react"
 import { toast } from "sonner"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
-const MOCK_WASTE_INVENTORIES = [
-  { id: '1', inv_number: 'INV-W-2026-001', date: '2026-01-15T08:00:00.000Z', location: 'Local Déchets A1', system_weight: 150, physical_weight: 148, diff: -2, status: 'Validé avec écart', items_count: 12, controller: 'Marie ADANDE', observations: 'Évaporation constatée sur 2 fûts de solvants HPLC mal refermés.' },
-  { id: '2', inv_number: 'INV-W-2026-002', date: '2026-02-10T10:30:00.000Z', location: 'Zone Quarantaine C2', system_weight: 45, physical_weight: 45, diff: 0, status: 'Validé', items_count: 5, controller: 'Marie ADANDE', observations: 'Conforme. Étiquetage QR code vérifié.' },
-  { id: '3', inv_number: 'INV-W-2026-003', date: '2026-03-01T09:00:00.000Z', location: 'Local DASRI B', system_weight: 230, physical_weight: 230, diff: 0, status: 'Validé', items_count: 18, controller: 'Marie ADANDE', observations: 'Sacs jaunes DASRI conformes aux normes de biosécurité.' },
-  { id: '4', inv_number: 'INV-W-2026-004', date: '2026-03-20T14:15:00.000Z', location: 'Local Déchets A2', system_weight: 92, physical_weight: 90, diff: -2, status: 'En cours', items_count: 8, controller: 'Marie ADANDE', observations: 'Comptage physique en cours de consolidation par les équipes logistiques.' },
-]
+const MOCK_WASTE_INVENTORIES: any[] = []
 
 export default function WasteInventoryPage() {
   const [inventories, setInventories] = useState<any[]>([])
@@ -25,24 +22,65 @@ export default function WasteInventoryPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedInventory, setSelectedInventory] = useState<any>(null)
   const [isNewInventoryOpen, setIsNewInventoryOpen] = useState(false)
-  const [newLocation, setNewLocation] = useState("Local Déchets A1")
+  const [newLocation, setNewLocation] = useState("Zone de Quarantaine - Déchets")
+  const [newPhysicalWeight, setNewPhysicalWeight] = useState<string>("")
+  const [newObservations, setNewObservations] = useState<string>("")
+  const supabase = createClient()
 
-  useEffect(() => {
+  const fetchWasteInventories = useCallback(async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
     let customList: any[] = []
     try {
       const stored = localStorage.getItem('waste_inventories_custom_v1')
-      if (stored) customList = JSON.parse(stored)
+      if (stored) {
+        customList = JSON.parse(stored)
+        if (customList.length > 0) {
+          setInventories(customList)
+        }
+      }
     } catch (e) {}
 
-    const baseList = isWiped ? [] : MOCK_WASTE_INVENTORIES
-    setInventories([...customList, ...baseList])
-  }, [])
+    let remoteList: any[] = []
+    try {
+      const { data, error } = await supabase
+        .from('inventories')
+        .select('*')
+        .like('inv_number', 'INV-W-%')
+        .order('created_at', { ascending: false })
+      if (!error && Array.isArray(data)) {
+        remoteList = data.map((r: any) => ({
+          ...r,
+          date: r.date || r.created_at || new Date().toISOString(),
+          system_weight: Number(r.system_weight) || 0,
+          physical_weight: Number(r.physical_weight) || 0,
+          diff: Number(r.diff) || 0,
+          items_count: Number(r.items_count) || 0,
+        }))
+      }
+    } catch (e) {}
+
+    const map = new Map<string, any>()
+    customList.forEach(i => map.set(i.inv_number || i.id, i))
+    remoteList.forEach(i => map.set(i.inv_number || i.id, i))
+
+    const merged = Array.from(map.values())
+    setInventories(merged.length > 0 ? merged : (isWiped ? [] : MOCK_WASTE_INVENTORIES))
+  }, [supabase])
+
+  useEffect(() => {
+    fetchWasteInventories()
+  }, [fetchWasteInventories])
+
+  useRealtimeSync({
+    tables: ['inventories', 'waste_batches'],
+    onSync: fetchWasteInventories,
+    pollIntervalMs: 6000,
+  })
 
   const filteredInventories = inventories.filter(inv => {
     const matchesSearch = 
-      inv.inv_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.location.toLowerCase().includes(searchTerm.toLowerCase())
+      (inv.inv_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (inv.location || '').toLowerCase().includes(searchTerm.toLowerCase())
       
     const matchesStatus = statusFilter === "all" || inv.status === statusFilter
     return matchesSearch && matchesStatus
@@ -279,11 +317,12 @@ export default function WasteInventoryPage() {
           <div className="space-y-3 pt-2 text-xs">
             <div>
               <label className="text-[11px] font-bold block mb-1">Zone de stockage à contrôler</label>
-              <Select value={newLocation} onValueChange={(val) => setNewLocation(val || "Local Déchets A1")}>
+              <Select value={newLocation} onValueChange={(val) => setNewLocation(val || "Zone de Quarantaine - Déchets")}>
                 <SelectTrigger className="h-8 text-xs bg-background">
                   <SelectValue placeholder="Choisir la zone" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="Zone de Quarantaine - Déchets">Zone de Quarantaine - Déchets</SelectItem>
                   <SelectItem value="Local Déchets A1">Local Déchets A1</SelectItem>
                   <SelectItem value="Local Déchets A2">Local Déchets A2</SelectItem>
                   <SelectItem value="Zone Quarantaine C2">Zone Quarantaine C2</SelectItem>
@@ -292,33 +331,91 @@ export default function WasteInventoryPage() {
               </Select>
             </div>
             <div>
+              <label className="text-[11px] font-bold block mb-1">Masse réelle pesée (Kg) — optionnel</label>
+              <Input
+                type="number"
+                placeholder="Laisser vide pour utiliser la masse système"
+                value={newPhysicalWeight}
+                onChange={(e) => setNewPhysicalWeight(e.target.value)}
+                className="h-8 text-xs bg-background"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold block mb-1">Observations</label>
+              <Input
+                placeholder="Ex: Pesée contradictoire conforme..."
+                value={newObservations}
+                onChange={(e) => setNewObservations(e.target.value)}
+                className="h-8 text-xs bg-background"
+              />
+            </div>
+            <div>
               <label className="text-[11px] font-bold block mb-1">Responsable du contrôle</label>
               <Input defaultValue="Marie ADANDE" disabled className="h-8 text-xs bg-muted/50 font-medium" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" onClick={() => setIsNewInventoryOpen(false)}>Annuler</Button>
-              <Button size="sm" onClick={() => {
+              <Button size="sm" onClick={async () => {
+                // Calculer la masse théorique depuis les lots de déchets actifs
+                let sysWeight = 0
+                let itemsCnt = 0
+                try {
+                  const localBatches = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
+                  const activeBatches = localBatches.filter((b: any) => b.status !== 'Détruit')
+                  itemsCnt = activeBatches.length
+                  sysWeight = activeBatches.reduce((sum: number, b: any) => sum + (Number(b.quantity) || 0), 0)
+                } catch (e) {}
+
+                const physWeight = newPhysicalWeight.trim() !== '' ? Number(newPhysicalWeight) : sysWeight
+                const diffWeight = physWeight - sysWeight
+                const invStatus = newPhysicalWeight.trim() !== ''
+                  ? (diffWeight === 0 ? 'Validé' : 'Validé avec écart')
+                  : 'En cours'
+
+                const nowIso = new Date().toISOString()
                 const newInv = {
                   id: `inv-w-${Date.now()}`,
                   inv_number: `INV-W-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-                  date: new Date().toISOString(),
+                  name: `Inventaire Déchets - ${newLocation}`,
+                  date: nowIso,
                   location: newLocation,
-                  system_weight: 120,
-                  physical_weight: 120,
-                  diff: 0,
-                  status: 'En cours',
-                  items_count: 6,
+                  inventory_type: 'Contrôle déchet',
+                  system_weight: sysWeight,
+                  physical_weight: physWeight,
+                  diff: diffWeight,
+                  status: invStatus,
+                  items_count: itemsCnt,
                   controller: 'Marie ADANDE',
-                  observations: `Contrôle contradictoire initié pour ${newLocation}. Comptage et pesée physique en cours.`,
+                  observations: newObservations.trim() || `Contrôle contradictoire réalisé pour ${newLocation}.`,
                 }
-                const updated = [newInv, ...inventories]
-                setInventories(updated)
+
+                setInventories(prev => [newInv, ...prev])
+                setIsNewInventoryOpen(false)
+                setNewPhysicalWeight("")
+                setNewObservations("")
+                toast.success(`Session d'inventaire ${newInv.inv_number} lancée avec succès !`)
+
                 try {
+                  localStorage.removeItem('all_data_wiped')
                   const stored = JSON.parse(localStorage.getItem('waste_inventories_custom_v1') || '[]')
                   localStorage.setItem('waste_inventories_custom_v1', JSON.stringify([newInv, ...stored]))
                 } catch (e) {}
-                toast.success(`Session d'inventaire ${newInv.inv_number} initialisée avec succès !`)
-                setIsNewInventoryOpen(false)
+
+                supabase.from('inventories').upsert({
+                  id: newInv.id,
+                  inv_number: newInv.inv_number,
+                  name: newInv.name,
+                  date: newInv.date,
+                  location: newInv.location,
+                  inventory_type: newInv.inventory_type,
+                  status: newInv.status,
+                  system_weight: newInv.system_weight,
+                  physical_weight: newInv.physical_weight,
+                  diff: newInv.diff,
+                  items_count: newInv.items_count,
+                  controller: newInv.controller,
+                  observations: newInv.observations,
+                }, { onConflict: 'inv_number' }).then(() => {})
               }} className="bg-red-600 hover:bg-red-700 text-white">
                 Valider & Générer la feuille
               </Button>

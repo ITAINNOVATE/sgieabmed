@@ -162,65 +162,63 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     async function fetchInventory() {
       let invData: any = null
-      try {
-        const { data, error } = await supabase
-          .from('inventories')
-          .select(`
-            *,
-            items:inventory_items (
-              id,
-              system_quantity,
-              physical_quantity,
-              discrepancy_reason,
-              sample:samples ( id, commercial_name, batch_number, sample_number, quantity, dci )
-            )
-          `)
-          .eq('id', resolvedParams.id)
-          .single()
 
-        if (data) invData = data
+      // 1. Lecture instantanée (0ms) depuis localStorage
+      try {
+        const stored = localStorage.getItem('sample_inventories_custom_v1')
+        if (stored) {
+          const list = JSON.parse(stored)
+          const found = list.find((i: any) => i.id === resolvedParams.id || i.inv_number === resolvedParams.id)
+          if (found) {
+            invData = found
+          }
+        }
+      } catch (e) {}
+
+      // 2. Lecture depuis Supabase Cloud (public.inventories)
+      try {
+        const { data } = await supabase
+          .from('inventories')
+          .select('*')
+          .or(`id.eq.${resolvedParams.id},inv_number.eq.${resolvedParams.id}`)
+          .maybeSingle()
+
+        if (data) {
+          let parsedItems: any[] = invData?.items || []
+          let completedAt: string | null = invData?.completed_at || null
+          if (typeof data.observations === 'string' && data.observations.trim().startsWith('{')) {
+            try {
+              const obs = JSON.parse(data.observations)
+              if (Array.isArray(obs.items)) parsedItems = obs.items
+              if (obs.completed_at) completedAt = obs.completed_at
+            } catch (e) {}
+          }
+          invData = {
+            ...invData,
+            id: data.id,
+            inv_number: data.inv_number,
+            name: data.name || invData?.name || `Inventaire ${data.inv_number}`,
+            inventory_type: data.inventory_type || invData?.inventory_type || 'Périodique',
+            status: data.status || invData?.status || 'En cours',
+            created_at: data.created_at || data.date || invData?.created_at || new Date().toISOString(),
+            completed_at: completedAt,
+            items: parsedItems,
+          }
+        }
       } catch (err: any) {
-        console.warn("Could not query Supabase for inventory, using fallback:", err)
+        console.warn("Could not query Supabase for inventory:", err)
       }
 
       if (!invData && MOCK_INVENTORIES_DETAIL[resolvedParams.id]) {
         invData = MOCK_INVENTORIES_DETAIL[resolvedParams.id]
       }
 
-      if (!invData) {
-        // Fallback générique dynamique pour tout autre ID
-        invData = {
-          id: resolvedParams.id,
-          name: `Inventaire #${resolvedParams.id}`,
-          inventory_type: 'Annuel',
-          status: 'En cours',
-          created_at: new Date().toISOString(),
-          completed_at: null,
-          items: [
-            {
-              id: `item-${resolvedParams.id}-1`,
-              system_quantity: 120,
-              physical_quantity: 120,
-              discrepancy_reason: null,
-              sample: {
-                id: 'sample-1',
-                commercial_name: 'Paracétamol 500mg',
-                batch_number: 'LOT-2023-A45',
-                sample_number: 'SMP-2024-001',
-                quantity: 120,
-                dci: 'Paracétamol'
-              }
-            }
-          ]
-        }
-      }
-
       if (invData) {
         setInventory(invData as Inventory)
         const initialLocal: Record<string, { physical_quantity: number | null, discrepancy_reason: string }> = {}
-        invData.items.forEach((item: any) => {
+        ;(invData.items || []).forEach((item: any) => {
           initialLocal[item.id] = {
-            physical_quantity: item.physical_quantity,
+            physical_quantity: item.physical_quantity !== undefined ? item.physical_quantity : item.system_quantity,
             discrepancy_reason: item.discrepancy_reason || ''
           }
         })
@@ -255,20 +253,47 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
     }))
   }
 
+  const buildUpdatedItems = () => {
+    return (inventory?.items || []).map((item) => {
+      const localVal = localItems[item.id]
+      const phys = localVal !== undefined ? localVal.physical_quantity : item.physical_quantity
+      const isDiff = phys !== null && phys !== item.system_quantity
+      return {
+        ...item,
+        physical_quantity: phys,
+        discrepancy_reason: isDiff ? (localVal?.discrepancy_reason || item.discrepancy_reason || 'Autre') : null,
+      }
+    })
+  }
+
   const saveDraft = async () => {
+    if (!inventory) return
     setIsSaving(true)
     try {
-      const updates = Object.entries(localItems).map(([id, values]) => {
-        return supabase
-          .from('inventory_items')
-          .update({
-            physical_quantity: values.physical_quantity,
-            discrepancy_reason: values.physical_quantity !== null && values.physical_quantity !== (inventory?.items.find(i => i.id === id)?.system_quantity) ? (values.discrepancy_reason || 'Autre') : null
-          })
-          .eq('id', id)
-      })
+      const updatedItems = buildUpdatedItems()
+      const updatedInv = { ...inventory, items: updatedItems }
+      setInventory(updatedInv)
 
-      await Promise.all(updates)
+      // 1. Sauvegarde locale immédiate
+      try {
+        const stored = JSON.parse(localStorage.getItem('sample_inventories_custom_v1') || '[]')
+        const exists = stored.some((i: any) => i.id === inventory.id)
+        const nextList = exists
+          ? stored.map((i: any) => (i.id === inventory.id ? updatedInv : i))
+          : [updatedInv, ...stored]
+        localStorage.setItem('sample_inventories_custom_v1', JSON.stringify(nextList))
+      } catch (e) {}
+
+      // 2. Sauvegarde Supabase Cloud
+      supabase
+        .from('inventories')
+        .update({
+          items_count: updatedItems.length,
+          observations: JSON.stringify({ items: updatedItems, completed_at: inventory.completed_at }),
+        })
+        .eq('id', inventory.id)
+        .then(() => {})
+
       toast.success("Brouillon d'inventaire sauvegardé avec succès")
     } catch (err: any) {
       console.error(err)
@@ -279,7 +304,7 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
   }
 
   const finalizeInventory = async () => {
-    // 1. Validate that all items have physical quantities entered
+    if (!inventory) return
     const incomplete = Object.entries(localItems).some(([_, vals]) => vals.physical_quantity === null)
     if (incomplete) {
       toast.error("Veuillez saisir la quantité physique de tous les articles avant de clôturer.")
@@ -292,78 +317,115 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ id: 
 
     setIsFinalizing(true)
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id
+      const completedAt = new Date().toISOString()
+      const updatedItems = buildUpdatedItems()
+      const finalizedInv: Inventory = {
+        ...inventory,
+        status: 'Validé',
+        completed_at: completedAt,
+        items: updatedItems,
+      }
 
-      // 2. Save current state first
-      const updates = Object.entries(localItems).map(([id, values]) => {
-        const item = inventory?.items.find(i => i.id === id)
-        const isDiscrepancy = values.physical_quantity !== item?.system_quantity
-        return supabase
-          .from('inventory_items')
-          .update({
-            physical_quantity: values.physical_quantity,
-            discrepancy_reason: isDiscrepancy ? (values.discrepancy_reason || 'Autre') : null,
-            verified_by: userId,
-            verified_at: new Date().toISOString()
-          })
-          .eq('id', id)
-      })
-      await Promise.all(updates)
+      setInventory(finalizedInv)
 
-      // 3. Update active inventory status
-      const { error: invUpdateErr } = await supabase
-        .from('inventories')
-        .update({
-          status: 'Validé',
-          completed_at: new Date().toISOString()
+      // 1. Mise à jour locale de l'inventaire, des stocks et des mouvements d'ajustement
+      const adjustmentMovements: any[] = []
+      try {
+        const stored = JSON.parse(localStorage.getItem('sample_inventories_custom_v1') || '[]')
+        const exists = stored.some((i: any) => i.id === inventory.id)
+        const nextList = exists
+          ? stored.map((i: any) => (i.id === inventory.id ? finalizedInv : i))
+          : [finalizedInv, ...stored]
+        localStorage.setItem('sample_inventories_custom_v1', JSON.stringify(nextList))
+
+        const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        const localMovements = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+
+        updatedItems.forEach((item, idx) => {
+          if (!item.sample) return
+          const newQty = item.physical_quantity ?? item.system_quantity
+          const diff = newQty - item.system_quantity
+          const newStatus = newQty === 0 ? 'Épuisé' : 'Disponible'
+
+          const ov = { quantity: newQty, status: newStatus }
+          if (item.sample.id) overrides[item.sample.id] = { ...overrides[item.sample.id], ...ov }
+          if (item.sample.sample_number) overrides[item.sample.sample_number] = { ...overrides[item.sample.sample_number], ...ov }
+          if (item.sample.commercial_name) overrides[item.sample.commercial_name.toUpperCase()] = { ...overrides[item.sample.commercial_name.toUpperCase()], ...ov }
+
+          if (diff !== 0) {
+            const mvt = {
+              id: `mvt-inv-${inventory.id}-${idx}`,
+              mvt_number: `MVT-INV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+              movement_date: completedAt,
+              movement_type: "Correction d'inventaire",
+              sample_id: String(item.sample.id),
+              sample_number: item.sample.sample_number,
+              commercial_name: item.sample.commercial_name.toUpperCase(),
+              batch_number: item.sample.batch_number,
+              quantity: Math.abs(diff),
+              source_location: 'Magasin Central Échantillons',
+              destination_location: 'Magasin Central Échantillons',
+              operator: 'MARIE ADANDE',
+              reason: `Ajustement inventaire (${inventory.name}) - ${item.discrepancy_reason || 'Écart physique'}`,
+              observations: `Stock SI: ${item.system_quantity}, Comptage physique: ${newQty} (Écart: ${diff > 0 ? '+' : ''}${diff})`,
+              status: 'Validé',
+              new_quantity: newQty,
+              new_status: newStatus,
+            }
+            adjustmentMovements.push(mvt)
+            localMovements.unshift(mvt)
+          }
         })
-        .eq('id', resolvedParams.id)
 
-      if (invUpdateErr) throw invUpdateErr
-
-      // 4. Update the sample quantities in the samples table
-      const sampleUpdates = Object.entries(localItems).map(async ([id, values]) => {
-        const item = inventory?.items.find(i => i.id === id)
-        if (!item || !item.sample) return
-
-        const newQty = values.physical_quantity ?? 0
-        const diff = newQty - item.system_quantity
-
-        // Update sample quantity
-        const { error: sampleErr } = await supabase
-          .from('samples')
-          .update({ quantity: newQty, status: newQty === 0 ? 'Utilisé' : (item.sample.quantity === 0 && newQty > 0 ? 'Disponible' : undefined) })
-          .eq('id', item.sample.id)
-        
-        if (sampleErr) throw sampleErr
-
-        // Create adjustment movements if discrepancies exist
-        if (diff !== 0) {
-          await supabase.from('movements').insert({
-            sample_id: item.sample.id,
-            user_id: userId,
-            movement_type: 'Réaffectation', // We use Réaffectation or adjustment type
-            quantity: Math.abs(diff),
-            reason: `Ajustement inventaire - ${values.discrepancy_reason || 'Écart physique'}`,
-            observations: `Ancien stock SI: ${item.system_quantity}, comptage: ${newQty}. Écart: ${diff > 0 ? '+' : ''}${diff}`
-          })
+        localStorage.setItem('local_sample_overrides', JSON.stringify(overrides))
+        if (adjustmentMovements.length > 0) {
+          localStorage.setItem('local_movements_history', JSON.stringify(localMovements))
         }
-      })
-      await Promise.all(sampleUpdates)
+      } catch (e) {}
 
-      // 5. Create Audit Log
-      await supabase.from('audit_logs').insert({
-        user_id: userId,
-        action: 'Modification',
-        entity_type: 'inventories',
-        entity_id: resolvedParams.id,
-        details: { action: 'Clôture inventaire', name: inventory?.name }
-      })
+      // 2. Synchronisation Supabase Cloud en parallèle
+      Promise.all([
+        supabase
+          .from('inventories')
+          .update({
+            status: 'Validé',
+            items_count: updatedItems.length,
+            observations: JSON.stringify({ items: updatedItems, completed_at: completedAt }),
+          })
+          .eq('id', inventory.id),
+        ...updatedItems
+          .filter(it => it.sample && it.physical_quantity !== it.system_quantity)
+          .map(it =>
+            supabase
+              .from('samples')
+              .update({ quantity: it.physical_quantity ?? 0 })
+              .eq('sample_number', it.sample!.sample_number)
+          ),
+        adjustmentMovements.length > 0
+          ? supabase.from('movements').upsert(
+              adjustmentMovements.map(m => ({
+                mvt_number: m.mvt_number,
+                movement_date: m.movement_date,
+                movement_type: m.movement_type,
+                sample_id: m.sample_id,
+                sample_number: m.sample_number,
+                commercial_name: m.commercial_name,
+                batch_number: m.batch_number,
+                quantity: m.quantity,
+                source_location: m.source_location,
+                destination_location: m.destination_location,
+                operator: m.operator,
+                reason: m.reason,
+                observations: m.observations,
+                status: 'Validé',
+              })),
+              { onConflict: 'mvt_number' }
+            )
+          : Promise.resolve(),
+      ]).catch(err => console.warn("Supabase finalize inventory warning:", err))
 
       toast.success("Inventaire clôturé et quantités réelles mises à jour avec succès !")
       router.push('/dashboard/inventory')
-      router.refresh()
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur lors de la clôture : ${err.message}`)
