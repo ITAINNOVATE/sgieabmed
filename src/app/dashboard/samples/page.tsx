@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { 
   ColumnDef, 
   flexRender, 
@@ -175,6 +175,7 @@ export default function SamplesDataTable() {
   const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
   const [locationSample, setLocationSample] = useState<Sample | null>(null)
+  const hasLoadedOnceRef = useRef(false)
 
   const fetchData = useCallback(async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
@@ -297,9 +298,10 @@ export default function SamplesDataTable() {
       }
     }
 
-    // 1. Affichage instantané (0ms) des échantillons locaux
-    if (localSamples.length > 0) {
+    // 1. Affichage instantané (0ms) des échantillons locaux uniquement au premier montage
+    if (!hasLoadedOnceRef.current && localSamples.length > 0) {
       applyOverridesAndSet([])
+      hasLoadedOnceRef.current = true
     }
 
     // 2. Chargement Supabase Cloud
@@ -314,6 +316,7 @@ export default function SamplesDataTable() {
       console.warn("Supabase fetch samples warning:", e)
     }
 
+    hasLoadedOnceRef.current = true
     applyOverridesAndSet(remoteSamples)
   }, [])
 

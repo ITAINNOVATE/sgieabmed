@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   BarChart,
@@ -101,6 +101,7 @@ export default function ReportsClient({
   const [wasteBatches, setWasteBatches] = useState<any[]>(initialWaste)
   const [destructions, setDestructions] = useState<any[]>(initialDestructions)
   const [isSyncing, setIsSyncing] = useState(false)
+  const hasLoadedOnceRef = useRef(false)
 
   const loadReportsData = useCallback(async (manual = false) => {
     if (typeof window === 'undefined') return
@@ -108,9 +109,11 @@ export default function ReportsClient({
 
     const isWiped = localStorage.getItem('all_data_wiped') === 'true'
     let sampleOverrides: Record<string, any> = {}
+    let deletedIds: string[] = []
     try {
       const ov = localStorage.getItem('local_sample_overrides')
       if (ov) sampleOverrides = JSON.parse(ov)
+      deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
     } catch (e) {}
 
     const sampleMap = new Map<string, any>()
@@ -120,20 +123,33 @@ export default function ReportsClient({
 
     if (!isWiped) {
       try {
-        const localRecs = JSON.parse(localStorage.getItem('local_receptions_history') || '[]')
+        const localRecs = JSON.parse(localStorage.getItem('reception_history_records') || localStorage.getItem('local_receptions_history') || '[]')
         if (Array.isArray(localRecs)) {
           localRecs.forEach((r: any) => {
-            const sList = Array.isArray(r.samples) ? r.samples : (Array.isArray(r.samples_data) ? r.samples_data : [])
+            const rKey = r.rec_number || r.reception_number || r.id
+            if (!rKey || deletedIds.includes(rKey)) return
+            let sList = Array.isArray(r.samples_data) ? r.samples_data : []
+            if (sList.length === 0) {
+              const rawDetails = localStorage.getItem('reception_draft_details_' + rKey)
+              if (rawDetails) {
+                try {
+                  const parsed = JSON.parse(rawDetails)
+                  if (Array.isArray(parsed?.formData?.samples)) sList = parsed.formData.samples
+                } catch (e) {}
+              }
+            }
             sList.forEach((s: any, idx: number) => {
-              const sid = s.sample_number || s.id || `${r.id}-${idx}`
+              if (!s.commercial_name) return
+              const sid = s.sample_number || s.id || `ECH-${String(rKey).replace('REC-', '')}-${idx + 1}`
+              if (deletedIds.includes(sid)) return
               const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
               sampleMap.set(sid, {
                 id: sid,
                 sample_number: sid,
                 commercial_name: s.commercial_name || 'Échantillon',
-                quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.qty ?? s.quantity ?? s.received_quantity ?? 1),
                 status: ov.status || s.status || 'Disponible',
-                storage_location: ov.storage_location || s.storage_location || 'Non assigné',
+                storage_location: ov.storage_location || s.location || s.storage_location || 'Non assigné',
               })
             })
           })
@@ -160,10 +176,14 @@ export default function ReportsClient({
         }
       } catch (e) {}
 
-      setSamples(Array.from(sampleMap.values()))
-      setMovements(Array.from(mvtMap.values()))
-      setWasteBatches(Array.from(wasteMap.values()))
-      setDestructions(Array.from(destMap.values()))
+      // Uniquement au tout premier montage, afficher le cache local immédiatement
+      if (!hasLoadedOnceRef.current && (sampleMap.size > 0 || mvtMap.size > 0 || wasteMap.size > 0 || destMap.size > 0)) {
+        setSamples(Array.from(sampleMap.values()))
+        setMovements(Array.from(mvtMap.values()))
+        setWasteBatches(Array.from(wasteMap.values()))
+        setDestructions(Array.from(destMap.values()))
+        hasLoadedOnceRef.current = true
+      }
     }
 
     try {
@@ -178,18 +198,21 @@ export default function ReportsClient({
 
       if (rRes.data && rRes.data.length > 0) {
         rRes.data.forEach((r: any) => {
+          const rKey = r.rec_number || r.reception_number || r.id
+          if (!rKey || deletedIds.includes(rKey)) return
           if (Array.isArray(r.samples_data)) {
             r.samples_data.forEach((s: any, idx: number) => {
-              const sid = s.sample_number || s.id || `${r.id}-${idx}`
-              if (!sampleMap.has(sid)) {
+              if (!s.commercial_name) return
+              const sid = s.sample_number || s.id || `ECH-${String(rKey).replace('REC-', '')}-${idx + 1}`
+              if (!sampleMap.has(sid) && !deletedIds.includes(sid)) {
                 const ov = sampleOverrides[sid] || {}
                 sampleMap.set(sid, {
                   id: sid,
                   sample_number: sid,
                   commercial_name: s.commercial_name || 'Échantillon',
-                  quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                  quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.qty ?? s.quantity ?? s.received_quantity ?? 1),
                   status: ov.status || s.status || 'Disponible',
-                  storage_location: ov.storage_location || s.storage_location || 'Non assigné',
+                  storage_location: ov.storage_location || s.location || s.storage_location || 'Non assigné',
                 })
               }
             })
@@ -200,6 +223,7 @@ export default function ReportsClient({
       if (sRes.data && sRes.data.length > 0) {
         sRes.data.forEach((s: any) => {
           const sid = s.sample_number || s.id
+          if (!sid || deletedIds.includes(sid) || (s.reception_ref && deletedIds.includes(s.reception_ref))) return
           const ov = sampleOverrides[sid] || sampleOverrides[s.id] || {}
           sampleMap.set(sid, {
             ...s,
@@ -229,6 +253,7 @@ export default function ReportsClient({
         })
       }
 
+      hasLoadedOnceRef.current = true
       setSamples(Array.from(sampleMap.values()))
       setMovements(Array.from(mvtMap.values()))
       setWasteBatches(Array.from(wasteMap.values()))
@@ -247,7 +272,7 @@ export default function ReportsClient({
   useRealtimeSync({
     tables: ['samples', 'receptions', 'movements', 'waste_batches', 'destruction_plans', 'inventories'],
     onSync: loadReportsData,
-    pollIntervalMs: 4000,
+    pollIntervalMs: 8000,
   })
 
   const totalStock = samples.reduce((acc, s) => acc + (Number(s.quantity) || 1), 0)
@@ -508,7 +533,7 @@ export default function ReportsClient({
               <div className="h-[120px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={sampleStatusData} cx="50%" cy="50%" innerRadius={22} outerRadius={40} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={sampleStatusData} cx="50%" cy="50%" innerRadius={22} outerRadius={40} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {sampleStatusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                       ))}
@@ -538,7 +563,7 @@ export default function ReportsClient({
                     <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                     <XAxis dataKey="type" tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
-                    <Bar dataKey="count" fill="#1B5C2E" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="count" fill="#1B5C2E" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

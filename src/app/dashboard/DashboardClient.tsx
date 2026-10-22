@@ -10,7 +10,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, Tooltip as RechartsTooltip
 } from "recharts"
 import Link from "next/link"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
@@ -38,6 +38,7 @@ export default function DashboardClient({
   const [receptions, setReceptions] = useState<any[]>(initialReceptions)
   const [lastUpdated, setLastUpdated] = useState<string>("")
   const [isSyncing, setIsSyncing] = useState(false)
+  const hasLoadedOnceRef = useRef(false)
 
   const loadDashboardData = useCallback(async (manual = false) => {
     if (typeof window === "undefined") return
@@ -45,43 +46,63 @@ export default function DashboardClient({
 
     const isWiped = localStorage.getItem('all_data_wiped') === 'true'
     let sampleOverrides: Record<string, any> = {}
+    let deletedIds: string[] = []
     try {
       const ov = localStorage.getItem('local_sample_overrides')
       if (ov) sampleOverrides = JSON.parse(ov)
+      deletedIds = JSON.parse(localStorage.getItem('reception_deleted_ids') || '[]')
     } catch (e) {}
 
-    // 1. Chargement immédiat depuis localStorage (0ms)
     const sampleMap = new Map<string, any>()
     const receptionMap = new Map<string, any>()
 
     if (!isWiped) {
       try {
-        const localRecs = JSON.parse(localStorage.getItem('local_receptions_history') || '[]')
+        const localRecs = JSON.parse(localStorage.getItem('reception_history_records') || localStorage.getItem('local_receptions_history') || '[]')
         if (Array.isArray(localRecs)) {
           localRecs.forEach((r: any) => {
-            const rKey = r.reception_number || r.id
-            if (rKey) receptionMap.set(rKey, r)
-            const sList = Array.isArray(r.samples) ? r.samples : (Array.isArray(r.samples_data) ? r.samples_data : [])
+            const rKey = r.rec_number || r.reception_number || r.id
+            if (!rKey || deletedIds.includes(rKey) || deletedIds.includes(r.id)) return
+            receptionMap.set(rKey, r)
+
+            let sList = Array.isArray(r.samples_data) ? r.samples_data : []
+            if (sList.length === 0) {
+              const rawDetails = localStorage.getItem('reception_draft_details_' + rKey)
+              if (rawDetails) {
+                try {
+                  const parsed = JSON.parse(rawDetails)
+                  if (Array.isArray(parsed?.formData?.samples)) {
+                    sList = parsed.formData.samples
+                  }
+                } catch (e) {}
+              }
+            }
+
             sList.forEach((s: any, idx: number) => {
-              const sid = s.sample_number || s.id || `${rKey}-${idx}`
+              if (!s.commercial_name) return
+              const sid = s.sample_number || s.id || `ECH-${String(rKey).replace('REC-', '')}-${idx + 1}`
+              if (deletedIds.includes(sid)) return
               const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
               sampleMap.set(sid, {
                 id: sid,
                 sample_number: sid,
                 commercial_name: s.commercial_name || "Échantillon",
                 category: s.category || s.dosage_form || "Médicaments",
-                quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.qty ?? s.quantity ?? s.received_quantity ?? 1),
                 status: ov.status || s.status || "Disponible",
-                expiry_date: s.expiry_date || null,
+                expiry_date: s.expiry_date || s.exp_date || null,
               })
             })
           })
         }
       } catch (e) {}
 
-      if (sampleMap.size > 0 || receptionMap.size > 0) {
+      // Uniquement au tout premier affichage (montage initial), afficher le cache local immédiatement
+      // Ne JAMAIS écraser les données distantes pendant le polling périodique !
+      if (!hasLoadedOnceRef.current && (sampleMap.size > 0 || receptionMap.size > 0)) {
         setSamples(Array.from(sampleMap.values()))
         setReceptions(Array.from(receptionMap.values()))
+        hasLoadedOnceRef.current = true
       }
     }
 
@@ -96,21 +117,23 @@ export default function DashboardClient({
       if (rRes.data && rRes.data.length > 0) {
         if (isWiped) localStorage.removeItem('all_data_wiped')
         rRes.data.forEach((r: any) => {
-          const rKey = r.reception_number || r.id
-          if (rKey) receptionMap.set(rKey, r)
+          const rKey = r.rec_number || r.reception_number || r.id
+          if (!rKey || deletedIds.includes(rKey) || deletedIds.includes(r.id)) return
+          receptionMap.set(rKey, r)
           if (Array.isArray(r.samples_data)) {
             r.samples_data.forEach((s: any, idx: number) => {
-              const sid = s.sample_number || s.id || `${rKey}-${idx}`
-              if (!sampleMap.has(sid)) {
+              if (!s.commercial_name) return
+              const sid = s.sample_number || s.id || `ECH-${String(rKey).replace('REC-', '')}-${idx + 1}`
+              if (!sampleMap.has(sid) && !deletedIds.includes(sid)) {
                 const ov = sampleOverrides[sid] || sampleOverrides[s.sample_number] || {}
                 sampleMap.set(sid, {
                   id: sid,
                   sample_number: sid,
                   commercial_name: s.commercial_name || "Échantillon",
                   category: s.category || s.dosage_form || "Médicaments",
-                  quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? s.received_quantity ?? 1),
+                  quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.qty ?? s.quantity ?? s.received_quantity ?? 1),
                   status: ov.status || s.status || "Disponible",
-                  expiry_date: s.expiry_date || null,
+                  expiry_date: s.expiry_date || s.exp_date || null,
                 })
               }
             })
@@ -122,6 +145,7 @@ export default function DashboardClient({
         if (isWiped) localStorage.removeItem('all_data_wiped')
         sRes.data.forEach((s: any) => {
           const sid = s.sample_number || s.id
+          if (!sid || deletedIds.includes(sid) || deletedIds.includes(s.id) || (s.reception_ref && deletedIds.includes(s.reception_ref))) return
           const ov = sampleOverrides[sid] || sampleOverrides[s.id] || {}
           sampleMap.set(sid, {
             ...s,
@@ -132,6 +156,7 @@ export default function DashboardClient({
         })
       }
 
+      hasLoadedOnceRef.current = true
       setSamples(Array.from(sampleMap.values()))
       setReceptions(Array.from(receptionMap.values()))
       setLastUpdated(new Date().toLocaleTimeString('fr-FR'))
@@ -149,7 +174,7 @@ export default function DashboardClient({
   useRealtimeSync({
     tables: ['samples', 'receptions', 'movements', 'inventories'],
     onSync: loadDashboardData,
-    pollIntervalMs: 3500,
+    pollIntervalMs: 8000,
   })
 
   // ─── 1. CALCUL DES KPIs ÉCHANTILLONS EN TEMPS RÉEL ──────────────────────
@@ -281,7 +306,7 @@ export default function DashboardClient({
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={samplesByStatus} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={samplesByStatus} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {samplesByStatus.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={STATUT_COLORS[index % STATUT_COLORS.length]} />
                       ))}
@@ -319,7 +344,7 @@ export default function DashboardClient({
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={samplesByCategory} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={samplesByCategory} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {samplesByCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                       ))}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -89,6 +89,7 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 export default function InventoryPage() {
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
 
   const parseInventoryRecord = (inv: any): Inventory => {
     let items: InventoryItem[] = Array.isArray(inv.items) ? inv.items : [];
@@ -123,9 +124,10 @@ export default function InventoryPage() {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           localList = parsed.map(parseInventoryRecord);
-          if (localList.length > 0) {
+          if (!hasLoadedOnceRef.current && localList.length > 0) {
             setInventories(localList);
             setLoading(false);
+            hasLoadedOnceRef.current = true;
           }
         }
       }
@@ -164,6 +166,7 @@ export default function InventoryPage() {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
+    hasLoadedOnceRef.current = true;
     setInventories(merged.length > 0 ? merged : (isWiped ? [] : MOCK_INVENTORIES));
     setLoading(false);
   };

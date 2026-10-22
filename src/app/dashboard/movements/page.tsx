@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import Link from "next/link"
@@ -24,6 +24,7 @@ export default function MovementsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [selectedMovement, setSelectedMovement] = useState<any | null>(null)
+  const hasLoadedOnceRef = useRef(false)
 
   const fetchMovements = useCallback(async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
@@ -113,10 +114,11 @@ export default function MovementsPage() {
       }
     } catch (errScan) {}
 
-    // 1. Affichage instantané (0ms) depuis le cache local
-    if (localMovements.length > 0) {
+    // 1. Affichage instantané (0ms) depuis le cache local uniquement au tout premier montage
+    if (!hasLoadedOnceRef.current && localMovements.length > 0) {
       setMovements(localMovements)
       setLoading(false)
+      hasLoadedOnceRef.current = true
     }
 
     // 2. Chargement Supabase Cloud
@@ -145,6 +147,7 @@ export default function MovementsPage() {
       localMovements.forEach((m: any) => mvtMap.set(m.mvt_number || m.id, m))
       remoteMovements.forEach((m: any) => mvtMap.set(m.mvt_number || m.id, m))
       const all = Array.from(mvtMap.values())
+      hasLoadedOnceRef.current = true
       setMovements(all.length > 0 ? all : (isWiped ? [] : MOCK_MOVEMENTS))
     } catch (e) {
       setMovements(isWiped ? [] : MOCK_MOVEMENTS)

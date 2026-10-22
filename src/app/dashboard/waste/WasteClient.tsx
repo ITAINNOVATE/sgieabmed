@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { 
   Plus, Trash2, Search, Filter, Flame, Eye, Printer, 
@@ -39,6 +39,7 @@ export default function WasteClient({
   const [batches, setBatches] = useState<any[]>(() => {
     return initialBatches && initialBatches.length > 0 ? initialBatches : []
   })
+  const hasLoadedOnceRef = useRef(false)
 
   const fetchBatches = async () => {
     let localBatches: any[] = []
@@ -46,8 +47,9 @@ export default function WasteClient({
       const stored = localStorage.getItem('waste_batches_custom_v1')
       if (stored) {
         localBatches = JSON.parse(stored)
-        if (localBatches.length > 0) {
+        if (!hasLoadedOnceRef.current && localBatches.length > 0) {
           setBatches(localBatches)
+          hasLoadedOnceRef.current = true
         }
       }
     } catch (e) {}
@@ -76,6 +78,7 @@ export default function WasteClient({
       if (key) batchMap.set(key, b)
     })
 
+    hasLoadedOnceRef.current = true
     if (batchMap.size > 0) {
       setBatches(Array.from(batchMap.values()))
     }
@@ -436,7 +439,7 @@ export default function WasteClient({
                 <div className="w-1/2 h-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3} dataKey="value" stroke="none">
+                      <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3} dataKey="value" stroke="none" isAnimationActive={false}>
                         {wasteByCategory.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={WASTE_CATEGORIES_COLORS[index % WASTE_CATEGORIES_COLORS.length]} />
                         ))}
@@ -469,7 +472,7 @@ export default function WasteClient({
                 <div className="w-1/2 h-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3} dataKey="value" stroke="none">
+                      <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3} dataKey="value" stroke="none" isAnimationActive={false}>
                         {wasteByStatus.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={WASTE_STATUS_COLORS[index % WASTE_STATUS_COLORS.length]} />
                         ))}

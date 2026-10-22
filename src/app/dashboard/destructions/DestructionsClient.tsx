@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Plus, Flame, Search, Eye, MoreHorizontal, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react"
 
@@ -23,6 +23,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
   const [plansList, setPlansList] = useState<any[]>(() => {
     return initialPlans && initialPlans.length > 0 ? initialPlans : []
   })
+  const hasLoadedOnceRef = useRef(false)
 
   const fetchPlans = async () => {
     let localPlans: any[] = []
@@ -30,8 +31,9 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
       const stored = localStorage.getItem('destruction_plans_custom_v1')
       if (stored) {
         localPlans = JSON.parse(stored)
-        if (localPlans.length > 0) {
+        if (!hasLoadedOnceRef.current && localPlans.length > 0) {
           setPlansList(localPlans)
+          hasLoadedOnceRef.current = true
         }
       }
     } catch (e) {}
@@ -63,6 +65,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
       })
     })
 
+    hasLoadedOnceRef.current = true
     if (planMap.size > 0) {
       setPlansList(Array.from(planMap.values()))
     }

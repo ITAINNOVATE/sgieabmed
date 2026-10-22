@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { 
@@ -21,6 +21,7 @@ export default function WasteAnalyticsPage() {
   const [plans, setPlans] = useState<any[]>([])
   const [lastUpdated, setLastUpdated] = useState<string>("")
   const [isSyncing, setIsSyncing] = useState(false)
+  const hasLoadedOnceRef = useRef(false)
 
   const loadWasteDashboardData = useCallback(async (manual = false) => {
     if (typeof window === "undefined") return
@@ -30,7 +31,7 @@ export default function WasteAnalyticsPage() {
     const batchMap = new Map<string, any>()
     const planMap = new Map<string, any>()
 
-    // 1. Chargement immédiat depuis localStorage (0ms)
+    // 1. Chargement depuis localStorage
     if (!isWiped) {
       try {
         const storedBatches = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
@@ -49,9 +50,12 @@ export default function WasteAnalyticsPage() {
         }
       } catch (e) {}
 
-      if (batchMap.size > 0 || planMap.size > 0) {
+      // Uniquement au tout premier montage, afficher immédiatement le cache local
+      // Ne JAMAIS écraser les données Cloud pendant le polling en arrière-plan !
+      if (!hasLoadedOnceRef.current && (batchMap.size > 0 || planMap.size > 0)) {
         setBatches(Array.from(batchMap.values()))
         setPlans(Array.from(planMap.values()))
+        hasLoadedOnceRef.current = true
       }
     }
 
@@ -79,6 +83,7 @@ export default function WasteAnalyticsPage() {
         })
       }
 
+      hasLoadedOnceRef.current = true
       setBatches(Array.from(batchMap.values()))
       setPlans(Array.from(planMap.values()))
       setLastUpdated(new Date().toLocaleTimeString('fr-FR'))
@@ -96,7 +101,7 @@ export default function WasteAnalyticsPage() {
   useRealtimeSync({
     tables: ['waste_batches', 'destruction_plans', 'waste_movements', 'inventories'],
     onSync: loadWasteDashboardData,
-    pollIntervalMs: 3500,
+    pollIntervalMs: 8000,
   })
 
   const activeBatches = batches.filter(b => b.status !== 'Détruit' && b.status !== 'detruit')
@@ -229,7 +234,7 @@ export default function WasteAnalyticsPage() {
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {wasteByCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={WASTE_CATEGORIES_COLORS[index % WASTE_CATEGORIES_COLORS.length]} />
                       ))}
@@ -267,7 +272,7 @@ export default function WasteAnalyticsPage() {
               <div className="w-1/2 h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {wasteByStatus.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={WASTE_STATUS_COLORS[index % WASTE_STATUS_COLORS.length]} />
                       ))}

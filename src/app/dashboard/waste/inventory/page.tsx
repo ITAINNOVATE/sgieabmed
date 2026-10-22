@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ export default function WasteInventoryPage() {
   const [newLocation, setNewLocation] = useState("MAGASIN DES DECHETS")
   const [newPhysicalWeight, setNewPhysicalWeight] = useState<string>("")
   const [newObservations, setNewObservations] = useState<string>("")
+  const hasLoadedOnceRef = useRef(false)
   const supabase = createClient()
 
   const fetchWasteInventories = useCallback(async () => {
@@ -34,8 +35,9 @@ export default function WasteInventoryPage() {
       const stored = localStorage.getItem('waste_inventories_custom_v1')
       if (stored) {
         customList = JSON.parse(stored)
-        if (customList.length > 0) {
+        if (!hasLoadedOnceRef.current && customList.length > 0) {
           setInventories(customList)
+          hasLoadedOnceRef.current = true
         }
       }
     } catch (e) {}
@@ -64,6 +66,7 @@ export default function WasteInventoryPage() {
     remoteList.forEach(i => map.set(i.inv_number || i.id, i))
 
     const merged = Array.from(map.values())
+    hasLoadedOnceRef.current = true
     setInventories(merged.length > 0 ? merged : (isWiped ? [] : MOCK_WASTE_INVENTORIES))
   }, [supabase])
 

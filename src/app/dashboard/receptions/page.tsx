@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck, Download } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { useEffect, useState, Suspense, useCallback } from "react"
+import { useEffect, useState, Suspense, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
@@ -24,6 +24,7 @@ function ReceptionsContent() {
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const hasLoadedOnceRef = useRef(false)
   const supabase = createClient()
 
   const handleDownloadAttestation = (rec: any) => {
@@ -203,8 +204,8 @@ function ReceptionsContent() {
       }
     } catch (e) {}
 
-    // Affichage instantané (0ms) depuis le cache local avant même la réponse réseau
-    if (localData.length > 0) {
+    // Affichage instantané (0ms) depuis le cache local uniquement au tout premier chargement
+    if (!hasLoadedOnceRef.current && localData.length > 0) {
       const quickMap = new Map<string, any>()
       localData.forEach(item => {
         if (item.rec_number && !deletedIds.includes(item.rec_number) && !deletedIds.includes(item.id)) {
@@ -217,6 +218,7 @@ function ReceptionsContent() {
         return timeB - timeA
       }))
       setLoading(false)
+      hasLoadedOnceRef.current = true
     }
 
     // 1. Données distantes Supabase (Source de vérité Cloud)
@@ -304,17 +306,17 @@ function ReceptionsContent() {
       return timeB - timeA
     })
 
+    hasLoadedOnceRef.current = true
     setReceptions(mergedList)
     setLoading(false)
 
-    // Synchronisation montante non-bloquante en arrière-plan
+    // Synchronisation montante non-bloquante en arrière-plan (uniquement pour les réceptions pas encore dans Supabase)
     ;(async () => {
       for (const item of localData) {
         const remoteItem = remoteData.find((r: any) => r.rec_number === item.rec_number)
         const raw = typeof window !== 'undefined' ? localStorage.getItem('reception_draft_details_' + item.rec_number) : null
-        const needsRichSync = raw && remoteItem && (!Array.isArray(remoteItem.samples_data) || remoteItem.samples_data.length === 0 || remoteItem.samples_data[0]?.commercial_name?.startsWith('ÉCHANTILLON '))
 
-        if (!deletedIds.includes(item.rec_number) && (!remoteItem || needsRichSync)) {
+        if (!deletedIds.includes(item.rec_number) && !remoteItem && !syncedIds.includes(item.rec_number)) {
           try {
             let fd: any = {}
             let validSamples: any[] = []
