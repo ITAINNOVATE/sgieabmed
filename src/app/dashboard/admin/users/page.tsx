@@ -455,6 +455,20 @@ export default function UsersAdminPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setCreatedCredentials({
+                                    fullName: `${user.first_name} ${user.last_name}`,
+                                    username: user.username,
+                                    email: user.email,
+                                    role: user.role,
+                                    tempPass: user.initial_password || user.password || "AbMed@2026",
+                                  })
+                                }
+                                className="gap-2 cursor-pointer text-xs font-semibold text-[#1B5C2E]"
+                              >
+                                <Key className="h-3.5 w-3.5 text-[#1B5C2E]" /> Voir Identifiants / MDP
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openEditModal(user)} className="gap-2 cursor-pointer text-xs">
                                 <RefreshCw className="h-3.5 w-3.5" /> Modifier
                               </DropdownMenuItem>

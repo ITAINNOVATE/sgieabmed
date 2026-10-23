@@ -129,6 +129,160 @@ const MOCK_USERS: User[] = [
     login_attempts: 0,
     locked_until: null,
     must_change_password: false
+  },
+  {
+    id: "usr-2",
+    first_name: "Jocelyne",
+    last_name: "SATCHIVI",
+    matricule: "ABM-2026-002",
+    fonction: "Cadre Technique ABMed",
+    department_id: "dept-1",
+    role: "Responsable Échantillothèque",
+    phone: "+229 01 97 00 00 02",
+    email: "jocelyne.satchivi@abmed.bj",
+    username: "j.satchivi",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:00:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026JS",
+    password: "AbMed@2026JS"
+  },
+  {
+    id: "usr-3",
+    first_name: "Hubert",
+    last_name: "ALOFA",
+    matricule: "ABM-2026-003",
+    fonction: "Cadre Technique ABMed",
+    department_id: "dept-1",
+    role: "Responsable Échantillothèque",
+    phone: "+229 01 97 00 00 03",
+    email: "hubert.alofa@abmed.bj",
+    username: "h.alofa",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:05:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026HA",
+    password: "AbMed@2026HA"
+  },
+  {
+    id: "usr-4",
+    first_name: "Joël",
+    last_name: "TONOUKOUIN",
+    matricule: "ABM-2026-004",
+    fonction: "Cadre Technique ABMed",
+    department_id: "dept-2",
+    role: "Responsable Déchets Pharmaceutiques",
+    phone: "+229 01 97 00 00 04",
+    email: "joel.tonoukouin@abmed.bj",
+    username: "j.tonoukouin",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:10:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026JT",
+    password: "AbMed@2026JT"
+  },
+  {
+    id: "usr-5",
+    first_name: "Ella",
+    last_name: "LOKOUN",
+    matricule: "ABM-2026-005",
+    fonction: "Cadre Assurance Qualité",
+    department_id: "dept-3",
+    role: "Auditeur Qualité",
+    phone: "+229 01 97 00 00 05",
+    email: "ella.lokoun@abmed.bj",
+    username: "e.lokoun",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:15:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026EL",
+    password: "AbMed@2026EL"
+  },
+  {
+    id: "usr-6",
+    first_name: "Maëlle",
+    last_name: "DOSSOU YOVO",
+    matricule: "ABM-2026-006",
+    fonction: "Analyste & Contrôle Échantillons",
+    department_id: "dept-4",
+    role: "Agent de Saisie & Laboratoire",
+    phone: "+229 01 97 00 00 06",
+    email: "maelle.dossouyovo@abmed.bj",
+    username: "m.dossouyovo",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:20:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026MD",
+    password: "AbMed@2026MD"
+  },
+  {
+    id: "usr-7",
+    first_name: "Radihath",
+    last_name: "AROUNA",
+    matricule: "ABM-2026-007",
+    fonction: "Analyste & Contrôle Échantillons",
+    department_id: "dept-4",
+    role: "Agent de Saisie & Laboratoire",
+    phone: "+229 01 97 00 00 07",
+    email: "radihath.arouna@abmed.bj",
+    username: "r.arouna",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:25:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026RA",
+    password: "AbMed@2026RA"
+  },
+  {
+    id: "usr-8",
+    first_name: "Aimé",
+    last_name: "DASSI",
+    matricule: "ABM-2026-008",
+    fonction: "Cadre Technique & Logistique",
+    department_id: "dept-2",
+    role: "Responsable Déchets Pharmaceutiques",
+    phone: "+229 01 97 00 00 08",
+    email: "aime.dassi@abmed.bj",
+    username: "a.dassi",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-23T08:30:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026AD",
+    password: "AbMed@2026AD"
   }
 ]
 
@@ -540,15 +694,26 @@ export function generateSecureInitialPassword(): string {
 
 export const getUsers = async (): Promise<User[]> => {
   let remoteUsers: User[] = []
+  let cloudOverrides: Record<string, Partial<User>> = {}
   try {
     const supabase = createClient()
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false })
-    if (!error && data && data.length > 0) {
-      remoteUsers = data
+    const [uRes, sRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('*')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'admin_users_cloud_overrides_v1')
+        .maybeSingle()
+    ])
+    if (!uRes.error && uRes.data && uRes.data.length > 0) {
+      remoteUsers = uRes.data
+    }
+    if (!sRes.error && sRes.data?.value && typeof sRes.data.value === 'object') {
+      cloudOverrides = sRes.data.value as Record<string, Partial<User>>
     }
   } catch (err) {}
 
@@ -582,12 +747,9 @@ export const getUsers = async (): Promise<User[]> => {
     ) {
       return
     }
-    const override = localOverrides[id] || localOverrides[user.username] || localOverrides[user.email]
-    if (override) {
-      finalUsers.push({ ...user, ...override })
-    } else {
-      finalUsers.push(user)
-    }
+    const cloudOv = cloudOverrides[id] || cloudOverrides[user.username] || cloudOverrides[user.email] || {}
+    const localOv = localOverrides[id] || localOverrides[user.username] || localOverrides[user.email] || {}
+    finalUsers.push({ ...user, ...cloudOv, ...localOv })
   })
 
   // Trier par date de création descendante
@@ -769,6 +931,7 @@ export const softDeleteUser = async (id: string): Promise<boolean> => {
 // Mise à jour sécurisée du mot de passe lors de la première connexion
 export const updateUserPassword = async (identifier: string, newPassword: string): Promise<boolean> => {
   const idLower = identifier.trim().toLowerCase()
+  let mergedOverrides: Record<string, any> = {}
   if (typeof window !== "undefined" && window.localStorage) {
     try {
       const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
@@ -785,7 +948,9 @@ export const updateUserPassword = async (identifier: string, newPassword: string
         ...(overrides[identifier] || {}),
         password: newPassword,
         must_change_password: false,
+        last_login: new Date().toISOString()
       }
+      mergedOverrides = overrides
       localStorage.setItem(USERS_OVERRIDES_KEY, JSON.stringify(overrides))
 
       // Mettre à jour l'utilisateur courant en session si connecté
@@ -804,6 +969,27 @@ export const updateUserPassword = async (identifier: string, newPassword: string
 
   try {
     const supabase = createClient()
+    const { data: existingCloud } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'admin_users_cloud_overrides_v1')
+      .maybeSingle()
+    const cloudVal = (existingCloud?.value && typeof existingCloud.value === 'object') ? existingCloud.value : {}
+    const updatedCloud = {
+      ...cloudVal,
+      ...mergedOverrides,
+      [identifier]: {
+        ...((cloudVal as any)[identifier] || {}),
+        password: newPassword,
+        must_change_password: false,
+        last_login: new Date().toISOString()
+      }
+    }
+    await supabase.from('settings').upsert({
+      key: 'admin_users_cloud_overrides_v1',
+      value: updatedCloud
+    }, { onConflict: 'key' })
+
     await supabase.from('users').update({
       must_change_password: false,
     }).or(`email.eq.${identifier},username.eq.${identifier},id.eq.${identifier}`)
@@ -819,13 +1005,20 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
   user?: User
   mustChangePassword?: boolean
 }> => {
+  const normalize = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   const idLower = identifier.trim().toLowerCase()
+  const idNorm = normalize(identifier)
   const allUsers = await getUsers()
 
-  // Chercher par username ou email
+  // Chercher par username, email, matricule ou nom complet (avec ou sans accents)
   let user = allUsers.find(u => 
     u.username.toLowerCase() === idLower || 
-    u.email.toLowerCase() === idLower
+    u.email.toLowerCase() === idLower ||
+    normalize(u.username) === idNorm ||
+    normalize(u.email) === idNorm ||
+    normalize(`${u.first_name} ${u.last_name}`) === idNorm ||
+    normalize(`${u.last_name} ${u.first_name}`) === idNorm ||
+    normalize(u.last_name) === idNorm
   )
 
   // Compte par défaut administrateur
