@@ -23,7 +23,7 @@ import { toast } from "sonner"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { logout } from "@/app/actions/auth"
-import { getCurrentUser, setCurrentUser, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
+import { getCurrentUser, setCurrentUser, User as AdminUser, recordLoginLog, recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 
 const QRCodeScannerDialog = dynamic(
   () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
@@ -359,6 +359,10 @@ export function HeaderActions() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <form action={logout} onSubmit={() => {
+            if (currentUser) {
+              recordLoginLog(currentUser.username, "Déconnexion")
+              recordAuditLog("Déconnexion", "Authentification", `Déconnexion de l'utilisateur ${currentUser.first_name} ${currentUser.last_name}`, `${currentUser.first_name} ${currentUser.last_name}`)
+            }
             setCurrentUser(null)
             if (typeof document !== "undefined") {
               document.cookie = "eged_user_logged=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"

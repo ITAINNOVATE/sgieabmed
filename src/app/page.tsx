@@ -14,7 +14,7 @@ import {
 import { login } from "./actions/auth"
 import { 
   authenticateUser, updateUserPassword, setCurrentUser, 
-  User as AdminUser 
+  User as AdminUser, recordLoginLog, recordAuditLog
 } from "@/app/dashboard/admin/adminMockData"
 import { toast } from "sonner"
 import Image from "next/image"
@@ -55,6 +55,8 @@ export default function LoginPage({
     try {
       const res = await authenticateUser(identifier, password)
       if (!res.success) {
+        recordLoginLog(identifier, "Échec de connexion")
+        recordAuditLog("Échec de connexion", "Authentification", `Tentative de connexion infructueuse pour "${identifier}"`, identifier)
         setErrorMsg(res.error || "Identifiants invalides.")
         setLoading(false)
         return
@@ -69,6 +71,9 @@ export default function LoginPage({
         return
       }
 
+      recordLoginLog(user.username, "Connexion")
+      recordAuditLog("Connexion", "Authentification", `Connexion réussie de ${user.first_name} ${user.last_name} (${user.role})`, `${user.first_name} ${user.last_name}`)
+
       setCurrentUser(user)
       if (typeof document !== "undefined") {
         document.cookie = `eged_user_logged=true; path=/; max-age=86400; SameSite=Lax`
@@ -76,6 +81,7 @@ export default function LoginPage({
       toast.success(`Bienvenue, ${user.first_name} ${user.last_name} !`)
       router.push("/dashboard")
     } catch (err: any) {
+      recordLoginLog(identifier, "Échec de connexion")
       setErrorMsg("Une erreur est survenue lors de la connexion.")
       setLoading(false)
     }
@@ -118,6 +124,9 @@ export default function LoginPage({
       }
       delete updatedUser.initial_password
       setCurrentUser(updatedUser)
+
+      recordLoginLog(pendingUser.username, "Connexion")
+      recordAuditLog("Modification", "Sécurité", `Définition du mot de passe personnel pour l'utilisateur ${pendingUser.username}`, `${pendingUser.first_name} ${pendingUser.last_name}`)
 
       if (typeof document !== "undefined") {
         document.cookie = `eged_user_logged=true; path=/; max-age=86400; SameSite=Lax`

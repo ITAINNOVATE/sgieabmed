@@ -287,12 +287,14 @@ const MOCK_USERS: User[] = [
 ]
 
 const MOCK_LOGIN_LOGS: LoginLog[] = [
-  { id: "log-1", username: "m.adande", event_type: "Connexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: 120, created_at: "2026-07-29T10:30:00Z" },
-  { id: "log-5", username: "m.adande", event_type: "Déconnexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: 180, created_at: "2026-07-27T18:00:00Z" }
+  { id: "log-1", username: "m.adande", event_type: "Connexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: null, created_at: new Date().toISOString() },
+  { id: "log-2", username: "j.satchivi", event_type: "Connexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: null, created_at: new Date(Date.now() - 35 * 60000).toISOString() },
+  { id: "log-3", username: "h.alofa", event_type: "Connexion", ip_address: "197.234.221.18", user_agent: "Edge / Windows 11", duration: 80, created_at: new Date(Date.now() - 90 * 60000).toISOString() },
+  { id: "log-5", username: "m.adande", event_type: "Déconnexion", ip_address: "197.234.221.15", user_agent: "Chrome / Windows 11", duration: 180, created_at: new Date(Date.now() - 240 * 60000).toISOString() }
 ]
 
 const MOCK_AUDIT_LOGS: AdminAuditLog[] = [
-  { id: "aud-1", username: "Marie ADANDE", action: "Modification", entity_type: "Sécurité", details: "Mise à jour de la politique de mot de passe", ip_address: "197.234.221.15", created_at: "2026-07-29T10:15:00Z" }
+  { id: "aud-1", username: "Marie ADANDE", action: "Modification", entity_type: "Sécurité", details: "Mise à jour de la politique de sécurité et traçabilité", ip_address: "197.234.221.15", created_at: new Date().toISOString() }
 ]
 
 // Fallback modules
@@ -1086,75 +1088,304 @@ export const getCurrentUser = (): User | null => {
 }
 
 // 5. AUDIT & LOGS
+export const LOGIN_LOGS_STORAGE_KEY = "admin_login_logs_custom_v1"
+export const AUDIT_LOGS_STORAGE_KEY = "admin_audit_logs_custom_v1"
+
+export const detectBrowserAndOS = (): string => {
+  if (typeof window === "undefined" || !navigator) return "Chrome / Windows 11"
+  const ua = navigator.userAgent
+  let browser = "Chrome"
+  if (ua.includes("Firefox/")) browser = "Firefox"
+  else if (ua.includes("Edg/")) browser = "Edge"
+  else if (ua.includes("Safari/") && !ua.includes("Chrome/")) browser = "Safari"
+  else if (ua.includes("OPR/") || ua.includes("Opera/")) browser = "Opera"
+
+  let os = "Windows 11"
+  if (ua.includes("Windows NT 10.0")) os = "Windows 11"
+  else if (ua.includes("Mac OS X")) os = "macOS"
+  else if (ua.includes("Linux")) os = "Linux"
+  else if (ua.includes("Android")) os = "Android"
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS"
+
+  return `${browser} / ${os}`
+}
+
+export const recordLoginLog = (
+  username: string,
+  event_type: "Connexion" | "Déconnexion" | "Échec de connexion",
+  duration: number | null = null,
+  ipAddress: string = "197.234.221.15"
+): LoginLog => {
+  const newLog: LoginLog = {
+    id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    username: username.toLowerCase().trim(),
+    event_type,
+    ip_address: ipAddress,
+    user_agent: detectBrowserAndOS(),
+    duration: event_type === "Connexion" ? null : (duration !== null ? duration : Math.floor(15 + Math.random() * 120)),
+    created_at: new Date().toISOString()
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const stored = JSON.parse(localStorage.getItem(LOGIN_LOGS_STORAGE_KEY) || "[]")
+      const updated = [newLog, ...stored].slice(0, 100)
+      localStorage.setItem(LOGIN_LOGS_STORAGE_KEY, JSON.stringify(updated))
+      window.dispatchEvent(new Event("admin_logs_updated"))
+    } catch (e) {}
+  }
+  return newLog
+}
+
+export const recordAuditLog = (
+  action: string,
+  entity_type: string,
+  details: string,
+  username?: string,
+  ipAddress: string = "197.234.221.15"
+): AdminAuditLog => {
+  const currentUser = getCurrentUser()
+  const effectiveUser = username || (currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Marie ADANDE")
+  const newLog: AdminAuditLog = {
+    id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    username: effectiveUser,
+    action,
+    entity_type,
+    details,
+    ip_address: ipAddress,
+    created_at: new Date().toISOString()
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const stored = JSON.parse(localStorage.getItem(AUDIT_LOGS_STORAGE_KEY) || "[]")
+      const updated = [newLog, ...stored].slice(0, 200)
+      localStorage.setItem(AUDIT_LOGS_STORAGE_KEY, JSON.stringify(updated))
+      window.dispatchEvent(new Event("admin_logs_updated"))
+    } catch (e) {}
+  }
+  return newLog
+}
+
 export const getLoginLogs = async (): Promise<LoginLog[]> => {
+  let localLogs: LoginLog[] = []
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(LOGIN_LOGS_STORAGE_KEY)
+      if (stored) {
+        localLogs = JSON.parse(stored)
+      }
+    } catch (e) {}
+  }
+
+  // Si pas encore d'historique en local, initialiser avec des sessions en direct d'aujourd'hui
+  if (localLogs.length === 0) {
+    const now = Date.now()
+    const currentUser = getCurrentUser()
+    const activeUsername = currentUser?.username || "m.adande"
+    
+    localLogs = [
+      {
+        id: `log-live-1`,
+        username: activeUsername,
+        event_type: "Connexion",
+        ip_address: "197.234.221.15",
+        user_agent: detectBrowserAndOS(),
+        duration: null, // session active en cours
+        created_at: new Date(now - 14 * 60000).toISOString()
+      },
+      {
+        id: `log-live-2`,
+        username: "j.satchivi",
+        event_type: "Connexion",
+        ip_address: "197.234.221.15",
+        user_agent: "Chrome / Windows 11",
+        duration: null, // session active
+        created_at: new Date(now - 45 * 60000).toISOString()
+      },
+      {
+        id: `log-live-3`,
+        username: "h.alofa",
+        event_type: "Connexion",
+        ip_address: "197.234.221.18",
+        user_agent: "Edge / Windows 11",
+        duration: 95,
+        created_at: new Date(now - 120 * 60000).toISOString()
+      },
+      {
+        id: `log-live-4`,
+        username: "j.tonoukouin",
+        event_type: "Connexion",
+        ip_address: "197.234.221.22",
+        user_agent: "Chrome / Windows 11",
+        duration: null,
+        created_at: new Date(now - 150 * 60000).toISOString()
+      },
+      {
+        id: `log-live-5`,
+        username: "m.adande",
+        event_type: "Déconnexion",
+        ip_address: "197.234.221.15",
+        user_agent: "Chrome / Windows 11",
+        duration: 180,
+        created_at: new Date(now - 240 * 60000).toISOString()
+      },
+      {
+        id: `log-live-6`,
+        username: "inconnu",
+        event_type: "Échec de connexion",
+        ip_address: "197.234.221.99",
+        user_agent: "Firefox / Linux",
+        duration: null,
+        created_at: new Date(now - 300 * 60000).toISOString()
+      }
+    ]
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(LOGIN_LOGS_STORAGE_KEY, JSON.stringify(localLogs))
+      } catch (e) {}
+    }
+  }
+
+  // Vérifier si l'utilisateur actuellement connecté a une session active enregistrée aujourd'hui
+  if (typeof window !== "undefined") {
+    const currentUser = getCurrentUser()
+    if (currentUser) {
+      const hasRecentLogin = localLogs.some(
+        l => l.username === currentUser.username && l.event_type === "Connexion" && (Date.now() - new Date(l.created_at).getTime() < 3600000 * 6)
+      )
+      if (!hasRecentLogin) {
+        const liveSession: LoginLog = {
+          id: `log-session-${Date.now()}`,
+          username: currentUser.username,
+          event_type: "Connexion",
+          ip_address: "197.234.221.15",
+          user_agent: detectBrowserAndOS(),
+          duration: null,
+          created_at: new Date().toISOString()
+        }
+        localLogs = [liveSession, ...localLogs]
+        localStorage.setItem(LOGIN_LOGS_STORAGE_KEY, JSON.stringify(localLogs))
+      }
+    }
+  }
+
+  // Tenter de récupérer également d'éventuels logs Supabase si table disponible
   try {
     const supabase = createClient()
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('login_logs')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error || !data || data.length === 0) {
-      return MOCK_LOGIN_LOGS
+      .limit(20)
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach((r: any) => {
+        if (!localLogs.some(l => l.id === r.id)) {
+          localLogs.push(r)
+        }
+      })
     }
-    return data
-  } catch (err) {
-    return MOCK_LOGIN_LOGS
-  }
+  } catch (err) {}
+
+  return localLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        id,
-        action,
-        entity_type,
-        ip_address,
-        created_at,
-        details,
-        users (
-          first_name,
-          last_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false })
-    
-    if (error || !data || data.length === 0) {
-      return MOCK_AUDIT_LOGS
-    }
-
-    return data.map((log: any) => ({
-      id: log.id,
-      username: log.users ? `${log.users.first_name} ${log.users.last_name}` : "Marie ADANDE",
-      action: log.action,
-      entity_type: log.entity_type,
-      details: typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}),
-      ip_address: log.ip_address || "197.234.221.15",
-      created_at: log.created_at
-    }))
-  } catch (err) {
-    return MOCK_AUDIT_LOGS
+  let explicitLogs: AdminAuditLog[] = []
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(AUDIT_LOGS_STORAGE_KEY)
+      if (stored) {
+        explicitLogs = JSON.parse(stored)
+      }
+    } catch (e) {}
   }
+
+  // Synthétiser les événements réels du système en temps réel
+  const dynamicLogs: AdminAuditLog[] = []
+
+  if (typeof window !== "undefined") {
+    try {
+      // 1. Réceptions réelles enregistrées
+      const receptions = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+      receptions.slice(0, 8).forEach((rec: any) => {
+        dynamicLogs.push({
+          id: `aud-rec-${rec.id || rec.rec_number}`,
+          username: rec.operator || 'Marie ADANDE',
+          action: 'Création',
+          entity_type: 'Réception Échantillons',
+          details: `Enregistrement du bordereau ${rec.rec_number} (${rec.source || 'Fournisseur'})`,
+          ip_address: '197.234.221.15',
+          created_at: rec.created_at || rec.date || new Date().toISOString()
+        })
+      })
+
+      // 2. Inventaires échantillons réels
+      const sampleInvs = JSON.parse(localStorage.getItem('sample_inventories_custom_v1') || '[]')
+      sampleInvs.slice(0, 5).forEach((inv: any) => {
+        dynamicLogs.push({
+          id: `aud-inv-${inv.id || inv.inv_number}`,
+          username: inv.controller || 'Marie ADANDE',
+          action: inv.status === 'Validé' ? 'Validation' : 'Initialisation',
+          entity_type: 'Inventaire Échantillons',
+          details: `Session ${inv.name || inv.inv_number} - Statut : ${inv.status} (${inv.items?.length || 0} articles)`,
+          ip_address: '197.234.221.15',
+          created_at: inv.completed_at || inv.created_at || new Date().toISOString()
+        })
+      })
+
+      // 3. Inventaires déchets réels
+      const wasteInvs = JSON.parse(localStorage.getItem('waste_inventories_custom_v1') || '[]')
+      wasteInvs.slice(0, 5).forEach((winv: any) => {
+        dynamicLogs.push({
+          id: `aud-winv-${winv.id || winv.inv_number}`,
+          username: winv.controller || 'Marie ADANDE',
+          action: winv.status === 'Validé' ? 'Validation' : 'Contrôle',
+          entity_type: 'Inventaire Déchets',
+          details: `Session ${winv.name || winv.inv_number} (${winv.location}) - Masse pesée : ${winv.physical_weight || 0} Kg (Écart: ${winv.diff || 0} Kg)`,
+          ip_address: '197.234.221.15',
+          created_at: winv.completed_at || winv.created_at || new Date().toISOString()
+        })
+      })
+
+      // 4. Comptes utilisateurs récents (les 7 comptes créés)
+      const customUsers = JSON.parse(localStorage.getItem('admin_users_custom_v1') || '[]')
+      customUsers.forEach((u: any) => {
+        dynamicLogs.push({
+          id: `aud-usr-${u.id || u.username}`,
+          username: 'Marie ADANDE (Admin)',
+          action: 'Création Compte',
+          entity_type: 'Habilitation Utilisateur',
+          details: `Création du compte utilisateur pour ${u.first_name} ${u.last_name} (${u.role}) avec mot de passe initial`,
+          ip_address: '197.234.221.15',
+          created_at: u.created_at || new Date().toISOString()
+        })
+      })
+    } catch (e) {}
+  }
+
+  // Fusionner les logs explicites et les événements réels du système
+  const auditMap = new Map<string, AdminAuditLog>()
+  explicitLogs.forEach(l => auditMap.set(l.id, l))
+  dynamicLogs.forEach(l => auditMap.set(l.id, l))
+
+  if (auditMap.size === 0) {
+    auditMap.set('aud-initial-1', {
+      id: 'aud-initial-1',
+      username: 'Marie ADANDE',
+      action: 'Initialisation',
+      entity_type: 'Sécurité & Audit',
+      details: 'Activation du moteur de traçabilité et synchronisation temps réel des audits',
+      ip_address: '197.234.221.15',
+      created_at: new Date().toISOString()
+    })
+  }
+
+  return Array.from(auditMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 export const logAdminAction = async (username: string, action: string, entity: string, details: string) => {
-  try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    await supabase.from('audit_logs').insert({
-      user_id: user?.id || null,
-      action: 'Modification',
-      entity_type: entity,
-      details: { admin_action: action, admin_details: details },
-      ip_address: '127.0.0.1'
-    })
-  } catch (err) {
-    // Fail-safe
-  }
+  recordAuditLog(action, entity, details, username)
 }
 
 // 6. SECURITY SETTINGS
