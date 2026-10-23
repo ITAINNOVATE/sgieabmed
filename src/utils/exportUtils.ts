@@ -676,4 +676,229 @@ export function exportDestructionCertificatePDF(certData: {
   doc.save(`${certData.certificate_number || 'certificat-destruction'}.pdf`)
 }
 
+// 7. Export Waste Inventory Report PDF (Procès-Verbal de Contrôle & Inventaire Déchets)
+export function exportWasteInventoryReportPDF(inventoryData: {
+  inv_number: string
+  name: string
+  date: string
+  completed_at?: string | null
+  inventory_type: string
+  location: string
+  status: string
+  controller?: string
+  system_weight: number
+  physical_weight: number
+  diff: number
+  items_count: number
+  observations?: string
+  items: Array<{
+    batch_number: string
+    commercial_name: string
+    waste_type: string
+    packaging?: string
+    current_location?: string
+    system_quantity: number
+    physical_quantity: number | null
+    diff?: number
+    discrepancy_reason?: string | null
+  }>
+}) {
+  const doc = new jsPDF()
+
+  // En-tête République du Bénin / ABMed
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(30, 41, 59)
+  doc.text("RÉPUBLIQUE DU BÉNIN", 14, 12)
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "normal")
+  doc.text("MINISTÈRE DE LA SANTÉ", 14, 16)
+  doc.text("AGENCE BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed)", 14, 20)
+  doc.text("SYSTÈME INTÉGRÉ DE GESTION DES ÉCHANTILLONS & DÉCHETS (SGIE)", 14, 24)
+
+  // Bandeau titre bordeaux / rouge déchet
+  doc.setFillColor(185, 28, 28) // red-700
+  doc.roundedRect(14, 28, 182, 13, 1.5, 1.5, "F")
+  doc.setFontSize(10.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(255, 255, 255)
+  doc.text("PROCÈS-VERBAL DE CONTRÔLE D'INVENTAIRE PHYSIQUE DES DÉCHETS", 105, 36.5, { align: "center" })
+
+  // Informations de la session d'inventaire
+  doc.setFillColor(248, 250, 252)
+  doc.setDrawColor(226, 232, 240)
+  doc.roundedRect(14, 45, 182, 34, 2, 2, "FD")
+
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(100, 116, 139)
+  doc.text("N° INVENTAIRE DÉCHET :", 18, 52)
+  doc.text("DATE D'OUVERTURE :", 18, 59)
+  doc.text("ZONE DE STOCKAGE :", 18, 66)
+  doc.text("STATUT SESSION :", 18, 73)
+
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text(inventoryData.inv_number || "INV-W-2026", 62, 52)
+  doc.setFont("helvetica", "normal")
+  doc.text(new Date(inventoryData.date).toLocaleDateString("fr-FR"), 62, 59)
+  doc.text(inventoryData.location || "MAGASIN DES DECHETS", 62, 66)
+  doc.text(inventoryData.status || "Validé", 62, 73)
+
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(100, 116, 139)
+  doc.text("NOM DE SESSION :", 108, 52)
+  doc.text("DATE CLÔTURE :", 108, 59)
+  doc.text("TYPE D'INVENTAIRE :", 108, 66)
+  doc.text("RESPONSABLE CONTRÔLE :", 108, 73)
+
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(15, 23, 42)
+  doc.text(inventoryData.name || "Inventaire Déchets", 146, 52)
+  doc.text(inventoryData.completed_at ? new Date(inventoryData.completed_at).toLocaleDateString("fr-FR") : "—", 146, 59)
+  doc.text(inventoryData.inventory_type || "Périodique", 146, 66)
+  doc.text(inventoryData.controller || "Marie ADANDE", 146, 73)
+
+  // Synthèse comparative des masses (3 boîtes KPI)
+  const kpiY = 82
+  // Masse théorique
+  doc.setFillColor(241, 245, 249)
+  doc.setDrawColor(203, 213, 225)
+  doc.roundedRect(14, kpiY, 57, 18, 1.5, 1.5, "FD")
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(100, 116, 139)
+  doc.text("MASSE SYSTÈME (SI)", 42.5, kpiY + 6, { align: "center" })
+  doc.setFontSize(11)
+  doc.setTextColor(15, 23, 42)
+  doc.text(`${inventoryData.system_weight} Kg`, 42.5, kpiY + 14, { align: "center" })
+
+  // Masse réelle pesée
+  doc.roundedRect(76.5, kpiY, 57, 18, 1.5, 1.5, "FD")
+  doc.setFontSize(7)
+  doc.setTextColor(100, 116, 139)
+  doc.text("MASSE RÉELLE PESÉE", 105, kpiY + 6, { align: "center" })
+  doc.setFontSize(11)
+  doc.setTextColor(15, 23, 42)
+  doc.text(`${inventoryData.physical_weight} Kg`, 105, kpiY + 14, { align: "center" })
+
+  // Écart global
+  const isZeroDiff = inventoryData.diff === 0
+  if (isZeroDiff) {
+    doc.setFillColor(236, 253, 245)
+    doc.setDrawColor(167, 243, 208)
+  } else {
+    doc.setFillColor(254, 242, 242)
+    doc.setDrawColor(254, 202, 202)
+  }
+  doc.roundedRect(139, kpiY, 57, 18, 1.5, 1.5, "FD")
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(isZeroDiff ? 5 : 185, isZeroDiff ? 150 : 28, isZeroDiff ? 105 : 28)
+  doc.text("ÉCART GLOBAL RELEVÉ", 167.5, kpiY + 6, { align: "center" })
+  doc.setFontSize(11)
+  doc.text(`${inventoryData.diff > 0 ? `+${inventoryData.diff}` : inventoryData.diff} Kg`, 167.5, kpiY + 14, { align: "center" })
+
+  // Tableau détaillé des lots contrôlés
+  const tableHeaders = ["N° Lot Déchet", "Désignation & Catégorie", "Contenant", "Stock SI", "Pesée Réelle", "Écart", "Motif de l'écart"]
+  const tableRows = (inventoryData.items || []).map((it) => {
+    const phys = it.physical_quantity !== null ? it.physical_quantity : it.system_quantity
+    const diff = phys - it.system_quantity
+    return [
+      it.batch_number || "N/A",
+      `${it.commercial_name || "Déchet"}\n(${it.waste_type || "Déchets pharmaceutiques"})`,
+      it.packaging || "Fût / Carton",
+      `${it.system_quantity} Kg`,
+      `${phys} Kg`,
+      diff === 0 ? "0 Kg" : `${diff > 0 ? `+${diff}` : diff} Kg`,
+      diff === 0 ? "Conforme" : (it.discrepancy_reason || "Non spécifié")
+    ]
+  })
+
+  autoTable(doc, {
+    startY: 104,
+    head: [tableHeaders],
+    body: tableRows,
+    theme: "grid",
+    headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: "bold" },
+    styles: { fontSize: 7.5, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 26, fontStyle: "bold" },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 18, halign: "right" },
+      4: { cellWidth: 20, halign: "right", fontStyle: "bold" },
+      5: { cellWidth: 18, halign: "right" },
+      6: { cellWidth: 28 }
+    },
+    margin: { left: 14, right: 14 }
+  })
+
+  let finalY = (doc as any).lastAutoTable.finalY + 6
+
+  // Observations
+  if (inventoryData.observations) {
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(15, 23, 42)
+    doc.text("Observations & Constats d'audit :", 14, finalY)
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(7.5)
+    doc.setTextColor(71, 85, 105)
+    doc.text(doc.splitTextToSize(String(inventoryData.observations), 182), 14, finalY + 4)
+    finalY += 12
+  }
+
+  // Déclaration légale d'inventaire contradictoire
+  doc.setFillColor(248, 250, 252)
+  doc.setDrawColor(203, 213, 225)
+  doc.roundedRect(14, finalY, 182, 14, 1.5, 1.5, "FD")
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "italic")
+  doc.setTextColor(51, 65, 85)
+  doc.text(
+    "Le présent procès-verbal contradictoire atteste de la conformité du décompte physique et des pesées réalisées au sein du local",
+    18,
+    finalY + 5
+  )
+  doc.text(
+    "déchets de l'ABMed. Les écarts constatés font l'objet d'un ajustement formel des registres de stocks selon la réglementation en vigueur.",
+    18,
+    finalY + 10
+  )
+
+  // Blocs de Signatures
+  const sigY = finalY + 18
+  doc.setDrawColor(148, 163, 184)
+
+  // Signature Opérateur / Contrôleur
+  doc.roundedRect(14, sigY, 86, 32, 2, 2, "D")
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("L'AGENT CONTRÔLEUR / RESPONSABLE DÉCHET", 18, sigY + 6)
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Nom : ${inventoryData.controller || "Marie ADANDE"}`, 18, sigY + 12)
+  doc.text("Visa et signature de pesée :", 18, sigY + 18)
+
+  // Signature Resp Qualité / Direction
+  doc.roundedRect(110, sigY, 86, 32, 2, 2, "D")
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "bold")
+  doc.text("LE RESPONSABLE ASSURANCE QUALITÉ", 114, sigY + 6)
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "normal")
+  doc.text("Nom : Dr. Christian KOSSOU", 114, sigY + 12)
+  doc.text("Visa de validation de l'inventaire :", 114, sigY + 18)
+
+  // Footer
+  doc.setFontSize(6.5)
+  doc.setTextColor(148, 163, 184)
+  doc.text("SGIE ABMed — PV Officiel de Contrôle d'Inventaire Déchets — République du Bénin", 14, 290)
+
+  doc.save(`${inventoryData.inv_number || "inventaire-dechets"}.pdf`)
+}
+
+
 

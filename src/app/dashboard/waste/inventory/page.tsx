@@ -8,64 +8,186 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { ClipboardCheck, AlertTriangle, CheckCircle2, Search, Trash2, Plus, Eye, Printer, MapPin, Scale } from "lucide-react"
+import { 
+  ClipboardCheck, AlertTriangle, CheckCircle2, Clock, Search, 
+  Trash2, Plus, Eye, Scale, ArrowUpDown 
+} from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
-const MOCK_WASTE_INVENTORIES: any[] = []
+interface WasteInventoryItem {
+  id: string
+  batch_number: string
+  commercial_name: string
+  waste_type: string
+  packaging?: string
+  current_location?: string
+  system_quantity: number
+  physical_quantity: number | null
+  discrepancy_reason?: string | null
+}
+
+interface WasteInventory {
+  id: string
+  inv_number: string
+  name: string
+  inventory_type: string
+  location: string
+  status: string
+  created_at: string
+  date?: string
+  completed_at: string | null
+  system_weight: number
+  physical_weight: number
+  diff: number
+  items_count: number
+  controller?: string
+  observations?: string
+  items: WasteInventoryItem[]
+}
+
+const MOCK_WASTE_INVENTORIES: WasteInventory[] = []
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'En cours':
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200 gap-1 shrink-0 whitespace-nowrap text-[10px]">
+          <Clock className="h-3 w-3 shrink-0" />
+          En cours
+        </Badge>
+      )
+    case 'Validé':
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1 shrink-0 whitespace-nowrap text-[10px]">
+          <CheckCircle2 className="h-3 w-3 shrink-0" />
+          Validé
+        </Badge>
+      )
+    case 'Validé avec écart':
+      return (
+        <Badge className="bg-amber-100 text-amber-800 border-amber-200 gap-1 shrink-0 whitespace-nowrap text-[10px]">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          Validé avec écart
+        </Badge>
+      )
+    default:
+      return <Badge variant="outline" className="text-[10px]">{status}</Badge>
+  }
+}
 
 export default function WasteInventoryPage() {
-  const [inventories, setInventories] = useState<any[]>([])
+  const [inventories, setInventories] = useState<WasteInventory[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [selectedInventory, setSelectedInventory] = useState<any>(null)
-  const [isNewInventoryOpen, setIsNewInventoryOpen] = useState(false)
-  const [newLocation, setNewLocation] = useState("MAGASIN DES DECHETS")
-  const [newPhysicalWeight, setNewPhysicalWeight] = useState<string>("")
-  const [newObservations, setNewObservations] = useState<string>("")
   const hasLoadedOnceRef = useRef(false)
   const supabase = createClient()
 
+  const parseWasteInventoryRecord = (inv: any): WasteInventory => {
+    let items: WasteInventoryItem[] = Array.isArray(inv.items) ? inv.items : []
+    let completed_at: string | null = inv.completed_at || null
+    let notes: string = inv.observations || ''
+
+    if (typeof inv.observations === 'string' && inv.observations.trim().startsWith('{')) {
+      try {
+        const parsedObs = JSON.parse(inv.observations)
+        if (Array.isArray(parsedObs.items)) items = parsedObs.items
+        if (parsedObs.completed_at) completed_at = parsedObs.completed_at
+        if (parsedObs.notes) notes = parsedObs.notes
+      } catch (e) {}
+    }
+
+    const sysWeight = inv.system_weight !== undefined 
+      ? Number(inv.system_weight) 
+      : items.reduce((sum, it) => sum + (Number(it.system_quantity) || 0), 0)
+
+    const physWeight = inv.physical_weight !== undefined 
+      ? Number(inv.physical_weight) 
+      : items.reduce((sum, it) => sum + (it.physical_quantity !== null ? Number(it.physical_quantity) : Number(it.system_quantity) || 0), 0)
+
+    const diff = inv.diff !== undefined 
+      ? Number(inv.diff) 
+      : Math.round((physWeight - sysWeight) * 100) / 100
+
+    return {
+      id: inv.id || inv.inv_number,
+      inv_number: inv.inv_number || inv.id || 'INV-W-2026',
+      name: inv.name || inv.inv_number || 'Session d\'inventaire déchet',
+      inventory_type: inv.inventory_type || 'Périodique',
+      location: inv.location || 'MAGASIN DES DECHETS',
+      status: inv.status || 'En cours',
+      created_at: inv.created_at || inv.date || new Date().toISOString(),
+      date: inv.date || inv.created_at || new Date().toISOString(),
+      completed_at,
+      system_weight: Math.round(sysWeight * 100) / 100,
+      physical_weight: Math.round(physWeight * 100) / 100,
+      diff,
+      items_count: Number(inv.items_count) || items.length,
+      controller: inv.controller || 'Marie ADANDE',
+      observations: notes,
+      items,
+    }
+  }
+
   const fetchWasteInventories = useCallback(async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
-    let customList: any[] = []
+
+    let localList: WasteInventory[] = []
     try {
       const stored = localStorage.getItem('waste_inventories_custom_v1')
       if (stored) {
-        customList = JSON.parse(stored)
-        if (!hasLoadedOnceRef.current && customList.length > 0) {
-          setInventories(customList)
-          hasLoadedOnceRef.current = true
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          localList = parsed.map(parseWasteInventoryRecord)
+          if (!hasLoadedOnceRef.current && localList.length > 0) {
+            setInventories(localList)
+            hasLoadedOnceRef.current = true
+          }
         }
       }
     } catch (e) {}
 
-    let remoteList: any[] = []
+    let remoteList: WasteInventory[] = []
     try {
       const { data, error } = await supabase
         .from('inventories')
         .select('*')
         .like('inv_number', 'INV-W-%')
         .order('created_at', { ascending: false })
+
       if (!error && Array.isArray(data)) {
-        remoteList = data.map((r: any) => ({
-          ...r,
-          date: r.date || r.created_at || new Date().toISOString(),
-          system_weight: Number(r.system_weight) || 0,
-          physical_weight: Number(r.physical_weight) || 0,
-          diff: Number(r.diff) || 0,
-          items_count: Number(r.items_count) || 0,
-        }))
+        remoteList = data.map(parseWasteInventoryRecord)
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Supabase fetch waste inventories notice:", e)
+    }
 
-    const map = new Map<string, any>()
-    customList.forEach(i => map.set(i.inv_number || i.id, i))
-    remoteList.forEach(i => map.set(i.inv_number || i.id, i))
+    const invMap = new Map<string, WasteInventory>()
+    localList.forEach((inv) => invMap.set(inv.id, inv))
+    remoteList.forEach((inv) => {
+      const existing = invMap.get(inv.id)
+      invMap.set(inv.id, {
+        ...existing,
+        ...inv,
+        status: existing?.status === 'Validé' || inv.status === 'Validé' ? 'Validé' : inv.status,
+        items: inv.items && inv.items.length > 0 ? inv.items : (existing?.items || []),
+      })
+    })
 
-    const merged = Array.from(map.values())
+    const merged = Array.from(invMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+
     hasLoadedOnceRef.current = true
     setInventories(merged.length > 0 ? merged : (isWiped ? [] : MOCK_WASTE_INVENTORIES))
   }, [supabase])
@@ -80,8 +202,18 @@ export default function WasteInventoryPage() {
     pollIntervalMs: 6000,
   })
 
-  const filteredInventories = inventories.filter(inv => {
+  const total = inventories.length
+  const inProgress = inventories.filter((i) => i.status === 'En cours').length
+  const validated = inventories.filter((i) => i.status === 'Validé' || i.status === 'Validé avec écart').length
+  const allItems = inventories.flatMap((i) => i.items ?? [])
+  const discrepancyItemsCount = allItems.filter(
+    (item) => item.physical_quantity !== null && item.system_quantity !== item.physical_quantity
+  ).length
+  const totalDiffKg = inventories.reduce((sum, inv) => sum + (inv.diff || 0), 0)
+
+  const filteredInventories = inventories.filter((inv) => {
     const matchesSearch = 
+      (inv.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (inv.inv_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (inv.location || '').toLowerCase().includes(searchTerm.toLowerCase())
       
@@ -92,67 +224,100 @@ export default function WasteInventoryPage() {
   return (
     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
-      {/* EN-TÊTE COMPACT */}
+      {/* BANDEAU EN-TÊTE COMPACT */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-red-600" />
+            <Scale className="h-5 w-5 text-red-600" />
             Inventaires & Contrôles des Déchets
           </h2>
-          <p className="text-muted-foreground text-xs">Contrôle périodique des masses, contenants et décompte des lots du local déchet.</p>
+          <p className="text-muted-foreground text-xs">Contrôle physique périodique des stocks de déchets, pesée contradictoire et traçabilité des écarts.</p>
         </div>
-        <Button 
-          size="sm" 
-          onClick={() => setIsNewInventoryOpen(true)}
-          className="bg-red-600 hover:bg-red-700 text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0 cursor-pointer"
-        >
-          <Plus className="h-3.5 w-3.5" /> Lancer un inventaire déchet
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            size="sm" 
+            variant="outline"
+            className="text-destructive hover:bg-destructive/10 border-destructive/30 text-xs font-bold gap-1.5 h-8 px-3"
+            onClick={async () => {
+              if (window.confirm("Êtes-vous sûr de vouloir effacer l'historique des sessions d'inventaire déchet ?")) {
+                localStorage.removeItem('waste_inventories_custom_v1')
+                try {
+                  await supabase.from('inventories').delete().like('inv_number', 'INV-W-%')
+                } catch (e) {}
+                setInventories([])
+                toast.success("Sessions d'inventaires déchets réinitialisées avec succès.")
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-destructive" /> Effacer inventaires
+          </Button>
+          <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+            <Link href="/dashboard/waste/inventory/new">
+              <Plus className="h-3.5 w-3.5" /> Démarrer un inventaire déchet
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {/* KPI METRIQUES INVENTAIRES DÉCHETS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* KPIS COMPACTS SANS SCROLL */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="bg-red-500/10 p-2 rounded-lg"><ClipboardCheck className="h-5 w-5 text-red-600" /></div>
+            <div className="p-2 rounded-lg bg-red-500/10 text-red-600"><ClipboardCheck className="h-4 w-4" /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Inventaires Déchets 2026</p>
-              <h3 className="text-xl font-black text-foreground">4 Réalisés</h3>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Total Inventaires Déchets</p>
+              <h3 className="text-xl font-black text-foreground">{total}</h3>
             </div>
           </CardContent>
         </Card>
+
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="bg-emerald-500/10 p-2 rounded-lg"><CheckCircle2 className="h-5 w-5 text-emerald-600" /></div>
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600"><Clock className="h-4 w-4" /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Taux de Conformité Masse</p>
-              <h3 className="text-xl font-black text-foreground">98.8%</h3>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">En cours</p>
+              <h3 className="text-xl font-black text-foreground">{inProgress}</h3>
             </div>
           </CardContent>
         </Card>
+
         <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="bg-amber-500/10 p-2 rounded-lg"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Écarts Relevés (Pertes/Séchage)</p>
-              <h3 className="text-xl font-black text-foreground">-4 Kg Total</h3>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Validés</p>
+              <h3 className="text-xl font-black text-foreground">{validated}</h3>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${totalDiffKg === 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Écarts Relevés</p>
+              <h3 className={`text-xl font-black ${totalDiffKg === 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {discrepancyItemsCount > 0 ? `${discrepancyItemsCount} lot(s)` : `${totalDiffKg > 0 ? `+${totalDiffKg}` : totalDiffKg} Kg`}
+              </h3>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* TABLEAU DES INVENTAIRES DÉCHETS (COMPACT 1-ÉCRAN) */}
+      {/* TABLEAU DES INVENTAIRES DÉCHETS */}
       <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden">
         <CardHeader className="p-3 pb-2 border-b border-border/50">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Sessions d'Inventaires des Déchets ({filteredInventories.length})
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <ArrowUpDown className="h-3.5 w-3.5 text-red-600" /> Registre des Sessions d'Inventaire des Déchets ({filteredInventories.length})
             </CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative w-full sm:w-56">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher par N°, zone..."
+                  placeholder="Rechercher par nom, réf..."
                   className="pl-8 bg-background h-8 text-xs"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -177,256 +342,69 @@ export default function WasteInventoryPage() {
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase pl-4">N° Inventaire Déchet</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase">Zone Stockage Déchet</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Masse Système</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Masse Pesée</TableHead>
-                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Écart Masse</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase pl-4">Nom de la session / N°</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Type</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Zone Déchet</TableHead>
                   <TableHead className="py-2 text-[11px] font-bold uppercase">Statut</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date Début</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Date Clôture</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase">Lots Contrôlés</TableHead>
+                  <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Masse SI / Pesée (Écart)</TableHead>
                   <TableHead className="py-2 text-[11px] font-bold uppercase text-right pr-4">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInventories.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="h-16 text-center text-xs text-muted-foreground">Aucune session d'inventaire trouvée.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground font-medium">
+                      Aucune session d'inventaire déchet trouvée.
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  filteredInventories.map((inv) => (
-                    <TableRow key={inv.id} className="text-xs hover:bg-muted/30">
-                      <TableCell className="pl-4 font-bold text-foreground font-mono py-2">{inv.inv_number}</TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{new Date(inv.date).toLocaleDateString("fr-FR")}</TableCell>
-                      <TableCell className="py-2 font-semibold">{inv.location}</TableCell>
-                      <TableCell className="py-2 text-right tabular-nums font-medium">{inv.system_weight} Kg</TableCell>
-                      <TableCell className="py-2 text-right tabular-nums font-medium">{inv.physical_weight} Kg</TableCell>
-                      <TableCell className="py-2 text-right tabular-nums font-bold">
-                        <span className={inv.diff === 0 ? "text-emerald-700" : "text-red-600"}>
-                          {inv.diff > 0 ? `+${inv.diff}` : inv.diff} Kg
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Badge className={`text-[10px] ${
-                          inv.status === 'Validé' ? 'bg-emerald-100 text-emerald-800' :
-                          inv.status === 'Validé avec écart' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {inv.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2 text-right pr-4">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setSelectedInventory(inv)}
-                          className="h-7 text-xs px-2 text-red-600 font-bold hover:bg-red-50 cursor-pointer"
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" /> Détail
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredInventories.map((inv) => {
+                    const itemCount = inv.items?.length || inv.items_count || 0
+                    const discrepancies = (inv.items ?? []).filter(
+                      (item) => item.physical_quantity !== null && item.system_quantity !== item.physical_quantity
+                    ).length
+
+                    return (
+                      <TableRow key={inv.id} className="text-xs hover:bg-muted/30">
+                        <TableCell className="pl-4 py-2">
+                          <div className="font-bold text-foreground">{inv.name}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground">{inv.inv_number}</div>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Badge variant="outline" className="text-[10px] bg-background">{inv.inventory_type}</Badge>
+                        </TableCell>
+                        <TableCell className="py-2 font-medium">{inv.location}</TableCell>
+                        <TableCell className="py-2">{getStatusBadge(inv.status)}</TableCell>
+                        <TableCell className="py-2 text-muted-foreground">{formatDate(inv.created_at)}</TableCell>
+                        <TableCell className="py-2 text-muted-foreground">{formatDate(inv.completed_at)}</TableCell>
+                        <TableCell className="py-2 font-medium">
+                          {itemCount} lot(s) {discrepancies > 0 && <span className="text-red-600 font-bold ml-1">({discrepancies} écart)</span>}
+                        </TableCell>
+                        <TableCell className="py-2 text-right tabular-nums">
+                          <span className="text-muted-foreground">{inv.system_weight} Kg</span> / <span className="font-bold text-foreground">{inv.physical_weight} Kg</span>
+                          <span className={`ml-1.5 font-bold ${inv.diff === 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            ({inv.diff > 0 ? `+${inv.diff}` : inv.diff} Kg)
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2 text-right pr-4">
+                          <Button variant="ghost" size="sm" asChild className="h-7 text-xs px-2 text-red-600 font-bold hover:bg-red-50">
+                            <Link href={`/dashboard/waste/inventory/${inv.id}`}>
+                              <Eye className="h-3.5 w-3.5 mr-1" /> Consulter
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-
-      {/* DIALOG DÉTAIL D'UNE SESSION D'INVENTAIRE DÉCHET */}
-      <Dialog open={!!selectedInventory} onOpenChange={(open) => !open && setSelectedInventory(null)}>
-        <DialogContent className="max-w-2xl bg-card border-border/70 p-6 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black flex items-center gap-2 text-foreground">
-              <ClipboardCheck className="h-5 w-5 text-red-600" />
-              Rapport de Contrôle d'Inventaire — {selectedInventory?.inv_number}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Vérification physique des contenants, pesée contradictoire et conformité du local déchet.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedInventory && (
-            <div className="space-y-4 pt-3 border-t border-border/50 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-muted/40 p-3 rounded-xl border border-border/50">
-                <div>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase block">Date Session</span>
-                  <span className="font-semibold text-foreground">{new Date(selectedInventory.date).toLocaleDateString("fr-FR")}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase block">Zone Inspectée</span>
-                  <span className="font-semibold text-foreground">{selectedInventory.location}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase block">Contenants Vérifiés</span>
-                  <span className="font-bold text-foreground">{selectedInventory.items_count} fûts/bacs</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase block">Opérateur Contrôle</span>
-                  <span className="font-semibold text-foreground">{selectedInventory.controller || 'Marie ADANDE'}</span>
-                </div>
-              </div>
-
-              {/* BILAN DE LA PESÉE */}
-              <div className="p-3.5 rounded-xl border border-border/60 bg-card space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5 uppercase">
-                  <Scale className="h-4 w-4 text-primary" /> Bilan Comparatif des Pesées
-                </span>
-                <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                  <div className="p-2 bg-muted/50 rounded-lg">
-                    <span className="text-[10px] text-muted-foreground block">Masse Théorique (Système)</span>
-                    <span className="text-base font-bold text-foreground">{selectedInventory.system_weight} Kg</span>
-                  </div>
-                  <div className="p-2 bg-muted/50 rounded-lg">
-                    <span className="text-[10px] text-muted-foreground block">Masse Réelle Pesée</span>
-                    <span className="text-base font-bold text-foreground">{selectedInventory.physical_weight} Kg</span>
-                  </div>
-                  <div className={`p-2 rounded-lg ${selectedInventory.diff === 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
-                    <span className="text-[10px] block opacity-80">Écart Détecté</span>
-                    <span className="text-base font-black">
-                      {selectedInventory.diff > 0 ? `+${selectedInventory.diff}` : selectedInventory.diff} Kg
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {selectedInventory.observations && (
-                <div className="p-3 bg-muted/30 border border-border/50 rounded-xl space-y-1">
-                  <span className="font-bold text-foreground block">Observations & Constats d'audit :</span>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">{selectedInventory.observations}</p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setSelectedInventory(null)}>Fermer</Button>
-                <Button size="sm" onClick={() => window.print()} className="bg-red-600 hover:bg-red-700 text-white gap-1.5">
-                  <Printer className="h-3.5 w-3.5" /> Imprimer le rapport
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* DIALOG NOUVELLE SESSION D'INVENTAIRE */}
-      <Dialog open={isNewInventoryOpen} onOpenChange={setIsNewInventoryOpen}>
-        <DialogContent className="max-w-md bg-card border-border/70 p-6 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
-              <Plus className="h-4 w-4 text-red-600" />
-              Démarrer un Contrôle d'Inventaire Déchets
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Initialise une feuille de comptage et de pesée contradictoire pour le local déchet.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 pt-2 text-xs">
-            <div>
-              <label className="text-[11px] font-bold block mb-1">Zone de stockage à contrôler</label>
-              <Select value={newLocation} onValueChange={(val) => setNewLocation(val || "MAGASIN DES DECHETS")}>
-                <SelectTrigger className="h-8 text-xs bg-background">
-                  <SelectValue placeholder="Choisir la zone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MAGASIN DES DECHETS">MAGASIN DES DECHETS</SelectItem>
-                  <SelectItem value="Zone de Quarantaine - Déchets">Zone de Quarantaine - Déchets</SelectItem>
-                  <SelectItem value="Local Déchets A1">Local Déchets A1</SelectItem>
-                  <SelectItem value="Local Déchets A2">Local Déchets A2</SelectItem>
-                  <SelectItem value="Zone Quarantaine C2">Zone Quarantaine C2</SelectItem>
-                  <SelectItem value="Local DASRI B">Local DASRI B</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-[11px] font-bold block mb-1">Masse réelle pesée (Kg) — optionnel</label>
-              <Input
-                type="number"
-                placeholder="Laisser vide pour utiliser la masse système"
-                value={newPhysicalWeight}
-                onChange={(e) => setNewPhysicalWeight(e.target.value)}
-                className="h-8 text-xs bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold block mb-1">Observations</label>
-              <Input
-                placeholder="Ex: Pesée contradictoire conforme..."
-                value={newObservations}
-                onChange={(e) => setNewObservations(e.target.value)}
-                className="h-8 text-xs bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold block mb-1">Responsable du contrôle</label>
-              <Input defaultValue="Marie ADANDE" disabled className="h-8 text-xs bg-muted/50 font-medium" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setIsNewInventoryOpen(false)}>Annuler</Button>
-              <Button size="sm" onClick={async () => {
-                // Calculer la masse théorique depuis les lots de déchets actifs
-                let sysWeight = 0
-                let itemsCnt = 0
-                try {
-                  const localBatches = JSON.parse(localStorage.getItem('waste_batches_custom_v1') || '[]')
-                  const activeBatches = localBatches.filter((b: any) => b.status !== 'Détruit')
-                  itemsCnt = activeBatches.length
-                  sysWeight = activeBatches.reduce((sum: number, b: any) => sum + (Number(b.quantity) || 0), 0)
-                } catch (e) {}
-
-                const physWeight = newPhysicalWeight.trim() !== '' ? Number(newPhysicalWeight) : sysWeight
-                const diffWeight = physWeight - sysWeight
-                const invStatus = newPhysicalWeight.trim() !== ''
-                  ? (diffWeight === 0 ? 'Validé' : 'Validé avec écart')
-                  : 'En cours'
-
-                const nowIso = new Date().toISOString()
-                const newInv = {
-                  id: `inv-w-${Date.now()}`,
-                  inv_number: `INV-W-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-                  name: `Inventaire Déchets - ${newLocation}`,
-                  date: nowIso,
-                  location: newLocation,
-                  inventory_type: 'Contrôle déchet',
-                  system_weight: sysWeight,
-                  physical_weight: physWeight,
-                  diff: diffWeight,
-                  status: invStatus,
-                  items_count: itemsCnt,
-                  controller: 'Marie ADANDE',
-                  observations: newObservations.trim() || `Contrôle contradictoire réalisé pour ${newLocation}.`,
-                }
-
-                setInventories(prev => [newInv, ...prev])
-                setIsNewInventoryOpen(false)
-                setNewPhysicalWeight("")
-                setNewObservations("")
-                toast.success(`Session d'inventaire ${newInv.inv_number} lancée avec succès !`)
-
-                try {
-                  localStorage.removeItem('all_data_wiped')
-                  const stored = JSON.parse(localStorage.getItem('waste_inventories_custom_v1') || '[]')
-                  localStorage.setItem('waste_inventories_custom_v1', JSON.stringify([newInv, ...stored]))
-                } catch (e) {}
-
-                supabase.from('inventories').upsert({
-                  id: newInv.id,
-                  inv_number: newInv.inv_number,
-                  name: newInv.name,
-                  date: newInv.date,
-                  location: newInv.location,
-                  inventory_type: newInv.inventory_type,
-                  status: newInv.status,
-                  system_weight: newInv.system_weight,
-                  physical_weight: newInv.physical_weight,
-                  diff: newInv.diff,
-                  items_count: newInv.items_count,
-                  controller: newInv.controller,
-                  observations: newInv.observations,
-                }, { onConflict: 'inv_number' }).then(() => {})
-              }} className="bg-red-600 hover:bg-red-700 text-white">
-                Valider & Générer la feuille
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
