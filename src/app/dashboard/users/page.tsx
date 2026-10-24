@@ -141,6 +141,15 @@ const MOCK_USERS: User[] = [
     is_active: true,
     last_login: null,
   },
+  {
+    id: 'usr-9',
+    first_name: 'Iréné',
+    last_name: 'GANHOU',
+    email: 'irene.ganhou@abmed.bj',
+    role: 'Responsable',
+    is_active: true,
+    last_login: null,
+  },
 ];
 
 const ROLE_CONFIG: Record<

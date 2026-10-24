@@ -19,7 +19,7 @@ import {
   Home, LayoutDashboard, Package, Trash2, ChartColumn, Bell,
   Settings, Inbox, ArrowLeftRight, ClipboardCheck, Folder, 
   Flame, MapPin, Building2, LogOut, ChevronRight, ChevronDown,
-  Users, History, PackageCheck, AlertCircle, BarChart3, Shield, ShieldCheck
+  Users, History, PackageCheck, AlertCircle, BarChart3, Shield, ShieldCheck, Boxes
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -347,6 +347,19 @@ export function AppSidebar() {
                       >
                         <PackageCheck className="h-3.5 w-3.5 shrink-0 text-current" />
                         <span className="truncate">Nouvelle Réception</span>
+                      </Link>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <Link 
+                        href="/dashboard/waste/stock" 
+                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
+                          isActive('/dashboard/waste/stock')
+                            ? "bg-white text-red-600 font-bold shadow-xs"
+                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
+                        }`}
+                      >
+                        <Boxes className="h-3.5 w-3.5 shrink-0 text-current" />
+                        <span className="truncate">Stock des Déchets</span>
                       </Link>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>

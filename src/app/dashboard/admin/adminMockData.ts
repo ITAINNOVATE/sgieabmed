@@ -283,6 +283,28 @@ const MOCK_USERS: User[] = [
     must_change_password: true,
     initial_password: "AbMed@2026AD",
     password: "AbMed@2026AD"
+  },
+  {
+    id: "usr-9",
+    first_name: "Iréné",
+    last_name: "GANHOU",
+    matricule: "ABM-2026-009",
+    fonction: "Responsable Déchets Pharmaceutiques",
+    department_id: "dept-2",
+    role: "Responsable Déchets Pharmaceutiques",
+    phone: "+229 01 97 00 00 09",
+    email: "irene.ganhou@abmed.bj",
+    username: "i.ganhou",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-10-24T08:00:00Z",
+    last_login: "",
+    mfa_enabled: false,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: true,
+    initial_password: "AbMed@2026IG",
+    password: "AbMed@2026IG"
   }
 ]
 
@@ -518,7 +540,7 @@ export const DEFAULT_DETAILED_PERMISSIONS: DetailedPermissionRow[] = [
   { id: "waste-new", module: "Gestion des Déchets", submenu: "Réception des déchets", path: "/dashboard/waste/new", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
   { id: "waste-movements", module: "Gestion des Déchets", submenu: "Mouvements déchets", path: "/dashboard/waste/movements", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
   { id: "waste-inventory", module: "Gestion des Déchets", submenu: "Inventaire déchets", path: "/dashboard/waste/inventory", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
-  { id: "waste-stock", module: "Gestion des Déchets", submenu: "Stocks déchets", path: "/dashboard/waste", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
+  { id: "waste-stock", module: "Gestion des Déchets", submenu: "Stocks déchets", path: "/dashboard/waste/stock", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
   { id: "waste-destructions", module: "Gestion des Déchets", submenu: "Planification & Destruction", path: "/dashboard/destructions", can_view: true, can_create: true, can_modify: true, can_delete: false, can_validate: true, can_export: true, can_print: true },
 
   // 4. RAPPORTS & CERTIFICATS
@@ -1016,8 +1038,10 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
   let user = allUsers.find(u => 
     u.username.toLowerCase() === idLower || 
     u.email.toLowerCase() === idLower ||
+    (u.matricule && u.matricule.toLowerCase() === idLower) ||
     normalize(u.username) === idNorm ||
     normalize(u.email) === idNorm ||
+    (u.matricule && normalize(u.matricule) === idNorm) ||
     normalize(`${u.first_name} ${u.last_name}`) === idNorm ||
     normalize(`${u.last_name} ${u.first_name}`) === idNorm ||
     normalize(u.last_name) === idNorm
