@@ -557,6 +557,7 @@ export function HeaderActions() {
             <DropdownMenuLabel className="font-bold text-xs px-3 py-2 hidden sm:block">Espace Administrateur eGED</DropdownMenuLabel>
             <DropdownMenuSeparator className="hidden sm:block" />
             <DropdownMenuItem 
+              onClick={() => setShowProfileModal(true)}
               onSelect={() => setShowProfileModal(true)} 
               className="cursor-pointer text-xs font-semibold"
             >
