@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/client"
 
 // ─── REMISE À ZÉRO UNIQUE DES DONNÉES ÉCHANTILLONS (navigateur & Cloud) ───────────────────
 // Changer SAMPLE_RESET_VERSION pour déclencher une nouvelle purge complète sur tous les postes.
-export const SAMPLE_RESET_VERSION = "2026-10-25-samples-reset-v2"
+export const SAMPLE_RESET_VERSION = "2026-10-25-admin-eged-v3"
 
 const SAMPLE_LOCAL_KEYS = [
   "reception_history_records",
@@ -21,6 +21,29 @@ export function runSampleResetOnce() {
   if (typeof window === "undefined" || !window.localStorage) return
 
   try {
+    // Migrer immédiatement tout profil stocké avec "Marie ADANDE" vers "Admin EGED"
+    try {
+      const curr = localStorage.getItem("eged_current_user_v1")
+      if (curr) {
+        const parsed = JSON.parse(curr)
+        if (parsed.first_name === "Marie" || parsed.last_name === "ADANDE" || parsed.username === "m.adande" || parsed.email === "marie.adande@abmed.bj") {
+          localStorage.setItem("eged_current_user_v1", JSON.stringify({
+            id: "usr-1",
+            first_name: "Admin",
+            last_name: "EGED",
+            matricule: "ABM-ADMIN-01",
+            fonction: "Administrateur Système & Sécurité",
+            role: "Administrateur Système",
+            phone: "+229 01 97 00 00 01",
+            email: "admin@eged.bj",
+            username: "admin",
+            photo_url: "/avatar.png",
+            status: "Actif"
+          }))
+        }
+      }
+    } catch (e) {}
+
     if (localStorage.getItem("sample_reset_version") === SAMPLE_RESET_VERSION) return
 
     // 1. Réinitialiser les listes et dictionnaires d'échantillons

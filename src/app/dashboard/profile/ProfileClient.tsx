@@ -12,10 +12,31 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { getCurrentUser, setCurrentUser } from "@/app/dashboard/admin/adminMockData"
+import { getCurrentUser, setCurrentUser, type User as UserType } from "@/app/dashboard/admin/adminMockData"
+
+const DEFAULT_ADMIN_PROFILE: UserType = {
+  id: "usr-1",
+  first_name: "Admin",
+  last_name: "EGED",
+  matricule: "ABM-ADMIN-01",
+  fonction: "Administrateur Système & Sécurité",
+  department_id: "dept-5",
+  role: "Administrateur Système",
+  phone: "+229 01 97 00 00 01",
+  email: "admin@eged.bj",
+  username: "admin",
+  photo_url: "/avatar.png",
+  status: "Actif",
+  created_at: "2026-01-10T08:00:00Z",
+  last_login: "2026-10-25T14:30:00Z",
+  mfa_enabled: true,
+  login_attempts: 0,
+  locked_until: null,
+  must_change_password: false
+}
 
 export default function ProfileClient() {
-  const [currentUser, setCurrentUserState] = useState<any>(null)
+  const [currentUser, setCurrentUserState] = useState<UserType | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [phone, setPhone] = useState("+229 01 97 00 00 01")
   const [email, setEmail] = useState("admin@eged.bj")
@@ -23,21 +44,26 @@ export default function ProfileClient() {
 
   useEffect(() => {
     const u = getCurrentUser()
-    if (u) {
+    if (u && !u.first_name?.includes("Marie") && !u.last_name?.includes("ADANDE")) {
       setCurrentUserState(u)
       setDisplayName(`${u.first_name} ${u.last_name}`)
       if (u.phone) setPhone(u.phone)
       if (u.email) setEmail(u.email)
+    } else {
+      setCurrentUser(DEFAULT_ADMIN_PROFILE)
+      setCurrentUserState(DEFAULT_ADMIN_PROFILE)
+      setDisplayName("Admin EGED")
+      setPhone("+229 01 97 00 00 01")
+      setEmail("admin@eged.bj")
     }
   }, [])
 
   const handleSave = () => {
     setIsEditing(false)
-    if (currentUser) {
-      const updated = { ...currentUser, phone, email }
-      setCurrentUser(updated)
-      setCurrentUserState(updated)
-    }
+    const base = currentUser || DEFAULT_ADMIN_PROFILE
+    const updated: UserType = { ...base, phone, email }
+    setCurrentUser(updated)
+    setCurrentUserState(updated)
     toast.success("Profil mis à jour avec succès !")
   }
 

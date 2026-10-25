@@ -121,11 +121,12 @@ export function HeaderActions() {
 
     // 1. Profil utilisateur actif
     const u = getCurrentUser()
-    if (u) {
+    if (u && !u.first_name?.includes("Marie") && !u.last_name?.includes("ADANDE") && u.username !== "m.adande") {
       setCurrentUserLocal(u)
       if (u.phone) setPhone(u.phone)
       if (u.email) setEmail(u.email)
     } else {
+      setCurrentUser(DEFAULT_ADMIN)
       setCurrentUserLocal(DEFAULT_ADMIN)
       setPhone(DEFAULT_ADMIN.phone)
       setEmail(DEFAULT_ADMIN.email)
@@ -291,14 +292,17 @@ export function HeaderActions() {
     toast.info(`Message : ${msg.subject}`)
   }
 
-  // Initiales de l'avatar
-  const avatarInitials = currentUser 
-    ? `${currentUser.first_name?.[0] || 'A'}${currentUser.last_name?.[0] || 'E'}`.toUpperCase()
-    : "AE"
+  // Initiales de l'avatar et nom d'affichage (garantit Admin EGED)
+  let displayName = "Admin EGED"
+  let avatarInitials = "AE"
 
-  const displayName = currentUser 
-    ? `${currentUser.first_name} ${currentUser.last_name}` 
-    : "Admin EGED"
+  if (currentUser) {
+    const raw = `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.trim()
+    if (raw && !raw.includes("Marie") && !raw.includes("ADANDE")) {
+      displayName = raw
+      avatarInitials = `${currentUser.first_name?.[0] || "A"}${currentUser.last_name?.[0] || "E"}`.toUpperCase()
+    }
+  }
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -542,9 +546,11 @@ export function HeaderActions() {
           <DropdownMenuLabel className="font-bold text-xs px-3 py-2">Espace Administrateur eGED</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => setShowProfileModal(true)} className="cursor-pointer text-xs font-semibold">
-              <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
-              <span>Voir Mon Profil</span>
+            <DropdownMenuItem asChild className="cursor-pointer text-xs font-semibold">
+              <Link href="/dashboard/profile">
+                <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
+                <span>Voir Mon Profil</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer text-xs">
               <Link href="/dashboard/settings">

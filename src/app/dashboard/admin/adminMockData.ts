@@ -1109,10 +1109,35 @@ export const getCurrentUser = (): User | null => {
   if (typeof window !== "undefined" && window.localStorage) {
     try {
       const data = localStorage.getItem(CURRENT_USER_STORAGE_KEY)
-      if (data) return JSON.parse(data)
+      if (data) {
+        const parsed = JSON.parse(data)
+        if (
+          parsed.first_name === "Marie" ||
+          parsed.last_name === "ADANDE" ||
+          parsed.username === "m.adande" ||
+          parsed.email === "marie.adande@abmed.bj" ||
+          parsed.matricule === "ABM-2024-001"
+        ) {
+          const migrated: User = {
+            ...parsed,
+            id: "usr-1",
+            first_name: "Admin",
+            last_name: "EGED",
+            matricule: "ABM-ADMIN-01",
+            fonction: "Administrateur Système & Sécurité",
+            role: "Administrateur Système",
+            phone: "+229 01 97 00 00 01",
+            email: "admin@eged.bj",
+            username: "admin",
+          }
+          localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(migrated))
+          return migrated
+        }
+        return parsed
+      }
     } catch (e) {}
   }
-  return null
+  return MOCK_USERS[0]
 }
 
 // 5. AUDIT & LOGS
