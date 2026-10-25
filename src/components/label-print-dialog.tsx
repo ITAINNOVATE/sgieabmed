@@ -21,7 +21,7 @@ import {
   DialogDescription
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { generateQRCodeDataUrl } from "@/utils/qrCode"
+import { generateQRCodeDataUrl, formatSampleQRText, formatWasteQRText } from "@/utils/qrCode"
 import { 
   printLabels, 
   downloadLabelsPDF, 
@@ -41,11 +41,23 @@ interface LabelPrintDialogProps {
 }
 
 export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDialogProps) {
-  const [format, setFormat] = useState<LabelFormat>('60x40')
+  const [format, setFormat] = useState<LabelFormat>(type === 'waste' ? 'A4' : '60x40')
   const [currentIndex, setCurrentIndex] = useState(0)
   const [enrichedData, setEnrichedData] = useState<LabelData[]>([])
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+
+  // Adapter automatiquement le format selon le type (A4 obligatoire/recommandé pour les déchets)
+  useEffect(() => {
+    if (isOpen) {
+      if (type === 'waste') {
+        setFormat('A4')
+      } else {
+        setFormat('60x40')
+      }
+      setCurrentIndex(0)
+    }
+  }, [isOpen, type])
 
   // 1. Charger les données enrichies (Localisation & Plan de destruction)
   useEffect(() => {
@@ -152,8 +164,8 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
             return {
               id: row.id,
               itemNumber: row.batch_number,
-              productName: sample ? sample.commercial_name : row.waste_type,
-              batchNumber: sample ? sample.batch_number : 'N/A',
+              productName: sample ? sample.commercial_name : (row.commercial_name || row.waste_type),
+              batchNumber: sample ? sample.batch_number : (row.original_batch || 'N/A'),
               status: row.status,
               location: {
                 salle,
@@ -164,9 +176,19 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
               },
               extraData: {
                 category: row.waste_type,
-                weight: `${row.quantity} ${row.unit}`,
-                declarationDate: new Date(row.created_at).toLocaleDateString('fr-FR'),
-                destructionPlan: plan?.plan_number || 'Aucun'
+                weight: `${row.quantity} ${row.unit || 'Kg'}`,
+                declarationDate: row.created_at ? new Date(row.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
+                destructionPlan: plan?.plan_number || row.destruction_plan_ref || 'Aucun',
+                receptionNumber: row.reception_number,
+                sourceStructure: row.source_structure,
+                sourceType: row.source_type,
+                depositorName: row.depositor_name,
+                depositorPhone: row.depositor_phone,
+                packaging: row.packaging,
+                packagingCondition: row.packaging_condition,
+                motive: row.destruction_motive || row.rejection_reason,
+                originalBatch: sample ? sample.batch_number : (row.original_batch || 'N/A'),
+                recipientAgent: row.recipient_agent || 'ABMed Direction Déchets'
               }
             } as LabelData
           })
@@ -176,24 +198,58 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
         console.error("Erreur de chargement des métadonnées d'étiquette:", err)
         toast.error("Impossible de récupérer les localisations réelles.")
         // Fallback avec les données reçues
-        const fallback = items.map(it => ({
-          id: it.id,
-          itemNumber: it.sample_number || it.batch_number || 'Ref',
-          productName: it.commercial_name || it.waste_type || 'Produit',
-          dci: it.dci,
-          dosage: it.dosage,
-          presentation: it.pharmaceutical_form || it.presentation,
-          batchNumber: it.batch_number || 'N/A',
-          expiryDate: it.expiry_date ? new Date(it.expiry_date).toLocaleDateString('fr-FR') : undefined,
-          status: it.status || 'Disponible',
-          location: {
-            salle: 'Labo A',
-            zone: 'Stock',
-            armoire: 'Arm 1',
-            etagere: 'Etg 2',
-            position: it.position_details || 'A-1'
+        const fallback = items.map(it => {
+          if (type === 'waste') {
+            return {
+              id: it.id,
+              itemNumber: it.batch_number || it.id,
+              productName: it.commercial_name || it.waste_type || 'Déchet Pharmaceutique',
+              batchNumber: it.original_batch || it.sample?.batch_number || 'N/A',
+              status: it.status || 'Déclaré',
+              location: {
+                salle: 'Déch. A',
+                zone: 'Zone R',
+                armoire: 'Bac 1',
+                etagere: 'N/A',
+                position: 'N/A'
+              },
+              extraData: {
+                category: it.waste_type || 'Déchets médicamenteux',
+                weight: `${it.quantity || 1} ${it.unit || 'Kg'}`,
+                declarationDate: it.created_at ? new Date(it.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
+                destructionPlan: it.destruction_plan_ref || 'Aucun',
+                receptionNumber: it.reception_number,
+                sourceStructure: it.source_structure || 'Structure Sanitaire',
+                sourceType: it.source_type || 'Secteur Pharmaceutique',
+                depositorName: it.depositor_name || 'Non spécifié',
+                depositorPhone: it.depositor_phone,
+                packaging: it.packaging || 'Fût étanche / Carton scellé',
+                packagingCondition: it.packaging_condition || 'Intègre / Bon',
+                motive: it.destruction_motive || it.rejection_reason || 'Périmé / Rebut',
+                originalBatch: it.original_batch || 'N/A',
+                recipientAgent: it.recipient_agent || 'Direction Déchets ABMed'
+              }
+            } as LabelData
           }
-        } as LabelData))
+          return {
+            id: it.id,
+            itemNumber: it.sample_number || it.batch_number || 'Ref',
+            productName: it.commercial_name || it.waste_type || 'Produit',
+            dci: it.dci,
+            dosage: it.dosage,
+            presentation: it.pharmaceutical_form || it.presentation,
+            batchNumber: it.batch_number || 'N/A',
+            expiryDate: it.expiry_date ? new Date(it.expiry_date).toLocaleDateString('fr-FR') : undefined,
+            status: it.status || 'Disponible',
+            location: {
+              salle: 'Labo A',
+              zone: 'Stock',
+              armoire: 'Arm 1',
+              etagere: 'Etg 2',
+              position: it.position_details || 'A-1'
+            }
+          } as LabelData
+        })
         setEnrichedData(fallback)
       } finally {
         setLoading(false)
@@ -203,15 +259,54 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
     loadData()
   }, [isOpen, items, type])
 
-  // 2. Générer les QR codes pour tous les items du lot
+  // 2. Générer les QR codes avec RÉCAPITULATIF COMPLET pour tous les items du lot
   useEffect(() => {
     async function generateQrs() {
       const qrs: Record<string, string> = {}
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
       
       for (const item of items) {
-        const path = type === 'sample' ? `/dashboard/samples/${item.id}` : `/dashboard/waste/${item.id}`
-        const qrUrl = await generateQRCodeDataUrl(`${origin}${path}`)
+        const qrText = type === 'sample' 
+          ? formatSampleQRText({
+              id: item.id,
+              sample_number: item.sample_number || item.itemNumber || item.id,
+              reception_ref: item.reception_ref,
+              commercial_name: item.commercial_name || item.productName,
+              dci: item.dci,
+              dosage: item.dosage,
+              pharmaceutical_form: item.pharmaceutical_form || item.presentation,
+              batch_number: item.batch_number || item.batchNumber,
+              expiry_date: item.expiry_date || item.expiryDate,
+              quantity: item.quantity,
+              unit: item.unit,
+              manufacturer_name: item.manufacturer || item.manufacturer_name,
+              current_location: item.current_location,
+              status: item.status
+            }, origin)
+          : formatWasteQRText({
+              id: item.id,
+              batch_number: item.batch_number || item.itemNumber || item.id,
+              reception_number: item.reception_number || item.extraData?.receptionNumber,
+              waste_type: item.waste_type || item.extraData?.category || 'Déchet pharmaceutique',
+              commercial_name: item.commercial_name || item.productName,
+              original_batch: item.original_batch || item.batch_number || item.extraData?.originalBatch,
+              quantity: item.quantity || (item.extraData?.weight ? parseFloat(item.extraData.weight) : 1),
+              unit: item.unit || 'Kg',
+              packaging: item.packaging || item.extraData?.packaging,
+              packaging_condition: item.packaging_condition || item.extraData?.packagingCondition,
+              source_structure: item.source_structure || item.extraData?.sourceStructure,
+              source_type: item.source_type || item.extraData?.sourceType,
+              depositor_name: item.depositor_name || item.extraData?.depositorName,
+              depositor_phone: item.depositor_phone || item.extraData?.depositorPhone,
+              recipient_agent: item.recipient_agent || item.extraData?.recipientAgent,
+              destruction_motive: item.destruction_motive || item.extraData?.motive,
+              current_location: item.current_location,
+              status: item.status,
+              reception_date: item.created_at || item.extraData?.declarationDate,
+              destruction_plan_ref: item.destruction_plan_ref || item.extraData?.destructionPlan
+            }, origin)
+
+        const qrUrl = await generateQRCodeDataUrl(qrText)
         qrs[item.id] = qrUrl
       }
       setQrCodes(qrs)
@@ -310,25 +405,124 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
               </div>
             ) : currentItem ? (
               format === 'A4' ? (
-                // Mode Planche A4
-                <div className="border border-slate-300 rounded-xl bg-white shadow-lg p-3 w-[360px] h-[500px] overflow-y-auto space-y-2">
-                  <div className="text-[10px] font-bold text-slate-400 border-b pb-1 mb-2 text-center uppercase">Planche A4 (Grille 3 colonnes)</div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {enrichedData.map((item, idx) => (
-                      <div key={item.id} className={`border p-1.5 rounded bg-white text-[5px] scale-[0.8] origin-top-left overflow-hidden h-[100px] ${idx === currentIndex ? 'ring-2 ring-primary border-transparent' : 'border-slate-200'}`}>
-                        {/* Miniature A4 */}
-                        <div className="flex items-center justify-between border-b pb-0.5 mb-1">
-                          <span className="font-bold font-mono">{item.itemNumber}</span>
-                          <span className="text-slate-400">ABMed</span>
+                isWaste ? (
+                  // Mode Placard A4 Réglementaire Déchets (Fût / Carton)
+                  <div className="border-2 border-slate-300 rounded-2xl bg-white shadow-2xl p-4 w-[380px] h-[520px] overflow-y-auto text-black select-none flex flex-col justify-between scale-[0.95] origin-top">
+                    {/* En-tête officiel République du Bénin */}
+                    <div className="border-b-2 border-slate-900 pb-2 text-center">
+                      <div className="flex justify-between items-center mb-1">
+                        <div dangerouslySetInnerHTML={{ __html: abMedLogoSvg }} className="scale-90 origin-left" />
+                        <div className="text-center flex-1">
+                          <p className="text-[6.5px] font-extrabold uppercase tracking-wider text-slate-800 m-0">RÉPUBLIQUE DU BÉNIN</p>
+                          <p className="text-[5.5px] font-bold text-slate-500 m-0">MINISTÈRE DE LA SANTÉ</p>
                         </div>
-                        <div className="font-extrabold text-[6px] truncate mb-0.5">{item.productName.toUpperCase()}</div>
-                        <div className="text-[4px] text-slate-500 line-clamp-2">
-                          {!isWaste ? `DCI: ${item.dci || '-'} | Lot: ${item.batchNumber}` : `Cat: ${item.extraData?.category}`}
+                        <div dangerouslySetInnerHTML={{ __html: egedLogoSvg }} className="scale-90 origin-right" />
+                      </div>
+                      <h3 className="text-[9px] font-black uppercase text-[#D97706] tracking-wider m-0">
+                        AUTORITÉ BÉNINOISE DE RÉGULATION DU MÉDICAMENT
+                      </h3>
+                      <p className="text-[6.5px] font-extrabold text-slate-700 uppercase m-0 mt-0.5">
+                        FICHE D&apos;IDENTIFICATION & DE TRAÇABILITÉ — LOT DE DÉCHET
+                      </p>
+                    </div>
+
+                    {/* Bannière N° Lot Grand Format */}
+                    <div className="my-2 bg-amber-500 text-white rounded-lg p-2 text-center shadow-xs">
+                      <span className="text-[7px] font-bold uppercase tracking-widest block opacity-90">N° IDENTIFIANT DU LOT DÉCHET</span>
+                      <span className="text-sm font-black font-mono tracking-wider">{currentItem.itemNumber}</span>
+                    </div>
+
+                    {/* Données & QR Code */}
+                    <div className="grid grid-cols-12 gap-2 my-1 items-start">
+                      {/* Colonne gauche : Métadonnées */}
+                      <div className="col-span-7 space-y-1 text-[7px] leading-tight">
+                        <div className="bg-slate-50 p-1.5 rounded border border-slate-200">
+                          <span className="font-bold text-slate-500 block text-[6px]">DÉSIGNATION / TYPE :</span>
+                          <span className="font-extrabold text-slate-900 text-[8px] line-clamp-2 uppercase">{currentItem.productName}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="bg-slate-50 p-1 rounded border border-slate-200">
+                            <span className="font-bold text-slate-500 block text-[5.5px]">POIDS / QTÉ :</span>
+                            <span className="font-bold text-slate-800">{currentItem.extraData?.weight || 'N/A'}</span>
+                          </div>
+                          <div className="bg-slate-50 p-1 rounded border border-slate-200">
+                            <span className="font-bold text-slate-500 block text-[5.5px]">LOT ORIGINE :</span>
+                            <span className="font-mono font-bold text-slate-800 truncate block">{currentItem.batchNumber}</span>
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 p-1 rounded border border-slate-200">
+                          <span className="font-bold text-slate-500 block text-[5.5px]">PROVENANCE :</span>
+                          <span className="font-medium text-slate-800 line-clamp-1">{currentItem.extraData?.sourceStructure || 'Structure sanitaire'}</span>
+                        </div>
+                        <div className="bg-slate-50 p-1 rounded border border-slate-200">
+                          <span className="font-bold text-slate-500 block text-[5.5px]">CONDITIONNEMENT :</span>
+                          <span className="font-medium text-slate-800">{currentItem.extraData?.packaging || 'Fût étanche / Carton'}</span>
                         </div>
                       </div>
-                    ))}
+
+                      {/* Colonne droite : QR Code Grand Format Récapitulatif */}
+                      <div className="col-span-5 flex flex-col items-center justify-center p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs">
+                        <div className="w-24 h-24 bg-white p-1">
+                          {qrCodes[currentItem.id] ? (
+                            <img src={qrCodes[currentItem.id]} alt="QR Code Récapitulatif" className="w-full h-full object-contain" />
+                          ) : (
+                            <div className="w-full h-full bg-slate-100 animate-pulse rounded" />
+                          )}
+                        </div>
+                        <span className="text-[5.5px] font-black text-amber-700 uppercase tracking-widest mt-1 text-center">
+                          QR RÉCAPITULATIF PRODUIT
+                        </span>
+                        <span className="text-[4.5px] text-slate-400 text-center">
+                          Scannable avec le lecteur eGED
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Avertissement Sécurité */}
+                    <div className="p-1.5 bg-red-50 border border-red-200 rounded-lg text-red-900 text-[6px] my-1">
+                      <span className="font-extrabold uppercase block text-[6.5px]">⚠️ SÉCURITÉ & MANIPULATION RÉGLEMENTAIRE</span>
+                      <span>Matière pharmaceutique destinée à la destruction officielle. Port des EPI obligatoire (gants, masque, blouse). Ne pas ouvrir avant incinération.</span>
+                    </div>
+
+                    {/* Bloc Double Signature */}
+                    <div className="grid grid-cols-2 gap-2 border-t pt-1.5 mt-1 text-[6px]">
+                      <div className="border border-slate-200 rounded p-1 h-12 flex flex-col justify-between">
+                        <span className="font-bold text-slate-500 uppercase text-[5.5px]">Visa Déposant :</span>
+                        <span className="text-[5px] text-slate-400 border-t border-dashed pt-0.5">Signature & Date</span>
+                      </div>
+                      <div className="border border-slate-200 rounded p-1 h-12 flex flex-col justify-between">
+                        <span className="font-bold text-slate-500 uppercase text-[5.5px]">Visa Agent ABMed :</span>
+                        <span className="text-[5px] text-slate-400 border-t border-dashed pt-0.5">Cachet & Signature</span>
+                      </div>
+                    </div>
+
+                    {/* Pied de page */}
+                    <div className="text-[5px] text-slate-400 font-bold uppercase tracking-wider flex justify-between border-t pt-1 mt-1">
+                      <span>Fiche Placard A4 Réglementaire Déchets</span>
+                      <span className="font-mono">eGED-ABMed</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // Mode Planche A4 pour Échantillons
+                  <div className="border border-slate-300 rounded-xl bg-white shadow-lg p-3 w-[360px] h-[500px] overflow-y-auto space-y-2">
+                    <div className="text-[10px] font-bold text-slate-400 border-b pb-1 mb-2 text-center uppercase">Planche A4 (Étiquettes 63.5 x 38.1 mm)</div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {enrichedData.map((item, idx) => (
+                        <div key={item.id} className={`border p-1.5 rounded bg-white text-[5px] scale-[0.8] origin-top-left overflow-hidden h-[100px] ${idx === currentIndex ? 'ring-2 ring-primary border-transparent' : 'border-slate-200'}`}>
+                          {/* Miniature A4 */}
+                          <div className="flex items-center justify-between border-b pb-0.5 mb-1">
+                            <span className="font-bold font-mono">{item.itemNumber}</span>
+                            <span className="text-slate-400">ABMed</span>
+                          </div>
+                          <div className="font-extrabold text-[6px] truncate mb-0.5">{item.productName.toUpperCase()}</div>
+                          <div className="text-[4px] text-slate-500 line-clamp-2">
+                            DCI: {item.dci || '-'} | Lot: {item.batchNumber}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               ) : (
                 // Mode Rôle thermique (Aperçu à l'échelle)
                 <div className={`bg-white border border-slate-200 rounded-2xl shadow-xl flex flex-col justify-between p-4 ${getPreviewDimensions()} transition-all duration-300 select-none text-black`}>
@@ -443,18 +637,32 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
 
             {/* Sélections des Formats */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                <Settings className="h-3.5 w-3.5" /> Format de l&apos;étiquette
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                  <Settings className="h-3.5 w-3.5" /> Format d&apos;impression
+                </label>
+                {isWaste && (
+                  <span className="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded-full border border-amber-500/20">
+                    Recommandé A4
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                {(['50x30', '60x40', '100x70', 'A4'] as LabelFormat[]).map((f) => (
+                {(isWaste 
+                  ? (['A4', '100x70', '60x40', '50x30'] as LabelFormat[])
+                  : (['60x40', '100x70', '50x30', 'A4'] as LabelFormat[])
+                ).map((f) => (
                   <Button
                     key={f}
                     variant={format === f ? 'default' : 'outline'}
                     onClick={() => setFormat(f)}
-                    className="h-11 rounded-xl text-xs font-bold shadow-xs border border-border/50"
+                    className={`h-11 rounded-xl text-xs font-bold shadow-xs border ${
+                      format === f 
+                        ? (isWaste && f === 'A4' ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600' : '') 
+                        : 'border-border/50'
+                    }`}
                   >
-                    {f === 'A4' ? 'Planche A4' : `${f} mm`}
+                    {f === 'A4' ? (isWaste ? 'A4 Déchets (Réglementaire)' : 'Planche A4 (3x8)') : `${f} mm`}
                   </Button>
                 ))}
               </div>

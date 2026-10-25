@@ -18,12 +18,28 @@ export interface LabelData {
     armoire?: string;
     etagere?: string;
     position?: string;
+    raw?: string;
   };
   extraData?: {
     category?: string;
     weight?: string;
     declarationDate?: string;
     destructionPlan?: string;
+    receptionNumber?: string;
+    sourceStructure?: string;
+    sourceType?: string;
+    depositorName?: string;
+    depositorPhone?: string;
+    packaging?: string;
+    packagingCondition?: string;
+    motive?: string;
+    originalBatch?: string;
+    recipientAgent?: string;
+    manufacturer?: string;
+    receptionRef?: string;
+    quantity?: string | number;
+    unit?: string;
+    summaryText?: string;
   };
 }
 
@@ -57,23 +73,51 @@ export function getStatusColor(status: string): { bg: string; text: string; hex:
       return { bg: 'bg-blue-50 border-blue-200 text-blue-800', text: 'En analyse', hex: '#1E40AF' };
     case 'Quarantaine':
     case 'En quarantaine':
-    case 'En attente de destruction':
       return { bg: 'bg-amber-50 border-amber-200 text-amber-800', text: 'Quarantaine', hex: '#F59E0B' };
+    case 'En attente de destruction':
+    case 'Planifié':
+      return { bg: 'bg-purple-50 border-purple-200 text-purple-800', text: 'En attente de destruction', hex: '#7E22CE' };
     case 'Rejeté':
       return { bg: 'bg-red-50 border-red-200 text-red-800', text: 'Rejeté', hex: '#DC2626' };
     case 'Détruit':
     case 'Archivé':
       return { bg: 'bg-slate-100 border-slate-300 text-slate-800', text: 'Détruit', hex: '#64748B' };
     default:
-      return { bg: 'bg-gray-50 border-gray-200 text-gray-800', text: status, hex: '#64748B' };
+      return { bg: 'bg-gray-50 border-gray-200 text-gray-800', text: status || 'Déclaré', hex: '#64748B' };
   }
 }
 
 /**
  * Génère le style CSS de l'étiquette selon le format sélectionné.
  */
-function getLabelStyles(format: LabelFormat): string {
+function getLabelStyles(format: LabelFormat, type: 'sample' | 'waste'): string {
   if (format === 'A4') {
+    if (type === 'waste') {
+      return `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: white;
+          }
+        }
+        .a4-waste-placard {
+          width: 100%;
+          max-width: 194mm;
+          min-height: 275mm;
+          margin: 0 auto;
+          box-sizing: border-box;
+          background: white;
+          font-family: 'Inter', -apple-system, sans-serif;
+          page-break-after: always;
+        }
+      `;
+    }
+
     return `
       @media print {
         @page {
@@ -96,7 +140,7 @@ function getLabelStyles(format: LabelFormat): string {
       }
       .label-card {
         width: 63.5mm;
-        height: 38.1mm; /* format planche 3x8 standard */
+        height: 38.1mm;
         box-sizing: border-box;
         border: 0.15mm solid #E2E8F0;
         padding: 1.5mm 2mm;
@@ -166,9 +210,216 @@ function getLabelStyles(format: LabelFormat): string {
 }
 
 /**
- * Génère le code HTML d'une étiquette individuelle.
+ * Rendu officiel de la Fiche Placard Grand Format A4 pour Déchet Pharmaceutique.
  */
-function renderLabelHtml(item: LabelData, type: 'sample' | 'waste', qrUrl: string, dateStr: string): string {
+export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: string): string {
+  const statusInfo = getStatusColor(item.status);
+  const ex = item.extraData || {};
+  const locStr = item.location?.raw || (
+    item.location?.salle ? `${item.location.salle} — ${item.location.zone || ''} ${item.location.armoire ? '(' + item.location.armoire + ')' : ''}` : 'Local Déchets Central'
+  );
+
+  return `
+    <div class="a4-waste-placard" style="border: 1.5px solid #DC2626; border-radius: 4px; padding: 10mm; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      
+      <!-- 1. EN-TÊTE RÉPUBLICAIN OFFICIEL -->
+      <div style="border-bottom: 2px solid #DC2626; padding-bottom: 5mm; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 4mm;">
+          <div style="width: 44px; height: 44px;">${abMedLogoSvg}</div>
+          <div>
+            <div style="font-size: 8.5pt; font-weight: 800; color: #1E293B; text-transform: uppercase; letter-spacing: 0.3px;">RÉPUBLIQUE DU BÉNIN</div>
+            <div style="font-size: 7.5pt; font-weight: 700; color: #64748B;">MINISTÈRE DE LA SANTÉ</div>
+            <div style="font-size: 8pt; font-weight: 800; color: #DC2626;">AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)</div>
+            <div style="font-size: 6.5pt; font-weight: 600; color: #475569;">Direction de la Gestion des Déchets & Sécurité Pharmaceutique</div>
+          </div>
+        </div>
+
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+          <div style="width: 44px; height: 44px;">${egedLogoSvg}</div>
+          <div style="margin-top: 1.5mm; font-size: 6.5pt; font-weight: 700; color: #64748B; font-family: monospace;">eGED-ABMed • SGIE</div>
+          <div style="font-size: 6.5pt; color: #94A3B8;">Émis le : <strong>${dateStr}</strong></div>
+        </div>
+      </div>
+
+      <!-- 2. TITRE PRINCIPAL & BANDEAU IDENTIFICATION -->
+      <div style="margin-top: 4mm; text-align: center;">
+        <div style="display: inline-block; background: #FEF2F2; border: 1.2px solid #FCA5A5; border-radius: 6px; padding: 2mm 8mm;">
+          <h1 style="margin: 0; font-size: 13pt; font-weight: 900; color: #991B1B; text-transform: uppercase; letter-spacing: 0.5px;">
+            FICHE D'IDENTIFICATION & DE TRAÇABILITÉ DES DÉCHETS
+          </h1>
+          <div style="font-size: 7.5pt; font-weight: 600; color: #B91C1C; margin-top: 0.5mm;">
+            Étiquette Réglementaire A4 pour Fûts, Bacs, Conteneurs & Palettes de Stockage
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. BANDEAU N° LOT & STATUT -->
+      <div style="margin-top: 4mm; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm 5mm; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span style="font-size: 7.5pt; font-weight: 700; color: #64748B; text-transform: uppercase;">N° de Lot Déchet Officiel :</span>
+          <div style="font-size: 15pt; font-weight: 900; color: #0F172A; font-family: monospace; letter-spacing: 0.5px;">
+            ${item.itemNumber}
+          </div>
+          ${ex.receptionNumber ? `<div style="font-size: 7pt; color: #64748B; margin-top: 0.5mm;">Réf. Réception : <strong>${ex.receptionNumber}</strong></div>` : ''}
+        </div>
+
+        <div style="text-align: right;">
+          <span style="font-size: 7pt; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 1mm;">Statut Réglementaire :</span>
+          <span style="display: inline-block; padding: 1.5mm 4.5mm; border-radius: 9999px; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; border: 1.2px solid ${statusInfo.hex}; color: ${statusInfo.hex}; background: white;">
+            ● ${item.status || 'Déclaré'}
+          </span>
+        </div>
+      </div>
+
+      <!-- 4. CONTENU PRINCIPAL EN 2 COLONNES -->
+      <div style="margin-top: 4mm; display: flex; gap: 5mm; flex: 1;">
+        
+        <!-- COLONNE GAUCHE : DÉTAILS PRODUIT, ORIGINE ET LOCALISATION -->
+        <div style="flex: 1.4; display: flex; flex-direction: column; gap: 3.5mm;">
+          
+          <!-- BLOC 1 : CARACTÉRISTIQUES DU DÉCHET -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm; background: white;">
+            <div style="font-size: 8pt; font-weight: 800; color: #B91C1C; text-transform: uppercase; border-bottom: 1px solid #FEE2E2; padding-bottom: 1.5mm; margin-bottom: 2mm;">
+              1. Caractéristiques du Déchet Réceptionné
+            </div>
+            <table style="width: 100%; font-size: 7.5pt; border-collapse: collapse; line-height: 1.4;">
+              <tr>
+                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1mm 0;">Classification :</td>
+                <td style="color: #0F172A; font-weight: 800;">${ex.category || item.productName}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Dénomination :</td>
+                <td style="color: #0F172A; font-weight: 700;">${item.productName || 'Non spécifié'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">N° Lot d'origine :</td>
+                <td style="color: #0F172A; font-weight: 600; font-family: monospace;">${ex.originalBatch || item.batchNumber || '—'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Quantité / Poids :</td>
+                <td style="color: #B91C1C; font-weight: 900; font-size: 9.5pt;">${ex.weight || '1 Kg'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Conditionnement :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.packaging || 'Cartons fermés et sécurisés'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Motif de rejet :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.motive || 'Péremption / Non-conformité réglementaire'}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- BLOC 2 : PROVENANCE & DÉPOSANT -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm; background: white;">
+            <div style="font-size: 8pt; font-weight: 800; color: #1E40AF; text-transform: uppercase; border-bottom: 1px solid #DBEAFE; padding-bottom: 1.5mm; margin-bottom: 2mm;">
+              2. Provenance & Structure Déposante
+            </div>
+            <table style="width: 100%; font-size: 7.5pt; border-collapse: collapse; line-height: 1.4;">
+              <tr>
+                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1mm 0;">Structure :</td>
+                <td style="color: #0F172A; font-weight: 800;">${ex.sourceStructure || 'Interne ABMed'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Type d'entité :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.sourceType || 'Établissement Pharmaceutique'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Apporteur :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Date déclaration :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.declarationDate || dateStr}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- BLOC 3 : LOCALISATION & DESTRUCTION -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm; background: white;">
+            <div style="font-size: 8pt; font-weight: 800; color: #0F5C4A; text-transform: uppercase; border-bottom: 1px solid #D1FAE5; padding-bottom: 1.5mm; margin-bottom: 2mm;">
+              3. Localisation en Stock & Planification
+            </div>
+            <table style="width: 100%; font-size: 7.5pt; border-collapse: collapse; line-height: 1.4;">
+              <tr>
+                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1mm 0;">Emplacement Magasin :</td>
+                <td style="color: #0F5C4A; font-weight: 800; font-family: monospace;">${locStr}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Plan de Destruction :</td>
+                <td style="color: #7E22CE; font-weight: 800; font-family: monospace;">${ex.destructionPlan || 'Non assigné (En préparation)'}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Agent Récepteur :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.recipientAgent || 'Marie ADANDE (ABMed)'}</td>
+              </tr>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- COLONNE DROITE : GRAND CODE QR & CONSIGNES DE SÉCURITÉ -->
+        <div style="flex: 1.1; display: flex; flex-direction: column; gap: 3.5mm;">
+          
+          <!-- GRAND CODE QR RÉCAPITULATIF SÉCURISÉ -->
+          <div style="border: 1.5px solid #DC2626; border-radius: 8px; padding: 4mm; background: #FFFDFD; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 7.5pt; font-weight: 800; color: #991B1B; text-transform: uppercase; margin-bottom: 2mm; letter-spacing: 0.3px;">
+              Code QR Récapitulatif Produit
+            </div>
+            
+            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 6px; padding: 2mm; width: 55mm; height: 55mm; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+              <img src="${qrUrl}" alt="QR Code Récapitulatif Déchet" style="width: 100%; height: 100%; object-fit: contain;" />
+            </div>
+
+            <div style="font-size: 6.5pt; font-weight: 700; color: #475569; margin-top: 2.5mm; line-height: 1.3; max-width: 60mm;">
+              Scannez ce QR Code avec tout smartphone ou terminal eGED pour afficher l'intégralité du récapitulatif officiel.
+            </div>
+          </div>
+
+          <!-- CONSIGNES DE SÉCURITÉ & MANIPULATION STRICTES -->
+          <div style="border: 1.2px solid #F59E0B; border-radius: 6px; padding: 3mm; background: #FFFBEB; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 1.5mm; font-size: 7.5pt; font-weight: 800; color: #B45309; text-transform: uppercase; margin-bottom: 2mm;">
+              <span>⚠️</span> Consignes Strictes de Sécurité
+            </div>
+            <ul style="margin: 0; padding-left: 4mm; font-size: 6.8pt; color: #78350F; line-height: 1.4; font-weight: 600;">
+              <li style="margin-bottom: 1mm;">Port des Équipements de Protection Individuelle (EPI) obligatoire : gants nitrile, masque FFP2 et blouse.</li>
+              <li style="margin-bottom: 1mm;">Ne pas ouvrir, ni transvaser ni manipuler le contenu des fûts et cartons scellés.</li>
+              <li style="margin-bottom: 1mm;">Stockage exclusivement dans le local déchets agréé sous contrôle thermique et ventilation continue.</li>
+              <li>Interdiction formelle de dispersion ou d'évacuation dans le circuit des ordures ménagères.</li>
+            </ul>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- 5. SIGNATURES & VISAS OFFICIELS -->
+      <div style="margin-top: 4mm; border-top: 1px dashed #CBD5E1; padding-top: 3mm; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm;">
+        <div style="border: 1px solid #CBD5E1; border-radius: 6px; padding: 2.5mm 3.5mm; height: 24mm; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="font-size: 6.8pt; font-weight: 700; color: #64748B; text-transform: uppercase;">Visa & Signature du Déposant :</div>
+          <div style="font-size: 6.5pt; color: #94A3B8; text-align: center; border-bottom: 1px dotted #CBD5E1; padding-bottom: 1mm;">Nom & Signature autorisée</div>
+        </div>
+
+        <div style="border: 1px solid #CBD5E1; border-radius: 6px; padding: 2.5mm 3.5mm; height: 24mm; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="font-size: 6.8pt; font-weight: 700; color: #64748B; text-transform: uppercase;">Visa de l'Agent Récepteur ABMed :</div>
+          <div style="font-size: 6.5pt; color: #94A3B8; text-align: center; border-bottom: 1px dotted #CBD5E1; padding-bottom: 1mm;">Cachet officiel & Date de validation</div>
+        </div>
+      </div>
+
+      <!-- 6. PIED DE PAGE RÉGLEMENTAIRE INVIOLABLE -->
+      <div style="margin-top: 3mm; border-top: 1px solid #E2E8F0; padding-top: 2mm; display: flex; justify-content: space-between; align-items: center; font-size: 6pt; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px;">
+        <span>Autorité Béninoise de Régulation du Médicament (ABMed) • SGIE - PSQIF</span>
+        <span>Plateforme Nationale de Traçabilité eGED-ABMed • www.abmed.bj</span>
+      </div>
+
+    </div>
+  `;
+}
+
+/**
+ * Génère le code HTML d'une étiquette individuelle (format rouleau ou planche d'échantillons).
+ */
+export function renderLabelHtml(item: LabelData, type: 'sample' | 'waste', qrUrl: string, dateStr: string): string {
   const isWaste = type === 'waste';
   const statusInfo = getStatusColor(item.status);
   
@@ -201,9 +452,9 @@ function renderLabelHtml(item: LabelData, type: 'sample' | 'waste', qrUrl: strin
         <!-- QR Code gauche -->
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;">
           <div style="background: white; border: 0.1mm solid #CBD5E1; border-radius: 0.6mm; padding: 0.4mm;" class="lbl-qr">
-            <img src="${qrUrl}" style="width: 100%; height: 100%; object-fit: contain;" alt="QR Code" />
+            <img src="${qrUrl}" style="width: 100%; height: 100%; object-fit: contain;" alt="QR Code Récapitulatif" />
           </div>
-          <span style="font-size: 3.5pt; font-weight: 700; color: #64748B; margin-top: 0.6mm; text-transform: uppercase; letter-spacing: 0.1px;">Scanner la fiche</span>
+          <span style="font-size: 3.5pt; font-weight: 700; color: #64748B; margin-top: 0.6mm; text-transform: uppercase; letter-spacing: 0.1px;">Scanner récapitulatif</span>
         </div>
         
         <!-- Informations droite -->
@@ -226,16 +477,13 @@ function renderLabelHtml(item: LabelData, type: 'sample' | 'waste', qrUrl: strin
 
           <!-- Localisation + Statut -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1mm; gap: 1mm;">
-            <!-- Petit encadré localisation -->
             <div class="lbl-loc-box" style="background: #F8FAFC; border: 0.1mm solid #E2E8F0; border-radius: 0.5mm; color: #475569; font-weight: 700; font-family: monospace; display: flex; gap: 1.5mm;">
               ${item.location ? `
                 <span>S:${item.location.salle || '?'}-Z:${item.location.zone || '?'}</span>
                 <span>A:${item.location.armoire || '?'}-E:${item.location.etagere || '?'}</span>
-                <span>P:${item.location.position || '?'}</span>
               ` : `<span>Loc: Non spécifié</span>`}
             </div>
             
-            <!-- Badge Statut -->
             <div class="lbl-badge ${statusInfo.bg}" style="border: 0.1mm solid; border-radius: 9999px; font-weight: 800; text-transform: uppercase; white-space: nowrap;">
               ${statusInfo.text}
             </div>
@@ -253,7 +501,7 @@ function renderLabelHtml(item: LabelData, type: 'sample' | 'waste', qrUrl: strin
 }
 
 /**
- * Lance l'impression d'étiquettes (directement ou sous forme de planche A4).
+ * Lance l'impression d'étiquettes (Planche A4 grand format pour déchets, planche d'échantillons ou rouleaux).
  */
 export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCodes: Record<string, string>, format: LabelFormat) {
   if (typeof window === 'undefined') return;
@@ -272,27 +520,36 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
   }
 
   const dateStr = new Date().toLocaleDateString('fr-FR');
-  const styleString = getLabelStyles(format);
+  const styleString = getLabelStyles(format, type);
   
   let bodyContent = '';
 
   if (format === 'A4') {
-    // Calculer les pages A4 : une page contient jusqu'à 24 étiquettes (3 colonnes x 8 lignes)
-    const itemsPerPage = 24;
-    const pagesCount = Math.ceil(items.length / itemsPerPage);
-
-    for (let p = 0; p < pagesCount; p++) {
-      const pageItems = items.slice(p * itemsPerPage, (p + 1) * itemsPerPage);
-      bodyContent += `
-        <div class="a4-page" style="width: 198mm; height: 280mm; box-sizing: border-box; page-break-after: always; display: flex; flex-direction: column;">
-          <div class="a4-grid">
-            ${pageItems.map(item => renderLabelHtml(item, type, qrCodes[item.id] || '', dateStr)).join('')}
-          </div>
+    if (type === 'waste') {
+      // Pour les DÉCHETS en A4 : chaque lot génère une pleine page A4 placard grand format
+      bodyContent = items.map(item => `
+        <div style="page-break-after: always; width: 100%; min-height: 275mm; box-sizing: border-box;">
+          ${renderWasteA4Html(item, qrCodes[item.id] || '', dateStr)}
         </div>
-      `;
+      `).join('');
+    } else {
+      // Pour les ÉCHANTILLONS en A4 : planche 24 étiquettes adhésives
+      const itemsPerPage = 24;
+      const pagesCount = Math.ceil(items.length / itemsPerPage);
+
+      for (let p = 0; p < pagesCount; p++) {
+        const pageItems = items.slice(p * itemsPerPage, (p + 1) * itemsPerPage);
+        bodyContent += `
+          <div class="a4-page" style="width: 198mm; height: 280mm; box-sizing: border-box; page-break-after: always; display: flex; flex-direction: column;">
+            <div class="a4-grid">
+              ${pageItems.map(item => renderLabelHtml(item, type, qrCodes[item.id] || '', dateStr)).join('')}
+            </div>
+          </div>
+        `;
+      }
     }
   } else {
-    // Format rouleau thermique : chaque étiquette est imprimée sur une page distincte du rouleau
+    // Format rouleau thermique
     bodyContent = items.map(item => `
       <div style="page-break-after: always; width: 100%; height: 100%;">
         ${renderLabelHtml(item, type, qrCodes[item.id] || '', dateStr)}
@@ -305,12 +562,14 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Etiquette eGED-ABMed</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+        <title>eGED-ABMed - Impression Officielle</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
           ${styleString}
           body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           * {
             box-sizing: border-box;
@@ -339,13 +598,292 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
 }
 
 /**
- * Génère et télécharge un PDF d'étiquette(s).
+ * Dessine une page A4 officielle pour un lot de déchet dans jsPDF.
+ */
+function drawWasteA4PagePDF(doc: jsPDF, item: LabelData, qrCodeDataUrl: string, dateStr: string) {
+  const ex = item.extraData || {};
+  const statusInfo = getStatusColor(item.status);
+
+  // 1. Bordure d'encadrement A4
+  doc.setDrawColor(220, 38, 38); // Red-600
+  doc.setLineWidth(1.2);
+  doc.rect(8, 8, 194, 281, 'S');
+
+  // 2. En-tête officiel
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59);
+  doc.text("RÉPUBLIQUE DU BÉNIN", 15, 18);
+
+  doc.setFontSize(8.5);
+  doc.setFont("Helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("MINISTÈRE DE LA SANTÉ", 15, 23);
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(220, 38, 38);
+  doc.text("AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)", 15, 28);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text("Direction de la Gestion des Déchets & Sécurité Pharmaceutique (PSQIF)", 15, 33);
+
+  // Réf droite
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text("eGED-ABMed • SGIE", 192, 18, { align: 'right' });
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Date d'émission : ${dateStr}`, 192, 23, { align: 'right' });
+  doc.text("Fiche Grand Format A4", 192, 28, { align: 'right' });
+
+  // Ligne de séparation en-tête
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.8);
+  doc.line(15, 37, 192, 37);
+
+  // 3. Titre du document
+  doc.setFillColor(254, 242, 242); // Red-50
+  doc.setDrawColor(252, 165, 165); // Red-300
+  doc.setLineWidth(0.4);
+  doc.rect(20, 42, 170, 13, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(153, 27, 27);
+  doc.text("FICHE RÉGLEMENTAIRE D'IDENTIFICATION DU LOT DE DÉCHET", 105, 49, { align: 'center' });
+
+  doc.setFontSize(7.5);
+  doc.setFont("Helvetica", "normal");
+  doc.setTextColor(185, 28, 28);
+  doc.text("Étiquette A4 d'identification pour fûts, conteneurs, bacs et palettes de stockage", 105, 53, { align: 'center' });
+
+  // 4. Bandeau N° Lot Déchet
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(15, 60, 179, 17, 'FD');
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text("N° DE LOT DÉCHET OFFICIEL :", 20, 66);
+
+  doc.setFont("Courier", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42);
+  doc.text(item.itemNumber, 20, 73);
+
+  if (ex.receptionNumber) {
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Réf. Réception : ${ex.receptionNumber}`, 85, 71);
+  }
+
+  // Statut Badge
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text("STATUT RÉGLEMENTAIRE :", 188, 66, { align: 'right' });
+
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(135, 68, 55, 6.5, 3, 3, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(statusInfo.hex);
+  doc.text(`● ${item.status || 'Déclaré'}`.toUpperCase(), 162.5, 72.5, { align: 'center' });
+
+  // 5. Blocs d'informations gauche (X: 15 à 120)
+  let curY = 83;
+
+  // BLOC 1 : CARACTÉRISTIQUES
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.rect(15, curY, 105, 52, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(185, 28, 28);
+  doc.text("1. CARACTÉRISTIQUES DU DÉCHET RÉCEPTIONNÉ", 19, curY + 6);
+  doc.setDrawColor(254, 226, 226);
+  doc.line(19, curY + 8, 115, curY + 8);
+
+  const drawField = (label: string, value: string, yPos: number, isBig = false) => {
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(label, 19, yPos);
+
+    if (isBig) {
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(185, 28, 28);
+    } else {
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 23, 42);
+    }
+    const safeVal = doc.splitTextToSize(value || '—', 65);
+    doc.text(safeVal, 52, yPos);
+  };
+
+  drawField("Classification :", ex.category || item.productName || 'Déchet standard', curY + 14);
+  drawField("Dénomination :", item.productName || '—', curY + 21);
+  drawField("N° Lot d'origine :", ex.originalBatch || item.batchNumber || '—', curY + 28);
+  drawField("Quantité / Poids :", ex.weight || '1 Kg', curY + 36, true);
+  drawField("Conditionnement :", ex.packaging || 'Cartons fermés et scellés', curY + 43);
+  drawField("Motif de rejet :", ex.motive || 'Péremption / Non-conformité', curY + 49);
+
+  // BLOC 2 : PROVENANCE
+  curY = 140;
+  doc.rect(15, curY, 105, 38, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 64, 175);
+  doc.text("2. PROVENANCE & STRUCTURE DÉPOSANTE", 19, curY + 6);
+  doc.setDrawColor(219, 234, 254);
+  doc.line(19, curY + 8, 115, curY + 8);
+
+  drawField("Structure :", ex.sourceStructure || 'Interne ABMed', curY + 14);
+  drawField("Type d'entité :", ex.sourceType || 'Établissement Pharmaceutique', curY + 21);
+  drawField("Apporteur :", `${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}`, curY + 28);
+  drawField("Date déclaration :", ex.declarationDate || dateStr, curY + 34);
+
+  // BLOC 3 : LOCALISATION
+  curY = 183;
+  doc.rect(15, curY, 105, 34, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 92, 74);
+  doc.text("3. LOCALISATION & GESTION EN STOCK", 19, curY + 6);
+  doc.setDrawColor(209, 250, 229);
+  doc.line(19, curY + 8, 115, curY + 8);
+
+  const locRaw = item.location?.raw || (item.location?.salle ? `${item.location.salle} — ${item.location.zone || ''}` : 'Local Déchets Central');
+  drawField("Emplacement :", locRaw, curY + 14);
+  drawField("Planification :", ex.destructionPlan || 'En attente de plan de destruction', curY + 22);
+  drawField("Agent Récepteur :", ex.recipientAgent || 'Marie ADANDE (ABMed)', curY + 29);
+
+  // 6. Blocs droits : GRAND QR CODE & SÉCURITÉ (X: 125 à 194)
+  const rightX = 125;
+  const rightW = 69;
+
+  // CADRE QR CODE
+  doc.setFillColor(255, 253, 253);
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.6);
+  doc.rect(rightX, 83, rightW, 77, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(153, 27, 27);
+  doc.text("CODE QR RÉCAPITULATIF PRODUIT", rightX + rightW / 2, 90, { align: 'center' });
+
+  // Image QR Code (48mm x 48mm)
+  if (qrCodeDataUrl) {
+    try {
+      const qrSize = 48;
+      const qrPosX = rightX + (rightW - qrSize) / 2;
+      doc.addImage(qrCodeDataUrl, 'PNG', qrPosX, 94, qrSize, qrSize);
+    } catch (e) {
+      console.error("QR Code image error", e);
+    }
+  }
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text("Scannez ce QR Code avec tout smartphone pour", rightX + rightW / 2, 148, { align: 'center' });
+  doc.text("afficher le récapitulatif officiel certifié eGED-ABMed.", rightX + rightW / 2, 152, { align: 'center' });
+
+  // CADRE CONSIGNES DE SÉCURITÉ
+  doc.setFillColor(255, 251, 235); // Amber-50
+  doc.setDrawColor(245, 158, 11); // Amber-500
+  doc.setLineWidth(0.5);
+  doc.rect(rightX, 165, rightW, 52, 'FD');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(180, 83, 9);
+  doc.text("⚠️ CONSIGNES DE SÉCURITÉ STRICTES", rightX + 4, 172);
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(6.8);
+  doc.setTextColor(120, 53, 15);
+  const secLines = [
+    "• Port obligatoire des EPI (gants nitrile, masque FFP2, blouse).",
+    "• Ne pas ouvrir, transvaser ni manipuler les contenants scellés.",
+    "• Stockage exclusif dans le local déchets agréé sous contrôle.",
+    "• Interdiction formelle de rejet dans les ordures ménagères."
+  ];
+  let secY = 179;
+  secLines.forEach(l => {
+    const wrapped = doc.splitTextToSize(l, rightW - 8);
+    doc.text(wrapped, rightX + 4, secY);
+    secY += (wrapped.length * 4) + 1.5;
+  });
+
+  // 7. Cadres de Signatures & Visas
+  curY = 223;
+  const sigW = 86;
+  const sigH = 38;
+
+  // Signature 1
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.rect(15, curY, sigW, sigH, 'S');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("VISA & SIGNATURE DE L'APPORTEUR / DÉPOSANT :", 18, curY + 6);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text("Nom & Signature autorisée :", 18, curY + sigH - 4);
+
+  // Signature 2
+  doc.rect(108, curY, sigW, sigH, 'S');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("VISA & SIGNATURE DE L'AGENT RÉCEPTEUR ABMed :", 111, curY + 6);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text("Cachet officiel & Date de validation :", 111, curY + sigH - 4);
+
+  // 8. Pied de page officiel
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(15, 269, 194, 269);
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text("AUTORITÉ BÉNINOISE DE RÉGULATION DU MÉDICAMENT (ABMed) • DIRECTION DE LA GESTION DES DÉCHETS", 15, 274);
+  doc.text("PLATEFORME NATIONALE eGED-ABMed • WWW.ABMED.BJ", 194, 274, { align: 'right' });
+}
+
+/**
+ * Génère et télécharge un PDF d'étiquette(s) ou Fiches A4 Réglementaires.
  */
 export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', qrCodes: Record<string, string>, format: LabelFormat) {
   const isWaste = type === 'waste';
-  const primaryColorHex = isWaste ? '#D97706' : '#1E40AF'; // Orange ou Bleu
-
-  // Configurer le document PDF
   let doc: jsPDF;
   
   if (format === 'A4') {
@@ -369,137 +907,16 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
 
   const dateStr = new Date().toLocaleDateString('fr-FR');
 
-  const drawLabelPDF = (item: LabelData, x: number, y: number, w: number, h: number, fontScale: number) => {
-    // 1. Fond blanc
-    doc.setFillColor(255, 255, 255);
-    doc.rect(x, y, w, h, 'F');
-    
-    // 2. Bordure générale discrète
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.15);
-    doc.rect(x, y, w, h, 'S');
-
-    // 3. En-tête
-    // Ligne sous en-tête
-    doc.setDrawColor(isWaste ? 217 : 30, isWaste ? 119 : 64, isWaste ? 6 : 175);
-    doc.setLineWidth(0.2);
-    doc.line(x + 1.5, y + 6.5 * fontScale, x + w - 1.5, y + 6.5 * fontScale);
-
-    // Titre
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.5 * fontScale);
-    doc.setTextColor(isWaste ? 217 : 30, isWaste ? 119 : 64, isWaste ? 6 : 175);
-    const title = isWaste ? 'LOT DE DÉCHETS PHARMACEUTIQUES' : 'ÉTIQUETTE OFFICIELLE';
-    doc.text(title, x + 8 * fontScale, y + 3 * fontScale);
-
-    // Sous-titre
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(3.3 * fontScale);
-    doc.setTextColor(100, 116, 139);
-    doc.text("PLATEFORME NATIONALE DE GESTION eGED-ABMed", x + 8 * fontScale, y + 5 * fontScale);
-
-    // Métadonnées à droite
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(3.3 * fontScale);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Ref: ${item.itemNumber}`, x + w - 15 * fontScale, y + 3 * fontScale);
-    doc.text(`Le: ${dateStr}`, x + w - 15 * fontScale, y + 5 * fontScale);
-
-    // 4. QR Code
-    const qrSize = 14 * fontScale;
-    const qrX = x + 2 * fontScale;
-    const qrY = y + 8 * fontScale;
-    
-    try {
-      if (qrCodes[item.id]) {
-        doc.addImage(qrCodes[item.id], 'PNG', qrX, qrY, qrSize, qrSize);
+  if (format === 'A4' && isWaste) {
+    // FORMAT A4 POUR DÉCHETS : Chaque lot génère une pleine page A4 placard grand format
+    items.forEach((item, index) => {
+      if (index > 0) {
+        doc.addPage('a4', 'portrait');
       }
-    } catch (e) {
-      console.error("Failed to add image to PDF", e);
-    }
-    
-    // Bordure blanche/grise autour du QR
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.1);
-    doc.rect(qrX - 0.2, qrY - 0.2, qrSize + 0.4, qrSize + 0.4, 'S');
-
-    // Label sous QR Code
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(2.6 * fontScale);
-    doc.setTextColor(148, 163, 184);
-    doc.text("SCANNER LA FICHE", qrX + qrSize / 2, qrY + qrSize + 2 * fontScale, { align: 'center' });
-
-    // 5. Informations Produit (à droite du QR)
-    const infoX = qrX + qrSize + 3 * fontScale;
-    let infoY = y + 10 * fontScale;
-
-    // Nom Commercial
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.5 * fontScale);
-    doc.setTextColor(15, 23, 42); // slate-900
-    const wrappedName = doc.splitTextToSize((item.productName || '').toUpperCase(), w - infoX - 2);
-    doc.text(wrappedName, infoX, infoY);
-    
-    infoY += (wrappedName.length * 3) * fontScale;
-
-    // Détails
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(4.3 * fontScale);
-    doc.setTextColor(51, 65, 85); // slate-700
-    
-    if (!isWaste) {
-      doc.text(`DCI: ${item.dci || '-'}`, infoX, infoY);
-      infoY += 2.2 * fontScale;
-      doc.text(`Lot: ${item.batchNumber} | Perim: ${item.expiryDate || '-'}`, infoX, infoY);
-      infoY += 2.2 * fontScale;
-      doc.text(`Dos: ${item.dosage || '-'} | Forme: ${item.presentation || '-'}`, infoX, infoY);
-    } else {
-      doc.text(`Catégorie: ${item.extraData?.category || '-'}`, infoX, infoY);
-      infoY += 2.2 * fontScale;
-      doc.text(`Poids: ${item.extraData?.weight || '-'} | Date: ${item.extraData?.declarationDate || '-'}`, infoX, infoY);
-      infoY += 2.2 * fontScale;
-      doc.text(`Plan Destr: ${item.extraData?.destructionPlan || 'Aucun'}`, infoX, infoY);
-    }
-
-    infoY += 3.5 * fontScale;
-
-    // Localisation (Encadré)
-    doc.setFillColor(248, 250, 252); // slate-50
-    doc.setDrawColor(226, 232, 240); // slate-200
-    const locW = 28 * fontScale;
-    const locH = 4 * fontScale;
-    doc.rect(infoX, infoY - 2.8 * fontScale, locW, locH, 'FD');
-    
-    doc.setFont("Courier", "bold");
-    doc.setFontSize(3.6 * fontScale);
-    doc.setTextColor(71, 85, 105);
-    const locText = item.location 
-      ? `S:${item.location.salle || '?'}-Z:${item.location.zone || '?'}-A:${item.location.armoire || '?'}-E:${item.location.etagere || '?'}`
-      : 'Loc: Non specifie';
-    doc.text(locText, infoX + 1, infoY - 1 * fontScale);
-
-    // Statut (Badge)
-    const statusInfo = getStatusColor(item.status);
-    doc.setFillColor(241, 245, 249); // Gris par défaut ou couleur adaptée
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(3.8 * fontScale);
-    doc.setTextColor(71, 85, 105);
-    
-    // Dessiner le texte de statut
-    doc.text(statusInfo.text.toUpperCase(), infoX + locW + 3 * fontScale, infoY - 1 * fontScale);
-
-    // 6. Pied de page
-    doc.setDrawColor(241, 245, 249);
-    doc.line(x + 1.5, y + h - 4.5 * fontScale, x + w - 1.5, y + h - 4.5 * fontScale);
-
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(3.3 * fontScale);
-    doc.setTextColor(148, 163, 184);
-    doc.text("AUTORITE BENINOISE DE REGULATION DU MEDICAMENT", x + 2 * fontScale, y + h - 1.5 * fontScale);
-    doc.text("WWW.ABMED.BJ", x + w - 15 * fontScale, y + h - 1.5 * fontScale, { align: 'right' } as any); // Type cast pour aligner
-  };
-
-  if (format === 'A4') {
+      drawWasteA4PagePDF(doc, item, qrCodes[item.id] || '', dateStr);
+    });
+  } else if (format === 'A4') {
+    // FORMAT A4 POUR ÉCHANTILLONS : Planche 3x8 d'étiquettes adhésives
     const marginX = 8;
     const marginY = 10;
     const labelW = 63.5;
@@ -507,22 +924,20 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
     const gapX = 3;
     const gapY = 3;
     const cols = 3;
-    const rows = 7; // 21 étiquettes par page pour plus de marge de sécurité
+    const rows = 7;
 
     let col = 0;
     let row = 0;
-    let page = 1;
 
     items.forEach((item, index) => {
       if (index > 0 && col === 0 && row === 0) {
         doc.addPage('a4', 'portrait');
-        page++;
       }
 
       const x = marginX + col * (labelW + gapX);
       const y = marginY + row * (labelH + gapY);
 
-      drawLabelPDF(item, x, y, labelW, labelH, 0.95);
+      drawStandardThermalOrGridLabelPDF(doc, item, x, y, labelW, labelH, 0.95, qrCodes[item.id], dateStr, isWaste);
 
       col++;
       if (col >= cols) {
@@ -534,7 +949,7 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
       }
     });
   } else {
-    // Thermal roll labels
+    // Formats rouleaux thermiques standards
     const dims = {
       '50x30': { w: 50, h: 30, scale: 0.8 },
       '60x40': { w: 60, h: 40, scale: 1.0 },
@@ -545,9 +960,146 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
       if (index > 0) {
         doc.addPage([dims.w, dims.h], 'landscape');
       }
-      drawLabelPDF(item, 0, 0, dims.w, dims.h, dims.scale);
+      drawStandardThermalOrGridLabelPDF(doc, item, 0, 0, dims.w, dims.h, dims.scale, qrCodes[item.id], dateStr, isWaste);
     });
   }
 
-  doc.save(`etiquettes_eged_abmed_${Date.now()}.pdf`);
+  const filename = isWaste && format === 'A4'
+    ? `fiche_a4_dechet_abmed_${Date.now()}.pdf`
+    : `etiquettes_eged_abmed_${Date.now()}.pdf`;
+
+  doc.save(filename);
+}
+
+/**
+ * Dessine une étiquette thermique individuelle ou une case de planche dans jsPDF.
+ */
+function drawStandardThermalOrGridLabelPDF(
+  doc: jsPDF, 
+  item: LabelData, 
+  x: number, 
+  y: number, 
+  w: number, 
+  h: number, 
+  fontScale: number,
+  qrCodeDataUrl: string,
+  dateStr: string,
+  isWaste: boolean
+) {
+  // 1. Fond blanc
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x, y, w, h, 'F');
+  
+  // 2. Bordure générale
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.15);
+  doc.rect(x, y, w, h, 'S');
+
+  // 3. En-tête
+  doc.setDrawColor(isWaste ? 217 : 30, isWaste ? 119 : 64, isWaste ? 6 : 175);
+  doc.setLineWidth(0.2);
+  doc.line(x + 1.5, y + 6.5 * fontScale, x + w - 1.5, y + 6.5 * fontScale);
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(5.5 * fontScale);
+  doc.setTextColor(isWaste ? 217 : 30, isWaste ? 119 : 64, isWaste ? 6 : 175);
+  const title = isWaste ? 'LOT DE DÉCHETS PHARMACEUTIQUES' : 'ÉTIQUETTE OFFICIELLE';
+  doc.text(title, x + 8 * fontScale, y + 3 * fontScale);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(3.3 * fontScale);
+  doc.setTextColor(100, 116, 139);
+  doc.text("PLATEFORME NATIONALE DE GESTION eGED-ABMed", x + 8 * fontScale, y + 5 * fontScale);
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(3.3 * fontScale);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Ref: ${item.itemNumber}`, x + w - 15 * fontScale, y + 3 * fontScale);
+  doc.text(`Le: ${dateStr}`, x + w - 15 * fontScale, y + 5 * fontScale);
+
+  // 4. QR Code
+  const qrSize = 14 * fontScale;
+  const qrX = x + 2 * fontScale;
+  const qrY = y + 8 * fontScale;
+  
+  try {
+    if (qrCodeDataUrl) {
+      doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    }
+  } catch (e) {
+    console.error("Failed to add image to PDF", e);
+  }
+  
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.1);
+  doc.rect(qrX - 0.2, qrY - 0.2, qrSize + 0.4, qrSize + 0.4, 'S');
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(2.6 * fontScale);
+  doc.setTextColor(148, 163, 184);
+  doc.text("SCANNER RÉCAP", qrX + qrSize / 2, qrY + qrSize + 2 * fontScale, { align: 'center' });
+
+  // 5. Informations Produit
+  const infoX = qrX + qrSize + 3 * fontScale;
+  let infoY = y + 10 * fontScale;
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(5.5 * fontScale);
+  doc.setTextColor(15, 23, 42);
+  const wrappedName = doc.splitTextToSize((item.productName || '').toUpperCase(), w - infoX - 2);
+  doc.text(wrappedName, infoX, infoY);
+  
+  infoY += (wrappedName.length * 3) * fontScale;
+
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(4.3 * fontScale);
+  doc.setTextColor(51, 65, 85);
+  
+  if (!isWaste) {
+    doc.text(`DCI: ${item.dci || '-'}`, infoX, infoY);
+    infoY += 2.2 * fontScale;
+    doc.text(`Lot: ${item.batchNumber} | Perim: ${item.expiryDate || '-'}`, infoX, infoY);
+    infoY += 2.2 * fontScale;
+    doc.text(`Dos: ${item.dosage || '-'} | Forme: ${item.presentation || '-'}`, infoX, infoY);
+  } else {
+    doc.text(`Catégorie: ${item.extraData?.category || '-'}`, infoX, infoY);
+    infoY += 2.2 * fontScale;
+    doc.text(`Poids: ${item.extraData?.weight || '-'} | Date: ${item.extraData?.declarationDate || '-'}`, infoX, infoY);
+    infoY += 2.2 * fontScale;
+    doc.text(`Plan Destr: ${item.extraData?.destructionPlan || 'Aucun'}`, infoX, infoY);
+  }
+
+  infoY += 3.5 * fontScale;
+
+  // Localisation
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  const locW = 28 * fontScale;
+  const locH = 4 * fontScale;
+  doc.rect(infoX, infoY - 2.8 * fontScale, locW, locH, 'FD');
+  
+  doc.setFont("Courier", "bold");
+  doc.setFontSize(3.6 * fontScale);
+  doc.setTextColor(71, 85, 105);
+  const locText = item.location 
+    ? `S:${item.location.salle || '?'}-Z:${item.location.zone || '?'}-A:${item.location.armoire || '?'}`
+    : 'Loc: Non specifie';
+  doc.text(locText, infoX + 1, infoY - 1 * fontScale);
+
+  // Statut
+  const statusInfo = getStatusColor(item.status);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(3.8 * fontScale);
+  doc.setTextColor(71, 85, 105);
+  doc.text(statusInfo.text.toUpperCase(), infoX + locW + 3 * fontScale, infoY - 1 * fontScale);
+
+  // Pied de page
+  doc.setDrawColor(241, 245, 249);
+  doc.line(x + 1.5, y + h - 4.5 * fontScale, x + w - 1.5, y + h - 4.5 * fontScale);
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(3.3 * fontScale);
+  doc.setTextColor(148, 163, 184);
+  doc.text("AUTORITE BENINOISE DE REGULATION DU MEDICAMENT", x + 2 * fontScale, y + h - 1.5 * fontScale);
+  doc.text("WWW.ABMED.BJ", x + w - 15 * fontScale, y + h - 1.5 * fontScale, { align: 'right' } as any);
 }

@@ -120,29 +120,33 @@ export function QRCodeScannerDialog({ isOpen, onClose }: QRCodeScannerDialogProp
     const supabase = createClient()
     
     try {
-      // 1. Analyser si c'est une URL interne de l'application
+      // 1. Analyser si c'est une URL interne ou contient un lien de fiche
       if (code.includes("/dashboard/samples/")) {
-        const id = code.split("/dashboard/samples/")[1]?.split("?")[0]?.split("#")[0]
-        if (id) {
-          router.push(`/dashboard/samples/${id}`)
+        const rawId = code.split("/dashboard/samples/")[1]?.split("?")[0]?.split("#")[0]?.split("\n")[0]?.split(" ")[0]?.trim()
+        if (rawId) {
+          router.push(`/dashboard/samples/${rawId}`)
           onClose()
           return
         }
       }
       if (code.includes("/dashboard/waste/")) {
-        const id = code.split("/dashboard/waste/")[1]?.split("?")[0]?.split("#")[0]
-        if (id) {
-          router.push(`/dashboard/waste/${id}`)
+        const rawId = code.split("/dashboard/waste/")[1]?.split("?")[0]?.split("#")[0]?.split("\n")[0]?.split(" ")[0]?.trim()
+        if (rawId) {
+          router.push(`/dashboard/waste/${rawId}`)
           onClose()
           return
         }
       }
 
-      // 2. Nettoyer le code
-      const cleanCode = code.trim()
+      // 2. Extraire les références normalisées dans le texte récapitulatif
+      const echMatch = code.match(/ECH-[A-Za-z0-9-]+/i)
+      const decMatch = code.match(/DEC-[A-Za-z0-9-]+/i)
+
+      // 3. Nettoyer le code
+      const cleanCode = (echMatch ? echMatch[0] : decMatch ? decMatch[0] : code).trim()
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanCode)
 
-      // 3. Recherche dans les échantillons (par ID ou N° Échantillon)
+      // 4. Recherche dans les échantillons (par ID ou N° Échantillon)
       let sampleQuery = supabase.from("samples").select("id")
       if (isUuid) {
         sampleQuery = sampleQuery.or(`id.eq.${cleanCode},sample_number.eq.${cleanCode}`)
@@ -158,7 +162,7 @@ export function QRCodeScannerDialog({ isOpen, onClose }: QRCodeScannerDialogProp
         return
       }
 
-      // 4. Recherche dans les déchets (par ID ou N° Lot déchet)
+      // 5. Recherche dans les déchets (par ID ou N° Lot déchet)
       let wasteQuery = supabase.from("waste_batches").select("id")
       if (isUuid) {
         wasteQuery = wasteQuery.or(`id.eq.${cleanCode},batch_number.eq.${cleanCode}`)

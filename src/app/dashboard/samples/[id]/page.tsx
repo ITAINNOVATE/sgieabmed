@@ -24,7 +24,7 @@ export type DetailedSample = Sample & {
   storage_condition?: string
   category?: string
 }
-import { generateQRCodeDataUrl } from "@/utils/qrCode"
+import { generateQRCodeDataUrl, formatSampleQRText } from "@/utils/qrCode"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { toast } from "sonner"
@@ -159,10 +159,6 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
       ])
       setLoading(false)
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-      const url = `${origin}/dashboard/samples/${resolvedParams.id}`
-      generateQRCodeDataUrl(url).then(qrUrl => setQrCodeUrl(qrUrl)).catch(() => {})
-
       try {
         const [sampleRes, mvtRes] = await Promise.all([
           supabase.from('samples').select('*').eq('id', resolvedParams.id).single(),
@@ -174,6 +170,30 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
     }
     fetchSample()
   }, [resolvedParams.id, supabase])
+
+  // Générer le QR Code contenant le récapitulatif complet du produit
+  useEffect(() => {
+    if (!sample) return
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+    const qrText = formatSampleQRText({
+      id: sample.id,
+      sample_number: sample.sample_number,
+      reception_ref: sample.reception_ref,
+      commercial_name: sample.commercial_name,
+      dci: sample.dci,
+      dosage: sample.dosage,
+      pharmaceutical_form: sample.form || (sample as any).presentation,
+      batch_number: sample.batch_number,
+      expiry_date: sample.expiry_date,
+      quantity: sample.quantity,
+      unit: (sample as any).unit,
+      manufacturer_name: sample.manufacturer,
+      current_location: sample.current_location,
+      status: sample.status
+    }, origin)
+
+    generateQRCodeDataUrl(qrText).then(qrUrl => setQrCodeUrl(qrUrl)).catch(() => {})
+  }, [sample])
 
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)

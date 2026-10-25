@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 import { createClient } from "@/utils/supabase/client"
-import { generateQRCodeDataUrl } from "@/utils/qrCode"
+import { generateQRCodeDataUrl, formatWasteQRText } from "@/utils/qrCode"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 
@@ -130,10 +130,6 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
       setWasteBatch(initialBatch)
       setLoading(false)
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
-      const url = `${origin}/dashboard/waste/${resolvedParams.id}`
-      generateQRCodeDataUrl(url).then(qrUrl => setQrCodeUrl(qrUrl)).catch(() => {})
-
       // 2. Synchronisation avec Supabase en arrière-plan
       try {
         const { data } = await supabase
@@ -153,6 +149,36 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
     }
     fetchWasteBatch()
   }, [resolvedParams.id, supabase])
+
+  // Générer le QR Code contenant le récapitulatif complet du lot de déchet
+  useEffect(() => {
+    if (!wasteBatch) return
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eged-abmed.gov.bj'
+    const qrText = formatWasteQRText({
+      id: wasteBatch.id,
+      batch_number: wasteBatch.batch_number,
+      reception_number: wasteBatch.reception_number,
+      waste_type: wasteBatch.waste_type,
+      commercial_name: wasteBatch.commercial_name || wasteBatch.sample?.commercial_name,
+      original_batch: wasteBatch.original_batch || wasteBatch.sample?.batch_number,
+      quantity: wasteBatch.quantity,
+      unit: wasteBatch.unit,
+      packaging: wasteBatch.packaging,
+      packaging_condition: wasteBatch.packaging_condition,
+      source_structure: wasteBatch.source_structure,
+      source_type: wasteBatch.source_type,
+      depositor_name: wasteBatch.depositor_name,
+      depositor_phone: wasteBatch.depositor_phone,
+      recipient_agent: wasteBatch.recipient_agent || (wasteBatch.creator ? `${wasteBatch.creator.first_name} ${wasteBatch.creator.last_name}` : undefined),
+      destruction_motive: wasteBatch.destruction_motive || wasteBatch.rejection_reason || wasteBatch.observations,
+      current_location: wasteBatch.current_location,
+      status: wasteBatch.status,
+      reception_date: wasteBatch.created_at,
+      destruction_plan_ref: wasteBatch.destruction_plan_ref
+    }, origin)
+
+    generateQRCodeDataUrl(qrText).then(qrUrl => setQrCodeUrl(qrUrl)).catch(() => {})
+  }, [wasteBatch])
 
   const handlePrint = () => {
     setIsPrintDialogOpen(true)
