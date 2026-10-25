@@ -545,19 +545,23 @@ export function HeaderActions() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64 sm:w-56 rounded-2xl shadow-xl border-border">
           {/* IDENTITÉ COMPACTE SUR MOBILE */}
-          <Link href="/dashboard/profile" className="block sm:hidden px-3 py-2.5 border-b border-border/80 bg-muted/30 rounded-t-xl hover:bg-muted/50 transition-colors">
+          <div 
+            onClick={() => setShowProfileModal(true)} 
+            className="block sm:hidden px-3 py-2.5 border-b border-border/80 bg-muted/30 rounded-t-xl hover:bg-muted/50 transition-colors cursor-pointer"
+          >
             <p className="font-bold text-xs text-foreground truncate">{displayName}</p>
             <p className="text-[11px] text-muted-foreground truncate">{currentUser?.role || "Administrateur Système"}</p>
             <p className="text-[10px] text-muted-foreground/80 truncate">{currentUser?.email || email}</p>
-          </Link>
+          </div>
           <DropdownMenuLabel className="font-bold text-xs px-3 py-2 hidden sm:block">Espace Administrateur eGED</DropdownMenuLabel>
           <DropdownMenuSeparator className="hidden sm:block" />
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild className="cursor-pointer text-xs font-semibold">
-              <Link href="/dashboard/profile">
-                <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
-                <span>Voir Mon Profil</span>
-              </Link>
+            <DropdownMenuItem 
+              onSelect={() => setShowProfileModal(true)} 
+              className="cursor-pointer text-xs font-semibold"
+            >
+              <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
+              <span>Voir Mon Profil</span>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer text-xs">
               <Link href="/dashboard/settings">
