@@ -95,19 +95,10 @@ export default function NewWasteInventoryPage() {
         return true
       })
 
-      // Si aucun lot trouvé en stock, générer un lot initial pour permettre le contrôle
       if (activeBatches.length === 0) {
-        activeBatches.push({
-          id: `DEC-${Date.now()}`,
-          batch_number: `DEC-${year}-${Math.floor(10000 + Math.random() * 90000)}`,
-          commercial_name: 'Médicaments périmés & conditionnements',
-          waste_type: 'Déchets pharmaceutiques',
-          packaging: 'Fût PEHD 60L',
-          current_location: values.location,
-          quantity: 25.5,
-          unit: 'Kg',
-          status: 'Déclaré',
-        })
+        toast.error("Aucun lot de déchet actif trouvé dans cet emplacement. Enregistrez d'abord une réception de déchet.")
+        setIsSaving(false)
+        return
       }
 
       // Construire la liste des items d'inventaire déchet

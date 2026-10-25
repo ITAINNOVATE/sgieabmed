@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import "@/utils/waste-locations"
 
 const MOCK_DESTRUCTION_PLANS: any[] = []
 

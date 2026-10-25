@@ -13,13 +13,7 @@ import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Flame, Search, Trash2, Ey
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
-const MOCK_WASTE_MOVEMENTS = [
-  { id: '1', mvt_number: 'MVT-W-2026-001', date: '2026-01-20T14:30:00.000Z', type: 'Entrée au local déchet', batch: 'DEC-2026-73355', waste_type: 'Médicaments périmés', quantity: '150 Kg', operator: 'Jean DUPONT', destination: 'Local Déchets A1', origin: 'Pharmacie Centrale', signature_hash: 'SIG-MVT-8821A' },
-  { id: '2', mvt_number: 'MVT-W-2026-002', date: '2026-02-12T16:00:00.000Z', type: 'Transfert interne', batch: 'DEC-2026-88120', waste_type: 'Produits chimiques dangereux', quantity: '45 L', operator: 'Marie ADANDE', destination: 'Zone Quarantaine C2', origin: 'Laboratoire Contrôle Qualité', signature_hash: 'SIG-MVT-4412B' },
-  { id: '3', mvt_number: 'MVT-W-2026-003', date: '2026-03-05T10:15:00.000Z', type: 'Sortie pour Incinération', batch: 'DEC-2026-11409', waste_type: 'Déchets infectieux (DASRI)', quantity: '230 Kg', operator: 'Chantal HOUENOU', destination: 'Centre d\'Incinération', origin: 'Local DASRI B', signature_hash: 'SIG-MVT-9920C' },
-  { id: '4', mvt_number: 'MVT-W-2026-004', date: '2026-03-18T11:45:00.000Z', type: 'Entrée au local déchet', batch: 'DEC-2026-99201', waste_type: 'Flacons cassés', quantity: '12 Kg', operator: 'Jean DUPONT', destination: 'Local Déchets A2', origin: 'Magasin Central', signature_hash: 'SIG-MVT-1149D' },
-  { id: '5', mvt_number: 'MVT-W-2026-005', date: '2026-03-25T15:00:00.000Z', type: 'Destruction effectuée', batch: 'DEC-2026-44021', waste_type: 'Emballages souillés', quantity: '80 Kg', operator: 'Paul AGOSSA', destination: 'Fosse Spécialisée', origin: 'Local Déchets A1', signature_hash: 'SIG-MVT-3301E' },
-]
+const MOCK_WASTE_MOVEMENTS: any[] = []
 
 export default function WasteMovementsPage() {
   const [movements, setMovements] = useState<any[]>([])

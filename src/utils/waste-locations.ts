@@ -1,3 +1,33 @@
+// ─── REMISE À ZÉRO UNIQUE DES DONNÉES DÉCHETS (navigateur) ───────────────────────────
+// Changer WASTE_RESET_VERSION pour déclencher une nouvelle purge sur tous les postes.
+const WASTE_RESET_VERSION = "2026-10-25-reset-2"
+const WASTE_LOCAL_KEYS = [
+  "waste_batches_custom_v1",
+  "waste_grouped_packages_v1",
+  "waste_movements_custom_v1",
+  "waste_inventories_custom_v1",
+  "destruction_plans_custom_v1",
+]
+
+export function runWasteResetOnce() {
+  if (typeof window === "undefined" || !window.localStorage) return
+  try {
+    if (localStorage.getItem("waste_reset_version") === WASTE_RESET_VERSION) return
+    WASTE_LOCAL_KEYS.forEach((k) => {
+      localStorage.setItem(k, "[]")
+    })
+    // Supprimer d'éventuelles clés orphelines de brouillons ou de sessions déchets
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("waste_") && key !== "waste_reset_version" && !WASTE_LOCAL_KEYS.includes(key)) {
+        localStorage.removeItem(key)
+      }
+    })
+    localStorage.setItem("waste_reset_version", WASTE_RESET_VERSION)
+  } catch {}
+}
+
+runWasteResetOnce()
+
 export const WASTE_STORE_NAME = "MAGASIN DES DECHETS"
 
 export interface WasteZoneDefinition {

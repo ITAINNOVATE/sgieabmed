@@ -20,48 +20,7 @@ import { createClient } from "@/utils/supabase/client"
 import { exportDestructionCertificatePDF } from "@/utils/exportUtils"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
-const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {
-  '1': {
-    id: '1',
-    plan_number: 'DES-2026-0042',
-    planned_date: '2026-04-10',
-    execution_date: null,
-    status: 'En préparation',
-    items: [
-      { id: 'item-1', quantity: 150, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
-    ],
-    validations: []
-  },
-  '2': {
-    id: '2',
-    plan_number: 'DES-2026-0038',
-    planned_date: '2026-03-20',
-    execution_date: null,
-    status: 'Validation Qualité',
-    items: [
-      { id: 'item-2', quantity: 45, waste_batch: { batch_number: 'DEC-2026-88120', waste_type: 'Produits chimiques dangereux', unit: 'L', status: 'En attente de destruction' } },
-      { id: 'item-3', quantity: 12, waste_batch: { batch_number: 'DEC-2026-99201', waste_type: 'Flacons cassés', unit: 'Kg', status: 'En attente de destruction' } }
-    ],
-    validations: [
-      { id: 'val-1', role: 'Responsable Déchets', validation_date: '2026-03-18T14:00:00.000Z', status: 'Approuvé', comments: 'Pesée et fûts vérifiés conformes.' }
-    ]
-  },
-  '3': {
-    id: '3',
-    plan_number: 'DES-2026-0031',
-    planned_date: '2026-02-15',
-    execution_date: '2026-02-16T14:00:00.000Z',
-    status: 'Exécuté',
-    items: [
-      { id: 'item-4', quantity: 230, waste_batch: { batch_number: 'DEC-2026-11409', waste_type: 'Déchets infectieux (DASRI)', unit: 'Kg', status: 'Détruit' } },
-      { id: 'item-5', quantity: 80, waste_batch: { batch_number: 'DEC-2026-44021', waste_type: 'Emballages souillés', unit: 'Kg', status: 'Détruit' } }
-    ],
-    validations: [
-      { id: 'val-2', role: 'Responsable Déchets', validation_date: '2026-02-14T09:30:00.000Z', status: 'Approuvé', comments: 'Lots conformes.' },
-      { id: 'val-3', role: 'Responsable Qualité', validation_date: '2026-02-15T11:00:00.000Z', status: 'Approuvé', comments: 'Validation qualité accordée pour incinération.' }
-    ]
-  },
-}
+const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {}
 
 export default function DestructionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -130,22 +89,11 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
     if (localFound) {
       setPlan(localFound)
+      setLoading(false)
     } else if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
       setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
-    } else {
-      setPlan({
-        id: resolvedParams.id,
-        plan_number: `DES-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
-        planned_date: '2026-04-15',
-        execution_date: null,
-        status: 'En préparation',
-        items: [
-          { id: 'item-def', quantity: 75, waste_batch: { batch_number: 'DEC-2026-73355', waste_type: 'Médicaments périmés', unit: 'Kg', status: 'En attente de destruction' } }
-        ],
-        validations: []
-      })
+      setLoading(false)
     }
-    setLoading(false)
 
     // 2. Vérifier dans Supabase Cloud pour la cohérence multi-postes
     try {
@@ -166,6 +114,8 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       }
     } catch (err) {
       console.warn("Supabase fetch destruction plan warning:", err)
+    } finally {
+      setLoading(false)
     }
   }, [resolvedParams.id, supabase])
 

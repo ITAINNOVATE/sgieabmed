@@ -23,6 +23,7 @@ import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
+import "@/utils/waste-locations"
 
 const MOCK_WASTE_BATCHES: any[] = []
 

@@ -66,48 +66,7 @@ export type WasteStockItem = {
   package_number?: string | null
 }
 
-const DEFAULT_INITIAL_PACKAGES: GroupedWastePackage[] = [
-  {
-    id: "pkg-init-1",
-    package_number: "COLIS-2026-1042",
-    package_name: "COLIS-2026-1042",
-    package_type: "Grand sac hermétique étanche (DASRI / Solides)",
-    total_weight: 45.5,
-    unit: "Kg",
-    current_location: WASTE_ZONES[0].fullLocation,
-    status: "Groupé (En stock)",
-    created_at: "2026-02-15T11:30:00.000Z",
-    created_by: "Marie ADANDE (ABMed)",
-    observations: "Regroupement de lots réceptionnés en officines pour incinération groupée.",
-    item_ids: ["1", "2"],
-    items: [
-      {
-        id: "1",
-        batch_number: "DEC-2026-73355",
-        waste_type: "Médicaments périmés",
-        commercial_name: "Amoxicilline 500mg Gélule",
-        original_batch: "LOT-AMX-2024-09",
-        quantity: 25.5,
-        unit: "Kg",
-        source_structure: "Pharmacie Tokpa",
-        current_location: WASTE_ZONES[0].fullLocation,
-        status: "En attente de destruction"
-      },
-      {
-        id: "2",
-        batch_number: "DEC-2026-88120",
-        waste_type: "Médicaments périmés",
-        commercial_name: "Paracétamol 500mg Comprimé",
-        original_batch: "LOT-PARA-2024-11",
-        quantity: 20.0,
-        unit: "Kg",
-        source_structure: "Pharmacie Saint-Jean",
-        current_location: WASTE_ZONES[0].fullLocation,
-        status: "En attente de destruction"
-      }
-    ]
-  }
-]
+const DEFAULT_INITIAL_PACKAGES: GroupedWastePackage[] = []
 
 export default function WasteStockPage() {
   const [activeTab, setActiveTab] = useState<"detail" | "grouped">("detail")
@@ -149,12 +108,9 @@ export default function WasteStockPage() {
           ...p,
           current_location: normalizeWasteLocation(p.current_location, p.package_type),
         }))
-      } else {
-        localPackages = DEFAULT_INITIAL_PACKAGES
-        localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(DEFAULT_INITIAL_PACKAGES))
       }
     } catch (e) {
-      localPackages = DEFAULT_INITIAL_PACKAGES
+      localPackages = []
     }
     setPackages(localPackages)
 

@@ -16,80 +16,7 @@ import { generateQRCodeDataUrl, formatWasteQRText } from "@/utils/qrCode"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 
-const MOCK_WASTE_BATCHES_DETAILS: Record<string, any> = {
-  '1': {
-    id: '1',
-    batch_number: 'DEC-2026-73355',
-    waste_type: 'Médicaments périmés',
-    quantity: 150,
-    unit: 'Kg',
-    current_location: 'MAGASIN DES DECHETS — Zone déchets solides',
-    status: 'En attente de destruction',
-    observations: 'Périmés depuis plus de 6 mois, conditionnés dans des fûts sécurisés étanches.',
-    created_at: '2026-01-20T10:00:00.000Z',
-    creator: { first_name: 'Marie', last_name: 'ADANDE' },
-    sample: { commercial_name: 'Amoxicilline 500mg Gélule', batch_number: 'LOT-AMX-2024-09' },
-    sample_id: 'sample-1'
-  },
-  '2': {
-    id: '2',
-    batch_number: 'DEC-2026-88120',
-    waste_type: 'Produits chimiques dangereux',
-    quantity: 45,
-    unit: 'L',
-    current_location: 'MAGASIN DES DECHETS — Zone déchets dangereuses',
-    status: 'Déclaré',
-    observations: 'Réactifs de laboratoire périmés en flacons verre brun.',
-    created_at: '2026-02-12T14:30:00.000Z',
-    creator: { first_name: 'Marie', last_name: 'ADANDE' },
-    sample: { commercial_name: 'Solvant Acétonitrile HPLC', batch_number: 'SOLV-2024-002' },
-    sample_id: 'sample-2'
-  },
-  '3': {
-    id: '3',
-    batch_number: 'DEC-2026-11409',
-    waste_type: 'Déchets infectieux (DASRI)',
-    quantity: 230,
-    unit: 'Kg',
-    current_location: 'MAGASIN DES DECHETS — Zone déchets dangereuses',
-    status: 'Validé',
-    observations: 'Boîtes jaunes DASRI scellées et étiquetées conformément à la norme PSQIF.',
-    created_at: '2026-03-05T09:15:00.000Z',
-    creator: { first_name: 'Marie', last_name: 'ADANDE' },
-    sample: null,
-    sample_id: null
-  },
-  '4': {
-    id: '4',
-    batch_number: 'DEC-2026-99201',
-    waste_type: 'Flacons cassés',
-    quantity: 12,
-    unit: 'Kg',
-    current_location: 'MAGASIN DES DECHETS — Zone déchets dangereuses',
-    status: 'En contrôle',
-    observations: 'Bris de verre d\'ampoules et flacons injectables.',
-    created_at: '2026-03-18T16:00:00.000Z',
-    creator: { first_name: 'Marie', last_name: 'ADANDE' },
-    sample: null,
-    sample_id: null
-  },
-  '5': {
-    id: '5',
-    batch_number: 'DEC-2026-44021',
-    waste_type: 'Emballages souillés',
-    quantity: 80,
-    unit: 'Kg',
-    current_location: 'MAGASIN DES DECHETS — Zone déchets solides',
-    status: 'Détruit',
-    observations: 'Cartons et blisters contaminés incinérés lors de la session Q1.',
-    created_at: '2026-03-25T11:20:00.000Z',
-    creator: { first_name: 'Marie', last_name: 'ADANDE' },
-    sample: { commercial_name: 'Paracétamol 1g Comprimé', batch_number: 'LOT-PAR-2023-88' },
-    sample_id: 'sample-5',
-    destruction_date: '2026-03-28T10:00:00.000Z',
-    certificate_number: 'CERT-DEST-2026-0042'
-  },
-}
+const MOCK_WASTE_BATCHES_DETAILS: Record<string, any> = {}
 
 export default function WasteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -113,22 +40,11 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
         }
       } catch (e) {}
 
-      const initialBatch = foundLocal || MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id] || {
-        id: resolvedParams.id,
-        batch_number: `DEC-2026-${resolvedParams.id.substring(0, 5).toUpperCase()}`,
-        waste_type: 'Déchet Pharmaceutique Standard',
-        quantity: 50,
-        unit: 'Kg',
-        current_location: 'MAGASIN DES DECHETS — Zone déchets solides',
-        status: 'Déclaré',
-        observations: 'Lot enregistré dans le cadre du suivi réglementaire ABMed.',
-        created_at: new Date().toISOString(),
-        creator: { first_name: 'Marie', last_name: 'ADANDE' },
-        sample: null,
-        sample_id: null
-      }
+      const initialBatch = foundLocal || MOCK_WASTE_BATCHES_DETAILS[resolvedParams.id] || null
       setWasteBatch(initialBatch)
-      setLoading(false)
+      if (initialBatch) {
+        setLoading(false)
+      }
 
       // 2. Synchronisation avec Supabase en arrière-plan
       try {
