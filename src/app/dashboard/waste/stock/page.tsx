@@ -274,7 +274,7 @@ export default function WasteStockPage() {
   const totalWeightKg = useMemo(() => {
     return data.reduce((acc, curr) => {
       const qty = Number(curr.quantity) || 0
-      return acc + (curr.unit === "Kg" || curr.unit === "kg" ? qty : qty * 0.8)
+      return acc + qty
     }, 0)
   }, [data])
 
@@ -307,9 +307,13 @@ export default function WasteStockPage() {
     return selectedIndexes.map(idx => filteredDetailData[Number(idx)]).filter(Boolean)
   }, [rowSelection, filteredDetailData])
 
-  // GESTION DU REGROUPEMENT VALIDÉ
-  const handleGroupingSuccess = (newPkg: GroupedWastePackage) => {
-    setPackages(prev => [newPkg, ...prev])
+  // GESTION DU REGROUPEMENT VALIDÉ (NOUVEAU COLIS OU AJOUT À UN COLIS EXISTANT)
+  const handleGroupingSuccess = (newPkg: GroupedWastePackage, isUpdate?: boolean) => {
+    if (isUpdate) {
+      setPackages(prev => prev.map(p => p.id === newPkg.id ? newPkg : p))
+    } else {
+      setPackages(prev => [newPkg, ...prev])
+    }
 
     // Mettre à jour les batches individuels avec le numéro du colis
     setData(prev => {
@@ -1289,6 +1293,7 @@ export default function WasteStockPage() {
         open={isGroupingDialogOpen}
         onOpenChange={setIsGroupingDialogOpen}
         selectedItems={selectedItemsForGrouping}
+        existingPackages={packages}
         onSuccess={handleGroupingSuccess}
       />
 
