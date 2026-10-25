@@ -83,7 +83,7 @@ export default function NewWasteReceptionPage() {
 
       source_structure: "",
       source_type: "Officine privée de pharmacie",
-      city: "Cotonou",
+      city: "",
       depositor_name: "",
       depositor_phone: "",
       depositor_id_card: "",
@@ -453,7 +453,7 @@ export default function NewWasteReceptionPage() {
               <FormField control={form.control} name="delivery_slip_ref" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs font-semibold">Réf. Bordereau d&apos;apport (externe)</FormLabel>
-                  <FormControl><Input {...field} placeholder="BL / PV N°..." className="h-9 text-xs" /></FormControl>
+                  <FormControl><Input {...field} className="h-9 text-xs" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -498,7 +498,6 @@ export default function NewWasteReceptionPage() {
                     <FormControl>
                       <Input 
                         {...field} 
-                        placeholder="Ex: Pharmacie du Port, Grossiste CAME, Hôpital de Zone..." 
                         className="h-9 text-xs font-semibold bg-background" 
                       />
                     </FormControl>
@@ -536,7 +535,7 @@ export default function NewWasteReceptionPage() {
                     Nom & Prénom de l&apos;Apporteur / Déposant <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Personne ayant déposé les déchets" className="h-9 text-xs bg-background" />
+                    <Input {...field} className="h-9 text-xs bg-background" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -548,7 +547,7 @@ export default function NewWasteReceptionPage() {
                     Téléphone du Déposant <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Ex: +229 97 00 00 00" className="h-9 text-xs bg-background" />
+                    <Input {...field} className="h-9 text-xs bg-background" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -558,7 +557,7 @@ export default function NewWasteReceptionPage() {
                 <FormItem>
                   <FormLabel className="text-xs font-semibold">N° Pièce d&apos;identité (CIP / CNI / Passeport)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Optionnel mais recommandé" className="h-9 text-xs bg-background" />
+                    <Input {...field} className="h-9 text-xs bg-background" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -568,7 +567,7 @@ export default function NewWasteReceptionPage() {
                 <FormItem>
                   <FormLabel className="text-xs font-semibold">Ville / Commune de provenance</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Ex: Cotonou, Porto-Novo, Parakou..." className="h-9 text-xs bg-background" />
+                    <Input {...field} className="h-9 text-xs bg-background" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -670,7 +669,7 @@ export default function NewWasteReceptionPage() {
                       <FormItem>
                         <FormLabel className="text-xs font-semibold">Désignation / Produits concernés</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Ex: Amoxicilline 500mg, Paracétamol..." className="h-9 text-xs bg-background" />
+                          <Input {...field} className="h-9 text-xs bg-background" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -739,7 +738,7 @@ export default function NewWasteReceptionPage() {
                     <FormField control={form.control} name={`waste_items.${index}.original_batch`} render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs font-semibold">N° Lot Fabricant d&apos;origine</FormLabel>
-                        <FormControl><Input {...field} placeholder="Optionnel" className="h-9 text-xs bg-background" /></FormControl>
+                        <FormControl><Input {...field} className="h-9 text-xs bg-background" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
