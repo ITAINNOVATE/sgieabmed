@@ -98,6 +98,50 @@ export function formatWasteQRText(waste: Partial<WasteQRData> & { id: string }, 
 }
 
 /**
+ * Interface pour les données encodées dans le QR Code d'un colis groupé de déchets.
+ */
+export interface GroupedPackageQRData {
+  id: string
+  package_number: string
+  package_name: string
+  package_type: string
+  total_weight: number
+  unit: string
+  current_location: string
+  itemsCount: number
+  itemsSummary: string[]
+  status?: string
+  date?: string
+}
+
+/**
+ * Formate le texte récapitulatif complet d'un colis groupé pour encodage dans le QR Code.
+ */
+export function formatGroupedPackageQRText(pkg: GroupedPackageQRData, origin = 'https://eged-abmed.gov.bj'): string {
+  const lines = [
+    'RÉPUBLIQUE DU BÉNIN — ABMed',
+    'eGED-SGIE | COLIS GROUPÉ DE DÉCHETS',
+    '----------------------------------------',
+    `N° Colis / Sac : ${pkg.package_number}`,
+    `Désignation    : ${pkg.package_name}`,
+    `Contenant      : ${pkg.package_type}`,
+    `Poids Total    : ${pkg.total_weight} ${pkg.unit || 'Kg'}`,
+    `Nombre Lots    : ${pkg.itemsCount} article(s) groupé(s)`,
+    pkg.current_location ? `Emplacement    : ${pkg.current_location}` : null,
+    pkg.status ? `Statut         : ${pkg.status}` : null,
+    pkg.date ? `Date Groupage  : ${pkg.date}` : null,
+    '----------------------------------------',
+    'Détail des lots contenus :',
+    ...pkg.itemsSummary.slice(0, 6).map(s => `• ${s}`),
+    pkg.itemsSummary.length > 6 ? `• ... et ${pkg.itemsSummary.length - 6} autre(s) lot(s)` : null,
+    '----------------------------------------',
+    `Vérification : ${origin}/dashboard/waste/stock?colis=${pkg.package_number}`
+  ].filter(Boolean)
+
+  return lines.join('\n')
+}
+
+/**
  * Génère une URL de données (Data URL Base64) pour un QR Code à partir d'un texte donné.
  * Utilisable côté client ou serveur.
  */
