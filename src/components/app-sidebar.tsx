@@ -364,19 +364,6 @@ export function AppSidebar() {
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <Link 
-                        href="/dashboard/waste/movements" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/waste/movements')
-                            ? "bg-white text-red-600 font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Mouvements</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
                         href="/dashboard/waste/inventory" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
                           isActive('/dashboard/waste/inventory')
