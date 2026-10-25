@@ -91,7 +91,7 @@ function DropdownMenuItem({
   asChild?: boolean
   onSelect?: (event: any) => void
 }) {
-  const handleClick = (e: React.MouseEvent<HTMLElement>) => {
+  const handleClick = (e: any) => {
     onClick?.(e)
     onSelect?.(e)
   }
