@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, useRef, Suspense } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -20,7 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 import { 
   ArrowLeft, Save, Building2, FileSignature, Truck, CheckSquare, 
-  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X
+  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import React from 'react'
@@ -377,7 +377,6 @@ function DciDosageList({ value, onChange }: { value: {dci: string, dosage: strin
                   DCI (Principe actif) {value.length > 1 ? `#${i + 1}` : ""}
                 </label>
                 <UppercaseInput
-                  placeholder="Ex: PARACÉTAMOL"
                   value={row.dci}
                   onChange={(e) => updateRow(i, 'dci', e.target.value)}
                   className="text-xs h-9 bg-background w-full"
@@ -439,7 +438,6 @@ function DciDosageList({ value, onChange }: { value: {dci: string, dosage: strin
                 </span>
                 <UppercaseInput
                   className="h-8 text-xs bg-background flex-1 sm:max-w-xs"
-                  placeholder="Ex: 80/480 MG, 1.2 MUI, 300 MG / 150 MG..."
                   autoFocus={currentDosage === "Autre"}
                   value={currentDosage === "Autre" ? "" : currentDosage}
                   onChange={(e) => {
@@ -470,7 +468,19 @@ function NewReceptionContent() {
   const [isSaving, setIsSaving] = useState(false)
   const [isDrafting, setIsDrafting] = useState(false)
   const [receptionStatus, setReceptionStatus] = useState<string>("En attente")
-  const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string, url: string, type: string, size?: string }>>([])
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ 
+    id?: string
+    name: string
+    title?: string
+    description?: string
+    url: string
+    type: string
+    size?: string 
+  }>>([])
+  const [docTitle, setDocTitle] = useState("")
+  const [docDescription, setDocDescription] = useState("")
+  const [pendingFile, setPendingFile] = useState<{ name: string; size: string; type: string; base64: string } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploadingFile, setIsUploadingFile] = useState(false)
   const [validators, setValidators] = useState<{id: string, name: string}[]>(DEFAULT_VALIDATORS)
   const [autoSaveTime, setAutoSaveTime] = useState<string | null>(null)
@@ -682,7 +692,7 @@ function NewReceptionContent() {
     // Sauvegarder les détails complets du formulaire pour restauration exacte
     try {
       localStorage.setItem('reception_draft_details_' + values.rec_number, JSON.stringify({
-        formData: values,
+        formData: { ...values, attachedFiles },
         dciLists: dciLists,
         status: status,
       }))
@@ -734,6 +744,66 @@ function NewReceptionContent() {
       localStorage.setItem('reception_history_records', JSON.stringify([newRecord, ...filteredHistory]))
     } catch (e) {
       console.warn("Erreur sauvegarde locale historique:", e)
+    }
+
+    // ─── Enregistrement dans la documentation des échantillons ─────────────────
+    try {
+      const storedSampleDocs = JSON.parse(localStorage.getItem("sample_documents_custom_v1") || "[]")
+      const supplierName = values.supplier || values.manufacturer || "DEMANDEUR NON PRÉCISÉ"
+      const recDate = values.date_reception || new Date().toISOString().split("T")[0]
+
+      const newSampleDocs = [
+        // A. Bordereau officiel de réception d'échantillons eGED
+        {
+          id: `doc-slip-sample-${values.rec_number}`,
+          reception_number: values.rec_number,
+          source_structure: supplierName,
+          source_type: "Structure déposante d'échantillons",
+          city: values.city || "Cotonou",
+          depositor_name: values.contact_person || values.inspector || "Agent ABMed",
+          depositor_phone: values.phone,
+          date: recDate,
+          reception_date: recDate,
+          doc_category: "Attestation eGED",
+          category: "acte_administratif",
+          doc_type: "Bordereau de réception officiel eGED",
+          document_type: "Bordereau de réception officiel eGED",
+          title: `Bordereau de Réception ${values.rec_number}`,
+          file_name: `Bordereau-Reception-${values.rec_number}.pdf`,
+          file_size_formatted: "PDF Officiel eGED",
+          file_type: "application/pdf",
+          created_at: new Date().toISOString(),
+        },
+        // B. Documents apportés téléversés
+        ...attachedFiles.map((file, fIdx) => ({
+          id: file.id || `doc-att-${values.rec_number}-${fIdx}`,
+          reception_number: values.rec_number,
+          source_structure: supplierName,
+          source_type: "Structure déposante d'échantillons",
+          city: values.city || "Cotonou",
+          depositor_name: values.contact_person || values.inspector || "Agent ABMed",
+          depositor_phone: values.phone,
+          date: recDate,
+          reception_date: recDate,
+          doc_category: "Document apporteur" as const,
+          category: "piece_apporteur",
+          doc_type: file.title || file.name,
+          document_type: file.title || file.name,
+          title: file.title || file.name,
+          description: file.description,
+          file_name: file.name,
+          file_size_formatted: file.size,
+          file_type: file.type,
+          data_url: file.url,
+          file_data: file.url,
+          created_at: new Date().toISOString(),
+        }))
+      ]
+
+      const filteredExisting = storedSampleDocs.filter((d: any) => d.reception_number !== values.rec_number)
+      localStorage.setItem("sample_documents_custom_v1", JSON.stringify([...newSampleDocs, ...filteredExisting]))
+    } catch (docErr) {
+      console.warn("Erreur sauvegarde locale documentation échantillons:", docErr)
     }
 
     // ─── Préparation des échantillons et mouvements ────────────────────────────
@@ -908,53 +978,66 @@ function NewReceptionContent() {
     }
   }
 
-  // ─── Upload fichier ───────────────────────────────────────────────────────
   // ─── Upload / Attachement de fichier ──────────────────────────────────────
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
     const file = e.target.files[0]
     
-    // Calcul de la taille lisible (Ko / Mo)
-    const fileSize = file.size > 1024 * 1024 
-      ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
-      : `${Math.round(file.size / 1024)} KB`
-
-    const docType = file.type.includes("pdf") ? "Certificat d'analyse" : 
-                    file.name.toLowerCase().includes("bl") || file.name.toLowerCase().includes("bordereau") ? "Bordereau de livraison" :
-                    file.name.toLowerCase().includes("facture") ? "Facture" : "Document joint"
-
-    // 1. Mettre à jour immédiatement l'état local avec le fichier sélectionné
-    const newFile = {
-      name: file.name,
-      url: URL.createObjectURL(file),
-      type: docType,
-      size: fileSize,
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Le fichier sélectionné dépasse la taille limite autorisée de 10 Mo.")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
     }
 
-    setAttachedFiles(prev => [...prev, newFile])
-    toast.success(`Fichier "${file.name}" attaché !`)
+    setIsUploadingFile(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64Data = reader.result as string
+      const sizeFormatted = file.size > 1024 * 1024 
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} Mo` 
+        : `${Math.round(file.size / 1024)} Ko`
 
-    // 2. Synchroniser en arrière-plan avec Supabase Storage
-    try {
-      setIsUploadingFile(true)
-      const recNumber = form.getValues("rec_number")
-      const fileExt = file.name.substring(file.name.lastIndexOf('.'))
-      const filePath = `receptions/${recNumber}/${Date.now()}_${Math.random().toString(36).substring(2, 7)}${fileExt}`
-      
-      const { data, error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
-      if (!uploadError && data) {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath)
-        if (urlData?.publicUrl) {
-          setAttachedFiles(prev => prev.map(f => f.name === file.name ? { ...f, url: urlData.publicUrl } : f))
-        }
-      }
-    } catch (err: any) {
-      console.warn("Stockage distant non disponible, fichier conservé localement:", err)
-    } finally {
+      setPendingFile({
+        name: file.name,
+        size: sizeFormatted,
+        type: file.type || file.name.split('.').pop()?.toUpperCase() || "Fichier",
+        base64: base64Data,
+      })
+
       setIsUploadingFile(false)
-      // Réinitialiser le champ input file pour ré-attacher si besoin
-      e.target.value = ""
+      toast.info(`Fichier sélectionné : ${file.name}`)
     }
+    reader.onerror = () => {
+      setIsUploadingFile(false)
+      toast.error("Erreur lors de la lecture du fichier.")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleAddAttachedDoc = () => {
+    if (!pendingFile) {
+      fileInputRef.current?.click()
+      return
+    }
+
+    const titleToUse = docTitle.trim() || pendingFile.name
+
+    const newDoc = {
+      id: `att-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: pendingFile.name,
+      title: titleToUse,
+      description: docDescription.trim() || undefined,
+      url: pendingFile.base64,
+      type: pendingFile.type,
+      size: pendingFile.size,
+    }
+
+    setAttachedFiles(prev => [...prev, newDoc])
+    setDocTitle("")
+    setDocDescription("")
+    setPendingFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+    toast.success(`Document « ${titleToUse} » ajouté. Vous pouvez en ajouter d'autres.`)
   }
 
   // ─── Export PDF ───────────────────────────────────────────────────────────
@@ -1382,65 +1465,156 @@ function NewReceptionContent() {
           <div className="grid lg:grid-cols-2 gap-6">
             
             {/* 6. DOCUMENTS JOINTS */}
-            <Card className="shadow-sm border-border/50">
-              <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-                <CardTitle className="flex items-center text-lg"><Paperclip className="mr-2 h-5 w-5 text-primary" /> 6. Documents joints</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="relative border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground hover:bg-muted/20 transition-colors cursor-pointer">
-                  <UploadCloud className="h-8 w-8 mb-2 text-primary/50" />
-                  <p className="font-medium text-foreground text-sm">Sélectionnez un fichier à joindre</p>
-                  <p className="text-xs mt-0.5 mb-3">BL, Facture, Certificats d'analyse (PDF, JPG, PNG)</p>
-                  <input 
-                    type="file" 
-                    id="reception-file-input"
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    onChange={handleFileUpload}
-                    disabled={isUploadingFile}
-                  />
-                  <Button type="button" variant="secondary" size="sm" disabled={isUploadingFile}>
-                    {isUploadingFile ? "Téléversement..." : "Parcourir"}
-                  </Button>
+            <Card className="shadow-xs border-border/70 lg:col-span-2">
+              <CardHeader className="bg-muted/20 border-b border-border/60 p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <CardTitle className="flex items-center text-sm font-bold gap-2">
+                      <Paperclip className="h-4 w-4 text-[#1B5C2E]" />
+                      6. Documents & Pièces Justificatives Apportés (Optionnel)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Joignez les bordereaux de livraison papier, factures proforma, certificats d&apos;analyse (CoA), notices ou courriers déposés avec les échantillons.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-semibold bg-background">
+                    {attachedFiles.length} document(s) joint(s)
+                  </Badge>
                 </div>
-                
-                {attachedFiles.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                      <span>Fichiers rattachés ({attachedFiles.length}) :</span>
-                      <span className="text-[11px] text-[#1B5C2E] font-semibold">✓ Document(s) validé(s)</span>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 space-y-4">
+                {/* Zone de saisie et d'ajout de document (cases bien vides sans texte d'exemple) */}
+                <div className="p-3.5 bg-muted/30 rounded-xl border border-dashed border-border/80 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    {/* Titre du document (saisie libre, case bien vide) */}
+                    <div className="md:col-span-4 space-y-1">
+                      <label className="text-xs font-semibold text-foreground">
+                        Titre du document <span className="text-red-500">*</span>
+                      </label>
+                      <Input 
+                        value={docTitle} 
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        className="h-9 text-xs bg-background"
+                      />
                     </div>
-                    <div className="space-y-2 border border-border/70 rounded-xl p-2.5 bg-muted/20">
-                      {attachedFiles.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card shadow-2xs text-xs gap-2">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="p-2 rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0">
-                              <Paperclip className="h-4 w-4" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-bold text-foreground truncate">{file.name}</span>
-                              <span className="text-[10px] text-muted-foreground">{file.size || "Fichier joint"} • Ready</span>
-                            </div>
-                          </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant="outline" className="text-[10px] bg-background border-border text-foreground font-medium hidden sm:inline-flex">
-                              {file.type}
-                            </Badge>
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              size="sm"
-                              className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs font-bold gap-1"
-                              onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Supprimer</span>
-                            </Button>
+                    {/* Description / Observation (saisie libre, case bien vide) */}
+                    <div className="md:col-span-4 space-y-1">
+                      <label className="text-xs font-semibold text-foreground">
+                        Description / Observation (Optionnel)
+                      </label>
+                      <Input 
+                        value={docDescription} 
+                        onChange={(e) => setDocDescription(e.target.value)}
+                        className="h-9 text-xs bg-background"
+                      />
+                    </div>
+
+                    {/* Fichier et bouton d'ajout "+" */}
+                    <div className="md:col-span-4 flex items-center gap-2">
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*" 
+                        className="hidden" 
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingFile}
+                        className="flex-1 h-9 text-xs font-semibold gap-1.5 bg-background truncate border-border/80"
+                        title={pendingFile ? pendingFile.name : "Sélectionner un fichier"}
+                      >
+                        <FileUp className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                        <span className="truncate">
+                          {isUploadingFile ? "Chargement..." : pendingFile ? pendingFile.name : "Parcourir le fichier"}
+                        </span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        onClick={handleAddAttachedDoc}
+                        className="h-9 px-3.5 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#144723] text-white shrink-0 shadow-xs cursor-pointer"
+                        title="Ajouter ce document à la liste"
+                      >
+                        <Plus className="h-4 w-4 stroke-[3]" />
+                        <span>Ajouter</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {pendingFile && (
+                    <div className="flex items-center justify-between text-xs p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200 border border-emerald-300 rounded-lg">
+                      <div className="flex items-center gap-2 truncate">
+                        <CheckCircle2 className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                        <span className="font-semibold truncate">{pendingFile.name}</span>
+                        <span className="text-[10px] text-muted-foreground">({pendingFile.size})</span>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#1B5C2E]">Prêt à être ajouté avec « + Ajouter »</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Liste des documents joints */}
+                {attachedFiles.length > 0 ? (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-foreground">
+                        {attachedFiles.length} document{attachedFiles.length > 1 ? "s" : ""} rattaché{attachedFiles.length > 1 ? "s" : ""} à cette réception :
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-7 text-xs font-bold text-[#1B5C2E] hover:text-[#144723] hover:bg-[#1B5C2E]/10 gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Ajouter un autre document
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {attachedFiles.map((file, idx) => (
+                        <div 
+                          key={file.id || idx} 
+                          className="flex items-start justify-between p-3 rounded-xl border border-border/80 bg-background hover:bg-muted/30 transition-colors text-xs"
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0 pr-2">
+                            <div className="p-2 rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0 mt-0.5">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 space-y-0.5">
+                              <p className="font-bold truncate text-foreground text-xs">{file.title || file.name}</p>
+                              {file.description && (
+                                <p className="text-[11px] text-muted-foreground italic line-clamp-1">{file.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-0.5">
+                                <span className="font-mono truncate max-w-[150px]">{file.name}</span>
+                                <span>•</span>
+                                <span>{file.size || "Fichier joint"}</span>
+                              </div>
+                            </div>
                           </div>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))} 
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                            title="Retirer ce document"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       ))}
                     </div>
                   </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic text-center py-2">
+                    Aucune pièce justificative jointe pour le moment. Renseignez le titre et la description, puis cliquez sur <strong>« + Ajouter »</strong> pour joindre autant de documents que nécessaire (PDF, Word, Excel, Scans).
+                  </p>
                 )}
               </CardContent>
             </Card>
