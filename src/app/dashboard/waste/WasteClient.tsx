@@ -289,67 +289,88 @@ export default function WasteClient({
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead className="w-9 pl-3 py-2">
-                      <Checkbox 
-                        checked={selectedIds.length === filteredBatches.length && filteredBatches.length > 0} 
-                        onCheckedChange={handleSelectAll} 
-                      />
-                    </TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase">N° Lot Déchet</TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase">Provenance / Structure</TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase">Classification</TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase text-right">Quantité</TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase">Localisation</TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase">Statut</TableHead>
-                    <TableHead className="py-2 text-[11px] font-bold uppercase text-right pr-4">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBatches.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="h-16 text-center text-xs text-muted-foreground">Aucun lot de déchet trouvé.</TableCell></TableRow>
-                  ) : (
-                    filteredBatches.map((batch) => (
-                      <TableRow key={batch.id} className="text-xs hover:bg-muted/30">
-                        <TableCell className="pl-3 py-2">
-                          <Checkbox 
-                            checked={selectedIds.includes(batch.id)} 
-                            onCheckedChange={(checked) => handleSelectOne(batch.id, !!checked)} 
-                          />
-                        </TableCell>
-                        <TableCell className="font-bold text-foreground font-mono py-2">{batch.batch_number}</TableCell>
-                        <TableCell className="py-2 font-medium text-foreground">
-                          {batch.source_structure ? (
-                            <div>
-                              <span>{batch.source_structure}</span>
-                              {batch.depositor_name && (
-                                <span className="block text-[10px] text-muted-foreground">Apporté par : {batch.depositor_name}</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground italic">Interne ABMed</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2">{batch.waste_type}</TableCell>
-                        <TableCell className="py-2 text-right font-bold tabular-nums">{batch.quantity} {batch.unit || 'Kg'}</TableCell>
-                        <TableCell className="py-2 text-muted-foreground">{batch.current_location || 'Zone Stockage A'}</TableCell>
-                        <TableCell className="py-2">
-                          <Badge className={`text-[10px] ${
-                            batch.status === 'En attente de destruction' ? 'bg-amber-100 text-amber-800' :
-                            batch.status === 'Détruit' ? 'bg-[#1B5C2E]/10 text-[#1B5C2E]' :
-                            batch.status === 'Validé' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {batch.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1.5">
+            <Table className="w-full table-fixed">
+              <TableHeader className="bg-muted/40">
+                <TableRow>
+                  <TableHead className="w-9 px-2 py-2 text-center">
+                    <Checkbox 
+                      checked={selectedIds.length === filteredBatches.length && filteredBatches.length > 0} 
+                      onCheckedChange={handleSelectAll} 
+                    />
+                  </TableHead>
+                  <TableHead className="w-[130px] px-2 py-2 text-[11px] font-bold uppercase">N° Lot Déchet</TableHead>
+                  <TableHead className="w-[20%] px-2 py-2 text-[11px] font-bold uppercase">Provenance / Apporteur</TableHead>
+                  <TableHead className="w-[24%] px-2 py-2 text-[11px] font-bold uppercase">Classification</TableHead>
+                  <TableHead className="w-[75px] px-2 py-2 text-[11px] font-bold uppercase text-right">Quantité</TableHead>
+                  <TableHead className="w-[16%] px-2 py-2 text-[11px] font-bold uppercase">Localisation</TableHead>
+                  <TableHead className="w-[100px] px-1 py-2 text-[11px] font-bold uppercase text-center">Statut</TableHead>
+                  <TableHead className="w-[115px] px-2 py-2 text-[11px] font-bold uppercase text-right pr-3">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredBatches.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="h-16 text-center text-xs text-muted-foreground">Aucun lot de déchet trouvé.</TableCell></TableRow>
+                ) : (
+                  filteredBatches.map((batch) => (
+                    <TableRow key={batch.id} className="text-xs hover:bg-muted/30">
+                      <TableCell className="w-9 px-2 py-2 text-center">
+                        <Checkbox 
+                          checked={selectedIds.includes(batch.id)} 
+                          onCheckedChange={(checked) => handleSelectOne(batch.id, !!checked)} 
+                        />
+                      </TableCell>
+                      <TableCell className="px-2 py-2 font-bold text-foreground font-mono text-[11.5px] truncate" title={batch.batch_number}>
+                        {batch.batch_number}
+                      </TableCell>
+                      <TableCell className="px-2 py-2 min-w-0">
+                        {batch.source_structure ? (
+                          <div className="min-w-0">
+                            <span className="font-semibold text-foreground truncate block" title={batch.source_structure}>
+                              {batch.source_structure}
+                            </span>
+                            {batch.depositor_name && (
+                              <span className="block text-[10px] text-muted-foreground truncate" title={`Apporté par : ${batch.depositor_name}`}>
+                                Apporté par : {batch.depositor_name}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground italic truncate block">Interne ABMed</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-2 py-2 min-w-0">
+                        <span className="line-clamp-2 leading-tight text-xs text-foreground" title={batch.waste_type}>
+                          {batch.waste_type}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-2 py-2 text-right font-bold tabular-nums text-xs whitespace-nowrap">
+                        {batch.quantity} {batch.unit || 'Kg'}
+                      </TableCell>
+                      <TableCell className="px-2 py-2 min-w-0">
+                        <span className="text-xs text-muted-foreground truncate block font-medium" title={batch.current_location || 'Magasin des Déchets'}>
+                          {batch.current_location || 'Magasin des Déchets'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-1 py-2 text-center whitespace-nowrap">
+                        <Badge 
+                          variant="outline"
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 border ${
+                            batch.status === 'En attente de destruction' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                            batch.status === 'Détruit' ? 'bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30' :
+                            batch.status === 'Validé' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 
+                            'bg-blue-50 text-blue-800 border-blue-300'
+                          }`}
+                          title={batch.status}
+                        >
+                          {batch.status === 'En attente de destruction' ? 'Attente destr.' : batch.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-2 py-2 text-right pr-3 min-w-0">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 text-xs px-2.5 bg-white hover:bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30 font-bold gap-1 shadow-2xs cursor-pointer"
+                            className="h-6.5 px-2 text-[10.5px] bg-white hover:bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30 font-bold gap-1 shadow-2xs cursor-pointer"
                             onClick={() => {
                               exportWasteReceptionSlipPDF({
                                 reception_number: batch.reception_number || `BORD-${batch.batch_number || "DEC"}`,
@@ -382,21 +403,27 @@ export default function WasteClient({
                             }}
                             title="Télécharger l'attestation de réception des déchets en PDF"
                           >
-                            <Download className="h-3.5 w-3.5 text-[#1B5C2E]" />
-                            Attestation
+                            <Download className="h-3 w-3 text-[#1B5C2E]" />
+                            PDF
                           </Button>
-                          <Button variant="ghost" size="sm" asChild className="h-7 text-xs px-2 text-red-600 font-bold hover:bg-red-50">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            asChild 
+                            className="h-6.5 px-1.5 text-[10.5px] text-red-600 font-bold hover:bg-red-50"
+                            title="Consulter les détails du déchet"
+                          >
                             <Link href={`/dashboard/waste/${batch.id}`}>
-                              <Eye className="h-3.5 w-3.5 mr-1" /> Voir
+                              <Eye className="h-3 w-3 mr-0.5" /> Voir
                             </Link>
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       ) : (
