@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { 
-  Plus, Trash2, Search, Filter, Flame, Eye, Printer, 
-  Clock, ShieldAlert, AlertTriangle, ArrowLeftRight, 
+  Plus, Trash2, Search, Filter, Eye, Printer, 
+  AlertTriangle, ArrowLeftRight, 
   CheckCircle2, Box, LayoutDashboard, List, FileText, Download
 } from "lucide-react"
 import { toast } from "sonner"
@@ -175,17 +175,7 @@ export default function WasteClient({
     setIsPrintDialogOpen(true)
   }
 
-  // Métriques
-  const totalWasteWeight = batches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0)
-  const plannedDestructionsCount = destructions.filter(d => d.status === 'Planifié' || d.status === 'planifie').length || 7
-  const completedDestructionsCount = destructions.filter(d => d.status === 'Exécuté' || d.status === 'execute').length || 23
 
-  const KPIData = [
-    { title: "DÉCHETS EN STOCK", value: `${totalWasteWeight} kg`, trend: "+5.2%", isUp: true, icon: Trash2, color: "text-[#E53935]", bg: "bg-[#E53935]/10" },
-    { title: "DESTRUCTIONS PLANIFIÉES", value: plannedDestructionsCount, trend: "-2.1%", isUp: false, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10" },
-    { title: "DESTRUCTIONS RÉALISÉES", value: completedDestructionsCount, trend: "+18.4%", isUp: true, icon: Flame, color: "text-[#43A047]", bg: "bg-[#43A047]/10" },
-    { title: "CAPACITÉ STOCKAGE DÉCHETS", value: `78%`, trend: "+12.0%", isUp: false, icon: ShieldAlert, color: "text-[#1E88E5]", bg: "bg-[#1E88E5]/10" },
-  ]
 
   const wasteByCategory = [
     { name: 'Cytotoxiques', value: 450 },
@@ -249,25 +239,7 @@ export default function WasteClient({
         </div>
       </div>
 
-      {/* CARTES DE SUMMARY KPIS (COMPACTES) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {KPIData.map((kpi, index) => (
-          <Card key={index} className="shadow-2xs border border-border/70 rounded-xl overflow-hidden bg-card">
-            <CardContent className="p-3">
-              <div className="flex justify-between items-center">
-                <div className={`p-1.5 rounded-lg ${kpi.bg}`}>
-                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} strokeWidth={2.2} />
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${kpi.isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                  {kpi.isUp ? '▲' : '▼'} {kpi.trend}
-                </span>
-              </div>
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mt-2 mb-0.5">{kpi.title}</p>
-              <h2 className="text-xl font-black text-foreground tracking-tight">{kpi.value}</h2>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
 
       {/* VUE 1 : REGISTRE TABLEAU DES STOCKS (VUE PAR DÉFAUT) */}
       {activeView === 'table' ? (
