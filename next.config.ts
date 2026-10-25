@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // ── En-têtes de cache pour les assets statiques
+  // ── En-têtes de cache pour les images et logos
   async headers() {
     return [
       {
@@ -31,14 +31,6 @@ const nextConfig: NextConfig = {
       {
         source: '/logoeGED.png',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      },
-      {
-        source: '/_next/static/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      },
-      {
-        source: '/_next/image/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=60, stale-while-revalidate=86400' }],
       },
     ];
   },
