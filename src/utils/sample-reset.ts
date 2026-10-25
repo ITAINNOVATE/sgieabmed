@@ -23,6 +23,14 @@ export function runSampleResetOnce() {
   try {
     // Migrer immédiatement tout profil stocké avec "Marie ADANDE" vers "Admin EGED"
     try {
+      if (!localStorage.getItem("eged_default_light_v2")) {
+        localStorage.setItem("theme", "light")
+        localStorage.setItem("eged_default_light_v2", "true")
+        if (typeof document !== "undefined") {
+          document.documentElement.classList.remove("dark")
+        }
+      }
+
       const curr = localStorage.getItem("eged_current_user_v1")
       if (curr) {
         const parsed = JSON.parse(curr)

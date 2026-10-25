@@ -511,13 +511,13 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
             </div>
 
             {/* Boutons de bascule de vue */}
-            <div className="flex items-center rounded-lg border border-border/80 p-0.5 bg-muted/40 shrink-0">
+            <div className="flex items-center rounded-lg border border-border/80 p-0.5 bg-muted/40 w-full md:w-auto shrink-0">
               <Button
                 type="button"
                 variant={viewMode === "by_structure" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("by_structure")}
-                className={`h-8 text-xs font-bold gap-1.5 ${viewMode === "by_structure" ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : "text-muted-foreground"}`}
+                className={`flex-1 md:flex-initial h-8 text-xs font-bold gap-1.5 ${viewMode === "by_structure" ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : "text-muted-foreground"}`}
               >
                 <Building2 className="h-3.5 w-3.5" /> Par Apporteur ({groupedByApporteur.length})
               </Button>
@@ -526,7 +526,7 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                 variant={viewMode === "all_list" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("all_list")}
-                className={`h-8 text-xs font-bold gap-1.5 ${viewMode === "all_list" ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : "text-muted-foreground"}`}
+                className={`flex-1 md:flex-initial h-8 text-xs font-bold gap-1.5 ${viewMode === "all_list" ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : "text-muted-foreground"}`}
               >
                 <Layers className="h-3.5 w-3.5" /> Liste Globale ({filteredDocuments.length})
               </Button>

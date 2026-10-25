@@ -13,9 +13,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Suspense>
       <main className="flex-1 overflow-y-auto flex flex-col min-h-screen bg-background relative">
         {/* EN-TÊTE FIXE BLEU eGED #003B5C (Jour & Nuit) - RESPONSIVE MOBILE */}
-        <header className="flex h-[64px] sm:h-[72px] items-center justify-between gap-2 sm:gap-4 border-b border-border/40 bg-[#003B5C] text-white px-3 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <SidebarTrigger className="text-white hover:text-white/80 transition-colors h-9 w-9 p-1.5 cursor-pointer rounded-lg bg-white/10 hover:bg-white/20 shrink-0" />
+        <header className="flex h-[58px] sm:h-[68px] items-center justify-between gap-1.5 sm:gap-4 border-b border-border/40 bg-[#003B5C] text-white px-2.5 sm:px-6 shadow-xs sticky top-0 z-20 transition-colors">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="text-white hover:text-white/80 transition-colors h-8.5 w-8.5 sm:h-9 sm:w-9 p-1.5 cursor-pointer rounded-lg bg-white/10 hover:bg-white/20 shrink-0" />
+            <span className="lg:hidden text-xs font-black text-white tracking-wider flex items-center gap-1">
+              eGED
+            </span>
           </div>
 
           {/* Titre central institutionnel avec icône Bouclier (Masqué sur mobile) */}
@@ -34,7 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* CONTENU PRINCIPAL DE LA PAGE */}
-        <div className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
+        <div className="flex-1 p-2.5 sm:p-5 lg:p-7 max-w-[1600px] mx-auto w-full min-w-0">
           <MotionWrapper>
             {children}
           </MotionWrapper>

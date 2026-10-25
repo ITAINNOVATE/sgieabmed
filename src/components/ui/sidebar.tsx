@@ -187,7 +187,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="w-[85vw] max-w-xs sm:w-72 bg-sidebar p-0 text-sidebar-foreground [&>button]:text-white [&>button]:bg-white/10 [&>button]:hover:bg-white/20 [&>button]:rounded-lg [&>button]:p-1.5 [&>button]:top-4 [&>button]:right-3.5 z-50"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,

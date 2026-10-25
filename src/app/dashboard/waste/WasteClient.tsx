@@ -211,7 +211,7 @@ export default function WasteClient({
           </h2>
           <p className="text-muted-foreground text-xs">Suivi, traçabilité et gestion du stock des déchets pharmaceutiques.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
           {/* BASCULEUR DE VUE */}
           <div className="bg-muted/60 p-0.5 rounded-lg flex items-center border border-border/50">
             <Button 
@@ -263,18 +263,18 @@ export default function WasteClient({
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <div className="relative w-full sm:w-56">
                   <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     placeholder="Rechercher lot, type..."
-                    className="pl-8 bg-background h-8 text-xs"
+                    className="pl-8 bg-background h-8 text-xs w-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
-                  <SelectTrigger className="h-8 w-36 text-xs bg-background">
+                  <SelectTrigger className="h-8 w-full sm:w-36 text-xs bg-background">
                     <SelectValue placeholder="Statut" />
                   </SelectTrigger>
                   <SelectContent>
@@ -289,8 +289,8 @@ export default function WasteClient({
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <Table className="w-full table-fixed">
+          <CardContent className="p-0 overflow-x-auto">
+            <Table className="min-w-[760px] w-full">
               <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="w-9 px-2 py-2 text-center">

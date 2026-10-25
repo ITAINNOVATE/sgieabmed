@@ -607,44 +607,47 @@ function ReceptionsContent() {
                             {statusLabel}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2 text-right pr-4 flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs px-2.5 bg-white hover:bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30 font-bold gap-1 shadow-2xs cursor-pointer"
-                            onClick={() => handleDownloadAttestation(rec)}
-                            title="Télécharger l'attestation de réception en PDF"
-                          >
-                            <Download className="h-3.5 w-3.5 text-[#1B5C2E]" />
-                            Attestation
-                          </Button>
-                          {isPendingValidation && (
+                        <TableCell className="py-2 text-right pr-4 whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 text-xs px-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300 font-bold gap-1 shadow-2xs cursor-pointer"
-                              onClick={() => handleValidateReception(rec)}
+                              className="h-7 text-xs px-2 sm:px-2.5 bg-white hover:bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/30 font-bold gap-1 shadow-2xs cursor-pointer"
+                              onClick={() => handleDownloadAttestation(rec)}
+                              title="Télécharger l'attestation de réception en PDF"
                             >
-                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-                              Valider
+                              <Download className="h-3.5 w-3.5 text-[#1B5C2E]" />
+                              <span className="hidden sm:inline">Attestation</span>
+                              <span className="sm:hidden">PDF</span>
                             </Button>
-                          )}
-                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10" asChild>
-                            <Link href={`/dashboard/receptions/new?id=${rec.rec_number || rec.id}`}>
-                              Ouvrir <ArrowRight className="ml-1 h-3 w-3" />
-                            </Link>
-                          </Button>
-                          {!isFinalized && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs px-2 text-destructive font-bold hover:bg-destructive/10 gap-1"
-                              onClick={() => handleDeleteReception(rec)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Supprimer</span>
+                            {isPendingValidation && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs px-2 sm:px-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300 font-bold gap-1 shadow-2xs cursor-pointer"
+                                onClick={() => handleValidateReception(rec)}
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                                Valider
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10" asChild>
+                              <Link href={`/dashboard/receptions/new?id=${rec.rec_number || rec.id}`}>
+                                Ouvrir <ArrowRight className="ml-1 h-3 w-3" />
+                              </Link>
                             </Button>
-                          )}
+                            {!isFinalized && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs px-2 text-destructive font-bold hover:bg-destructive/10 gap-1"
+                                onClick={() => handleDeleteReception(rec)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Supprimer</span>
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     )

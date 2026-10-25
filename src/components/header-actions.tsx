@@ -305,7 +305,7 @@ export function HeaderActions() {
   }
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+    <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
       
       {/* 🌙 BASCULEUR DE MODE SOMBRE / CLAIR */}
       <ModeToggle />
@@ -315,10 +315,10 @@ export function HeaderActions() {
         variant="ghost" 
         size="icon" 
         onClick={() => setIsScannerOpen(true)}
-        className="text-white hover:text-white/80 transition-colors rounded-xl relative h-9 w-9 cursor-pointer"
+        className="text-white hover:text-white/80 transition-colors rounded-xl relative h-8 w-8 sm:h-9 sm:w-9 cursor-pointer"
         title="Scanner un QR Code"
       >
-        <Scan className="h-5 w-5 text-white" />
+        <Scan className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-white" />
       </Button>
 
       {/* 🔔 BOUTON ET MENU DÉROULANT DES NOTIFICATIONS RÉELLES */}
@@ -327,18 +327,18 @@ export function HeaderActions() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="relative text-white hover:text-white/80 transition-colors rounded-full h-9 w-9 cursor-pointer"
+            className="relative text-white hover:text-white/80 transition-colors rounded-full h-8 w-8 sm:h-9 sm:w-9 cursor-pointer"
             title="Notifications réelles"
           >
-            <Bell className="h-5 w-5 text-white" />
+            <Bell className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-white" />
             {unreadNotifsCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-75">
+              <span className="absolute -top-1 -right-1 h-4.5 w-4.5 sm:h-5 sm:w-5 rounded-full bg-red-600 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-75">
                 {unreadNotifsCount}
               </span>
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80 sm:w-96 p-0 rounded-2xl shadow-xl border-border">
+        <DropdownMenuContent align="end" className="w-[calc(100vw-20px)] max-w-sm sm:w-96 p-0 rounded-2xl shadow-xl border-border">
           
           {/* EN-TÊTE DU MENU NOTIFICATIONS */}
           <div className="flex items-center justify-between p-3.5 border-b border-border/80 bg-muted/30">
@@ -423,23 +423,24 @@ export function HeaderActions() {
       </DropdownMenu>
 
       {/* ✉️ BOUTON ET MENU DÉROULANT DES MESSAGES RÉELS */}
+      {/* ✉️ BOUTON ET MENU DÉROULANT DES MESSAGES RÉELS */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="relative text-white hover:text-white/80 transition-colors rounded-full h-9 w-9 cursor-pointer"
+            className="relative text-white hover:text-white/80 transition-colors rounded-full h-8 w-8 sm:h-9 sm:w-9 cursor-pointer"
             title="Messages & Sollicitations"
           >
-            <Mail className="h-5 w-5 text-white" />
+            <Mail className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-white" />
             {unreadMsgCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-75">
+              <span className="absolute -top-1 -right-1 h-4.5 w-4.5 sm:h-5 sm:w-5 rounded-full bg-emerald-600 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-75">
                 {unreadMsgCount}
               </span>
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80 sm:w-96 p-0 rounded-2xl shadow-xl border-border">
+        <DropdownMenuContent align="end" className="w-[calc(100vw-20px)] max-w-sm sm:w-96 p-0 rounded-2xl shadow-xl border-border">
           
           {/* EN-TÊTE DU MENU MESSAGES */}
           <div className="flex items-center justify-between p-3.5 border-b border-border/80 bg-muted/30">
@@ -519,32 +520,38 @@ export function HeaderActions() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Separator orientation="vertical" className="h-6 bg-white/40 opacity-100 mx-1" />
+      <Separator orientation="vertical" className="hidden sm:block h-6 bg-white/40 opacity-100 mx-0.5" />
 
       {/* 👤 PROFIL UTILISATEUR ET MENU DÉROULANT (Admin EGED) */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-auto p-1.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 rounded-xl transition-colors text-white focus:outline-none focus-visible:ring-0">
-            <Avatar className="h-9 w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs shrink-0">
+          <Button variant="ghost" className="h-auto p-1 sm:p-1.5 flex items-center gap-2 cursor-pointer hover:bg-white/10 rounded-xl transition-colors text-white focus:outline-none focus-visible:ring-0">
+            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs shrink-0">
               <AvatarImage src="/avatar.png" alt={displayName} />
               <AvatarFallback className="bg-white/20 text-white font-bold text-xs">
                 {avatarInitials}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-bold leading-tight text-white group-hover:text-white/90 transition-colors">
+            <div className="hidden sm:flex flex-col text-left">
+              <span className="text-xs font-bold leading-tight text-white group-hover:text-white/90 transition-colors truncate max-w-[120px] md:max-w-[150px]">
                 {displayName}
               </span>
-              <span className="text-[11px] text-white/80 font-medium">
+              <span className="text-[11px] text-white/80 font-medium truncate max-w-[120px] md:max-w-[150px]">
                 {currentUser?.role || "Administrateur Système"}
               </span>
             </div>
-            <ChevronDown className="h-4 w-4 text-white shrink-0" />
+            <ChevronDown className="hidden sm:block h-4 w-4 text-white shrink-0" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-xl border-border">
-          <DropdownMenuLabel className="font-bold text-xs px-3 py-2">Espace Administrateur eGED</DropdownMenuLabel>
-          <DropdownMenuSeparator />
+        <DropdownMenuContent align="end" className="w-64 sm:w-56 rounded-2xl shadow-xl border-border">
+          {/* IDENTITÉ COMPACTE SUR MOBILE */}
+          <div className="sm:hidden px-3 py-2.5 border-b border-border/80 bg-muted/30 rounded-t-xl">
+            <p className="font-bold text-xs text-foreground truncate">{displayName}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{currentUser?.role || "Administrateur Système"}</p>
+            <p className="text-[10px] text-muted-foreground/80 truncate">{currentUser?.email || email}</p>
+          </div>
+          <DropdownMenuLabel className="font-bold text-xs px-3 py-2 hidden sm:block">Espace Administrateur eGED</DropdownMenuLabel>
+          <DropdownMenuSeparator className="hidden sm:block" />
           <DropdownMenuGroup>
             <DropdownMenuItem asChild className="cursor-pointer text-xs font-semibold">
               <Link href="/dashboard/profile">

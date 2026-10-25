@@ -182,18 +182,18 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Plans de Destruction Enregistrés ({filteredPlans.length})
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <div className="relative w-full sm:w-56">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher un plan..."
-                  className="pl-8 bg-background h-8 text-xs"
+                  className="pl-8 bg-background h-8 text-xs w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
-                <SelectTrigger className="h-8 w-44 text-xs bg-background">
+                <SelectTrigger className="h-8 w-full sm:w-44 text-xs bg-background">
                   <SelectValue placeholder="Statut d'approbation" />
                 </SelectTrigger>
                 <SelectContent>
@@ -209,7 +209,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[680px] w-full">
               <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead className="py-2 text-[11px] font-bold uppercase pl-4">N° Plan</TableHead>

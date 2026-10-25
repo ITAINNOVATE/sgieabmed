@@ -14,6 +14,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { 
   Home, LayoutDashboard, Package, Trash2, ChartColumn, Bell,
@@ -31,6 +32,14 @@ import "@/utils/sample-reset"
 export function AppSidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  // Fermeture automatique du volet mobile lors de la navigation
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }, [pathname, searchParams, isMobile, setOpenMobile])
 
   // State pour suivre les menus déroulants ouverts
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({

@@ -1080,48 +1080,48 @@ function NewReceptionContent() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <Button type="button" variant="ghost" onClick={handlePrint}>
+          <Button type="button" variant="ghost" onClick={handlePrint} className="hidden sm:inline-flex text-xs h-9">
             <Printer className="mr-2 h-4 w-4" /> Imprimer
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={handleExportPDF}
-            className="border-[#1B5C2E] text-[#1B5C2E] bg-[#1B5C2E]/5 hover:bg-[#1B5C2E]/15 font-bold cursor-pointer"
+            className="flex-1 sm:flex-initial border-[#1B5C2E] text-[#1B5C2E] bg-[#1B5C2E]/5 hover:bg-[#1B5C2E]/15 font-bold cursor-pointer text-xs h-9"
           >
-            <Download className="mr-2 h-4 w-4" /> Télécharger l&apos;Attestation (PDF)
+            <Download className="mr-1.5 h-4 w-4" /> <span className="hidden sm:inline">Télécharger l&apos;Attestation (PDF)</span><span className="sm:hidden">Attestation (PDF)</span>
           </Button>
           <Button
             type="button"
             variant="secondary"
             onClick={onDraft}
             disabled={isDrafting || isValidated}
-            className={isValidated ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}
+            className={`flex-1 sm:flex-initial text-xs h-9 ${isValidated ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
             title={isValidated ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
           >
-            <Save className="mr-2 h-4 w-4" />
+            <Save className="mr-1.5 h-4 w-4" />
             {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
           </Button>
           <Button
             type="button"
             onClick={() => onSubmit()}
             disabled={isSaving || isValidated}
-            className={
+            className={`w-full sm:w-auto text-xs h-9 font-bold ${
               isValidated
                 ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
                 : "shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white"
-            }
+            }`}
             title={isValidated ? "Cette réception est déjà validée et ne peut plus être soumise à nouveau." : ""}
           >
-            {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-2 h-4 w-4" /> Soumettre la réception</>}
+            {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Soumettre la réception</>}
           </Button>
           {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
-            <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
-              {isSaving ? "Validation..." : <><ShieldCheck className="mr-2 h-4 w-4" /> Valider la réception</>}
+            <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="w-full sm:w-auto text-xs h-9 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
+              {isSaving ? "Validation..." : <><ShieldCheck className="mr-1.5 h-4 w-4" /> Valider la réception</>}
             </Button>
           ) : (
-            <Button type="button" disabled className="bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title={isValidated ? "Cette réception est déjà validée." : "Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception."}>
-              <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground/60" /> {isValidated ? "Réception Validée" : "Valider la réception"}
+            <Button type="button" disabled className="w-full sm:w-auto text-xs h-9 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title={isValidated ? "Cette réception est déjà validée." : "Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception."}>
+              <ShieldCheck className="mr-1.5 h-4 w-4 text-muted-foreground/60" /> {isValidated ? "Réception Validée" : "Valider la réception"}
             </Button>
           )}
         </div>

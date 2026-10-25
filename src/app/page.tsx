@@ -141,45 +141,45 @@ export default function LoginPage({
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen max-h-screen w-full bg-background overflow-hidden font-sans">
+    <div className="flex flex-col lg:flex-row min-h-screen lg:h-screen lg:max-h-screen w-full bg-background overflow-x-hidden lg:overflow-hidden font-sans">
       
-      {/* ─── CÔTÉ GAUCHE : PRÉSENTATION INSTITUTIONNELLE ABMED & eGED (STATIQUE 1-ÉCRAN) ─── */}
-      <div className="lg:w-[58%] bg-white dark:bg-card p-4 lg:p-6 flex flex-col justify-between border-r border-border/60 relative overflow-y-auto lg:overflow-hidden">
+      {/* ─── CÔTÉ GAUCHE : PRÉSENTATION INSTITUTIONNELLE ABMED & eGED ─── */}
+      <div className="w-full lg:w-[58%] bg-white dark:bg-card p-3.5 sm:p-4 lg:p-6 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-border/60 relative">
         
         {/* LOGO OFFICIEL ABMED EN HAUT À GAUCHE */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-start gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
             src={LOGO_ABMED_B64}
             alt="Logo ABMed - Agence béninoise du Médicament et des autres produits de Santé" 
-            style={{ height: '48px', width: 'auto', maxWidth: '260px', objectFit: 'contain' }}
+            style={{ height: '42px', width: 'auto', maxWidth: '240px', objectFit: 'contain' }}
           />
         </div>
 
         {/* CONTENU CENTRAL : LOGO OFFICIEL eGED & PRÉSENTATION */}
-        <div className="my-auto py-2 space-y-4">
+        <div className="my-auto py-2 space-y-3">
 
           {/* GRILLE HÉRO & 4 PILIERS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-center pt-1">
             
-            {/* LOGO eGED REMPLAÇANT LA PHOTO */}
-            <div className="relative rounded-2xl border border-border/80 shadow-2xs p-4 bg-white dark:bg-card w-full flex flex-col items-center justify-center aspect-16/10 group hover:shadow-md transition-shadow">
+            {/* LOGO eGED */}
+            <div className="relative rounded-2xl border border-border/80 shadow-2xs p-3.5 bg-white dark:bg-card w-full flex flex-col items-center justify-center aspect-16/9 sm:aspect-16/10 group hover:shadow-md transition-shadow">
               <Image 
                 src="/logoeGED.png" 
                 alt="eGED - Gestion des échantillons et déchets pharmaceutiques"
                 width={320}
                 height={110}
-                className="h-24 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                className="h-16 sm:h-22 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
                 priority
               />
-              <div className="mt-2 text-[10.5px] font-bold text-[#1B5C2E] dark:text-emerald-400 flex items-center gap-1">
+              <div className="mt-1.5 text-[10.5px] font-bold text-[#1B5C2E] dark:text-emerald-400 flex items-center gap-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 <span>Traçabilité & Stockage Sécurisé</span>
               </div>
             </div>
 
-            {/* LISTE DES 4 CARACTÉRISTIQUES (COMPACTE) */}
-            <div className="space-y-2">
+            {/* LISTE DES 4 CARACTÉRISTIQUES (MASQUÉE SUR MOBILE ÉTROIT POUR ACCÈS IMMÉDIAT AU FORMULAIRE) */}
+            <div className="hidden sm:space-y-2 sm:block">
               
               <div className="flex items-start gap-2.5 p-2 rounded-lg bg-muted/40 border border-border/40">
                 <div className="p-1.5 rounded-md bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0 mt-0.5">
@@ -228,7 +228,7 @@ export default function LoginPage({
         </div>
 
         {/* PIED DE PAGE CÔTÉ INSTITUTIONNEL */}
-        <div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row justify-between items-center text-[10.5px] text-muted-foreground gap-1">
+        <div className="pt-2 border-t border-border/40 hidden sm:flex flex-col sm:flex-row justify-between items-center text-[10.5px] text-muted-foreground gap-1">
           <div className="flex items-center gap-1.5 font-bold text-[#1B5C2E]">
             <ShieldCheck className="h-3.5 w-3.5" />
             <span>QUALITÉ • SÉCURITÉ • TRAÇABILITÉ AU SERVICE DE LA SANTÉ PUBLIQUE</span>
@@ -239,8 +239,8 @@ export default function LoginPage({
       </div>
 
 
-      {/* ─── CÔTÉ DROIT : FORMULAIRE DE CONNEXION (STATIQUE 1-ÉCRAN) ─── */}
-      <div className="lg:w-[42%] bg-slate-50 dark:bg-background p-4 lg:p-6 flex flex-col justify-between items-center relative overflow-hidden">
+      {/* ─── CÔTÉ DROIT : FORMULAIRE DE CONNEXION ─── */}
+      <div className="w-full lg:w-[42%] bg-slate-50 dark:bg-background p-3 sm:p-6 flex flex-col justify-between items-center relative py-6 lg:py-6 overflow-y-auto">
         
         {/* BANDEAU EN HAUT À DROIT (AIDE & LANGUE) */}
         <div className="w-full flex justify-end items-center gap-3 text-xs font-medium text-muted-foreground">
