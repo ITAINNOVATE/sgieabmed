@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -19,12 +19,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { 
   ArrowLeft, Save, Trash2, Box, Building2, User, Phone, 
   FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, 
-  Plus, Layers, Scale, Sparkles, Eye, Pencil
+  Plus, Layers, Scale, Sparkles, Eye, Pencil, Paperclip, FileUp, FileSpreadsheet, FileCheck, X
 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
+import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
 
 // Schéma pour une ligne individuelle de déchet
 const wasteItemSchema = z.object({
@@ -72,6 +73,11 @@ export default function NewWasteReceptionPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [previewData, setPreviewData] = useState<any | null>(null)
   const [baseLotPrefix, setBaseLotPrefix] = useState("")
+  const [attachedDocs, setAttachedDocs] = useState<AttachedWasteDocument[]>([])
+  const [selectedDocType, setSelectedDocType] = useState<string>(WASTE_DOCUMENT_TYPES[0])
+  const [docDescription, setDocDescription] = useState<string>("")
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -194,6 +200,56 @@ export default function NewWasteReceptionPage() {
   const watchedItems = form.watch("waste_items") || []
   const totalQuantity = watchedItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
 
+  // Gestion du téléversement des documents apportés
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const file = files[0]
+    // Limite de taille max : 10 Mo
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Le fichier sélectionné dépasse la taille limite autorisée de 10 Mo.")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
+
+    setIsUploadingDoc(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64Data = reader.result as string
+      const sizeFormatted = file.size > 1024 * 1024 
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} Mo` 
+        : `${Math.round(file.size / 1024)} Ko`
+
+      const newDoc: AttachedWasteDocument = {
+        id: `att-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        file_name: file.name,
+        file_size: sizeFormatted,
+        file_type: file.type || file.name.split('.').pop()?.toUpperCase() || "Fichier",
+        doc_type: selectedDocType,
+        description: docDescription.trim() || undefined,
+        file_data: base64Data,
+        uploaded_at: new Date().toISOString(),
+      }
+
+      setAttachedDocs(prev => [...prev, newDoc])
+      setDocDescription("")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      setIsUploadingDoc(false)
+      toast.success(`Document « ${file.name} » ajouté (${sizeFormatted})`)
+    }
+    reader.onerror = () => {
+      setIsUploadingDoc(false)
+      toast.error("Erreur lors de la lecture du fichier.")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveDoc = (id: string) => {
+    setAttachedDocs(prev => prev.filter(d => d.id !== id))
+    toast.info("Document retiré.")
+  }
+
   // 1. Valider la saisie et ouvrir la fenêtre de prévisualisation
   const handleOpenPreview = async () => {
     const isValid = await form.trigger()
@@ -215,6 +271,7 @@ export default function NewWasteReceptionPage() {
       depositor_name: values.depositor_name,
       depositor_phone: values.depositor_phone,
       depositor_id_card: values.depositor_id_card,
+      attachedDocs: attachedDocs,
       general_observations: `Dépôt de ${values.waste_items.length} catégorie(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
       items: values.waste_items.map((item) => {
         const s = samples.find((x) => x.id === item.sample_id)
@@ -315,8 +372,51 @@ export default function NewWasteReceptionPage() {
         // Journal des mouvements de déchets
         const currentMvts = JSON.parse(localStorage.getItem("waste_movements_custom_v1") || "[]")
         localStorage.setItem("waste_movements_custom_v1", JSON.stringify([...newMvts, ...currentMvts]))
+
+        // Enregistrement des documents pour la traçabilité dans le sous-module Documentation Déchets
+        const storedDocs: WasteArchivedDocument[] = JSON.parse(localStorage.getItem("waste_documents_custom_v1") || "[]")
+        const newArchivedDocs: WasteArchivedDocument[] = [
+          // A. Attestation / Bordereau officiel de réception eGED
+          {
+            id: `doc-slip-${values.reception_number}`,
+            reception_number: values.reception_number,
+            source_structure: values.source_structure,
+            source_type: values.source_type,
+            city: values.city || "Cotonou",
+            depositor_name: values.depositor_name,
+            depositor_phone: values.depositor_phone,
+            date: values.reception_date,
+            doc_category: "Attestation eGED",
+            doc_type: "Attestation / Bordereau de dépôt eGED officiel",
+            title: `Bordereau de Réception ${values.reception_number}`,
+            file_name: `Bordereau-Reception-${values.reception_number}.pdf`,
+            file_size: "PDF Officiel eGED",
+            file_type: "application/pdf",
+            created_at: new Date().toISOString(),
+          },
+          // B. Documents apportés téléversés
+          ...attachedDocs.map((doc) => ({
+            id: doc.id,
+            reception_number: values.reception_number,
+            source_structure: values.source_structure,
+            source_type: values.source_type,
+            city: values.city || "Cotonou",
+            depositor_name: values.depositor_name,
+            depositor_phone: values.depositor_phone,
+            date: values.reception_date,
+            doc_category: "Document apporteur" as const,
+            doc_type: doc.doc_type,
+            title: doc.description || doc.file_name,
+            file_name: doc.file_name,
+            file_size: doc.file_size,
+            file_type: doc.file_type,
+            file_data: doc.file_data,
+            created_at: doc.uploaded_at,
+          })),
+        ]
+        localStorage.setItem("waste_documents_custom_v1", JSON.stringify([...newArchivedDocs, ...storedDocs]))
       } catch (localErr) {
-        console.warn("Erreur sauvegarde locale déchets:", localErr)
+        console.warn("Erreur sauvegarde locale déchets et documents:", localErr)
       }
 
       // 2. Synchronisation Supabase Cloud en parallèle (sans bloquer l'ouverture de l'attestation)
@@ -827,6 +927,119 @@ export default function NewWasteReceptionPage() {
               </Button>
             </div>
 
+            {/* 4. DOCUMENTS & PIÈCES JUSTIFICATIVES APPORTÉS */}
+            <Card className="border-border/70 shadow-xs">
+              <CardHeader className="p-4 sm:p-5 border-b border-border/60 bg-muted/20">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Paperclip className="h-4 w-4 text-[#1B5C2E]" />
+                      4. Documents & Pièces Justificatives Apportés (Optionnel)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Joignez les bordereaux de livraison papier, procès-verbaux, inventaires scannés ou courriers déposés par la structure.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-semibold">
+                    {attachedDocs.length} document(s) joint(s)
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 space-y-4">
+                {/* Zone de téléversement */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-muted/30 rounded-xl border border-dashed border-border/80">
+                  <div className="md:col-span-4 space-y-1">
+                    <label className="text-xs font-semibold">Type de document</label>
+                    <Select value={selectedDocType} onValueChange={(val) => setSelectedDocType(val || WASTE_DOCUMENT_TYPES[0])}>
+                      <SelectTrigger className="h-9 text-xs bg-background">
+                        <SelectValue placeholder="Sélectionner le type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WASTE_DOCUMENT_TYPES.map((t) => (
+                          <SelectItem key={t} value={t} className="text-xs">
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="md:col-span-5 space-y-1">
+                    <label className="text-xs font-semibold">Description / Observation (Optionnel)</label>
+                    <Input 
+                      placeholder="Ex: Bordereau signé N° 45, scan tamponné..." 
+                      value={docDescription} 
+                      onChange={(e) => setDocDescription(e.target.value)}
+                      className="h-9 text-xs bg-background"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileUpload} 
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*" 
+                      className="hidden" 
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingDoc}
+                      className="w-full h-9 text-xs font-bold gap-2 bg-white dark:bg-zinc-900 border-[#1B5C2E]/40 text-[#1B5C2E] hover:bg-[#1B5C2E]/5"
+                    >
+                      <FileUp className="h-4 w-4" />
+                      {isUploadingDoc ? "Chargement..." : "Parcourir le fichier"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Liste des documents joints */}
+                {attachedDocs.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Fichiers rattachés à cette réception :</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {attachedDocs.map((doc) => (
+                        <div 
+                          key={doc.id} 
+                          className="flex items-center justify-between p-2.5 rounded-lg border border-border/80 bg-background hover:bg-muted/30 transition-colors text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                            <div className="p-2 rounded bg-[#1B5C2E]/10 text-[#1B5C2E] shrink-0">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate text-foreground">{doc.file_name}</p>
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-normal">
+                                  {doc.document_type}
+                                </Badge>
+                                <span>{doc.file_size_formatted}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleRemoveDoc(doc.id)} 
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic text-center py-2">
+                    Aucune pièce justificative jointe pour le moment. Vous pouvez joindre des fichiers PDF, Word, Excel ou des photos scannées (max 10 Mo).
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
           </div>
 
           {/* BANDEAU BAS D'ACTION */}
@@ -1019,6 +1232,29 @@ export default function NewWasteReceptionPage() {
                     </table>
                   </div>
                 </div>
+
+                {/* 4. PIÈCES JUSTIFICATIVES ATTACHÉES */}
+                {attachedDocs.length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      4. Documents & Pièces Justificatives Déposés ({attachedDocs.length})
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {attachedDocs.map((doc) => (
+                        <div key={doc.id} className="p-2 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 truncate">
+                            <FileCheck className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                            <div className="truncate">
+                              <p className="font-semibold text-slate-800 truncate">{doc.file_name}</p>
+                              <p className="text-[10px] text-slate-500">{doc.document_type} • {doc.file_size_formatted}</p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] shrink-0 ml-2 bg-emerald-50 text-emerald-800 border-emerald-300">Joint</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* BOUTONS DE VALIDATION OU CORRECTION */}

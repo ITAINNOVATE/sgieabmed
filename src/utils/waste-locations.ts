@@ -7,6 +7,7 @@ const WASTE_LOCAL_KEYS = [
   "waste_movements_custom_v1",
   "waste_inventories_custom_v1",
   "destruction_plans_custom_v1",
+  "waste_documents_custom_v1",
 ]
 
 export function runWasteResetOnce() {

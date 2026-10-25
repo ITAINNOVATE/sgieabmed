@@ -402,12 +402,12 @@ export function AppSidebar() {
                         <span className="truncate">Destruction</span>
                       </Link>
                     </SidebarMenuSubItem>
-                    {/* P3 CORRIGÉ: Documentation Déchets avec filtre type */}
+                    {/* Documentation Déchets propre à la gestion des déchets */}
                     <SidebarMenuSubItem>
                       <Link 
-                        href="/dashboard/documents?type=dechet" 
+                        href="/dashboard/waste/documents" 
                         className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          pathname === '/dashboard/documents' && typeof window !== 'undefined' && window.location.search.includes('type=dechet')
+                          isActive('/dashboard/waste/documents')
                             ? "bg-white text-red-600 font-bold shadow-xs"
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
