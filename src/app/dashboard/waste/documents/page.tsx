@@ -35,7 +35,7 @@ export default function WasteDocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [newDocApporteur, setNewDocApporteur] = useState("")
   const [newDocReceptionRef, setNewDocReceptionRef] = useState("")
-  const [newDocType, setNewDocType] = useState(WASTE_DOCUMENT_TYPES[0])
+  const [newDocTitle, setNewDocTitle] = useState("")
   const [newDocDescription, setNewDocDescription] = useState("")
   const [newDocFile, setNewDocFile] = useState<{ name: string; size: string; type: string; dataUrl: string } | null>(null)
   const [isSubmittingNewDoc, setIsSubmittingNewDoc] = useState(false)
@@ -210,6 +210,12 @@ export default function WasteDocumentsPage() {
         type: file.type || "application/octet-stream",
         dataUrl: reader.result as string
       })
+
+      if (!newDocTitle.trim()) {
+        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
+        setNewDocTitle(cleanName)
+      }
+
       toast.info(`Fichier prêt : ${file.name}`)
     }
     reader.readAsDataURL(file)
@@ -228,14 +234,18 @@ export default function WasteDocumentsPage() {
     setIsSubmittingNewDoc(true)
 
     const now = new Date()
+    const titleToUse = newDocTitle.trim() || newDocFile.name
     const newArchivedDoc: WasteArchivedDocument = {
       id: `W-DOC-MANUAL-${Date.now()}`,
       file_name: newDocFile.name,
       file_size_formatted: newDocFile.size,
       mime_type: newDocFile.type,
-      document_type: newDocType,
+      title: titleToUse,
+      doc_type: titleToUse,
+      document_type: titleToUse,
       category: "piece_apporteur",
       data_url: newDocFile.dataUrl,
+      file_data: newDocFile.dataUrl,
       source_structure: newDocApporteur.trim(),
       reception_number: newDocReceptionRef.trim() || undefined,
       reception_date: now.toISOString().split("T")[0],
@@ -251,6 +261,7 @@ export default function WasteDocumentsPage() {
       setShowAddModal(false)
       setNewDocApporteur("")
       setNewDocReceptionRef("")
+      setNewDocTitle("")
       setNewDocDescription("")
       setNewDocFile(null)
     } catch (e) {
@@ -564,9 +575,12 @@ export default function WasteDocumentsPage() {
                             </TableCell>
 
                             <TableCell>
-                              <p className="font-bold text-foreground">{doc.file_name}</p>
+                              <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
                               {doc.description && (
                                 <p className="text-[11px] text-muted-foreground italic line-clamp-1">{doc.description}</p>
+                              )}
+                              {doc.title && doc.title !== doc.file_name && (
+                                <p className="text-[10px] text-muted-foreground/70 font-mono">{doc.file_name}</p>
                               )}
                             </TableCell>
 
@@ -575,7 +589,7 @@ export default function WasteDocumentsPage() {
                                 variant={isOfficial ? "default" : "secondary"} 
                                 className={`text-[10px] font-semibold ${isOfficial ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
                               >
-                                {doc.document_type}
+                                {doc.title || doc.document_type || "Pièce apporteur"}
                               </Badge>
                             </TableCell>
 
@@ -681,9 +695,12 @@ export default function WasteDocumentsPage() {
                         </TableCell>
 
                         <TableCell>
-                          <p className="font-bold text-foreground">{doc.file_name}</p>
+                          <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
                           {doc.description && (
                             <p className="text-[11px] text-muted-foreground italic line-clamp-1">{doc.description}</p>
+                          )}
+                          {doc.title && doc.title !== doc.file_name && (
+                            <p className="text-[10px] text-muted-foreground/70 font-mono">{doc.file_name}</p>
                           )}
                         </TableCell>
 
@@ -696,7 +713,7 @@ export default function WasteDocumentsPage() {
                             variant={isOfficial ? "default" : "secondary"} 
                             className={`text-[10px] font-semibold ${isOfficial ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
                           >
-                            {doc.document_type}
+                            {doc.title || doc.document_type || "Pièce apporteur"}
                           </Badge>
                         </TableCell>
 
@@ -909,21 +926,17 @@ export default function WasteDocumentsPage() {
               </datalist>
             </div>
 
-            {/* Type de Document */}
+            {/* Titre du Document (saisie libre) */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-foreground">Type de Document</label>
-              <Select value={newDocType} onValueChange={(val) => setNewDocType(val || WASTE_DOCUMENT_TYPES[0])}>
-                <SelectTrigger className="h-9 text-xs bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WASTE_DOCUMENT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t} className="text-xs">
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="font-semibold text-foreground">
+                Titre du document <span className="text-red-500">*</span>
+              </label>
+              <Input
+                placeholder="Ex: Bordereau de livraison apporteur, PV de constat..."
+                value={newDocTitle}
+                onChange={(e) => setNewDocTitle(e.target.value)}
+                className="h-9 text-xs bg-background"
+              />
             </div>
 
             {/* Référence Réception (Optionnel) */}

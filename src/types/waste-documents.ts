@@ -5,6 +5,7 @@ export interface AttachedWasteDocument {
   file_size_formatted?: string
   file_type?: string
   mime_type?: string
+  title?: string
   doc_type?: string
   document_type?: string
   description?: string
