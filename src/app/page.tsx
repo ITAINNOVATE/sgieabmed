@@ -32,7 +32,7 @@ export default function LoginPage({
   searchParams?: { [key: string]: string | string[] | undefined }
 }) {
   const router = useRouter()
-  const [identifier, setIdentifier] = useState("admin@sgie.com")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
@@ -294,7 +294,6 @@ export default function LoginPage({
                         type={showNewPassword ? "text" : "password"} 
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Au moins 8 caractères"
                         required 
                         className="pl-9 pr-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                       />
@@ -320,7 +319,6 @@ export default function LoginPage({
                         type={showConfirmPassword ? "text" : "password"} 
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Répétez le nouveau mot de passe"
                         required 
                         className="pl-9 pr-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                       />
@@ -413,7 +411,6 @@ export default function LoginPage({
                         type="text" 
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="ex: admin@sgie.com ou nom d'utilisateur" 
                         required 
                         className="pl-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                       />
@@ -432,7 +429,6 @@ export default function LoginPage({
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required 
-                        placeholder="••••••••"
                         className="pl-9 pr-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                       />
                       <button
