@@ -51,7 +51,7 @@ export function WastePackageDetailDialog({
                   </Badge>
                 </div>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  {pkg.package_name} • {pkg.package_type}
+                  {pkg.package_type}
                 </DialogDescription>
               </div>
             </div>

@@ -1121,8 +1121,8 @@ export default function WasteStockPage() {
               <Table>
                 <TableHeader className="bg-muted/40">
                   <TableRow>
-                    <TableHead className="text-xs font-bold text-muted-foreground h-9">N° Colis / Sac</TableHead>
-                    <TableHead className="text-xs font-bold text-muted-foreground h-9">Libellé & Conditionnement</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground h-9">Référence / N° Colis</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground h-9">Conditionnement</TableHead>
                     <TableHead className="text-xs font-bold text-muted-foreground h-9 text-center">Lots Inclus</TableHead>
                     <TableHead className="text-xs font-bold text-muted-foreground h-9 text-right">Poids Total</TableHead>
                     <TableHead className="text-xs font-bold text-muted-foreground h-9">Emplacement</TableHead>
@@ -1165,10 +1165,9 @@ export default function WasteStockPage() {
                             </div>
                           </TableCell>
 
-                          {/* Libellé & Contenant */}
+                          {/* Contenant */}
                           <TableCell className="py-3">
-                            <div className="font-bold text-foreground leading-tight">{pkg.package_name}</div>
-                            <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{pkg.package_type}</div>
+                            <div className="font-semibold text-foreground leading-tight">{pkg.package_type}</div>
                           </TableCell>
 
                           {/* Nombre de lots inclus */}

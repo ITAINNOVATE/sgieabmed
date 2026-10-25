@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -41,12 +41,12 @@ export interface WasteGroupingDialogProps {
 }
 
 const PACKAGE_CONTAINERS = [
-  { id: "sac", label: "Grand sac hermétique étanche (DASRI / Solides)", defaultName: "Sac étanche de déchets pharmaceutiques" },
-  { id: "fut_200", label: "Fût plastique étanche PEHD (200 Litres)", defaultName: "Fût étanche 200L" },
-  { id: "fut_60", label: "Fût plastique étanche (60 Litres)", defaultName: "Fût étanche 60L" },
-  { id: "carton", label: "Carton renforcé sécurisé & scellé", defaultName: "Carton sécurisé de regroupement" },
-  { id: "bac", label: "Bac rigide de stockage & manutention", defaultName: "Bac de regroupement" },
-  { id: "palette", label: "Palette sécurisée sous film rétractable", defaultName: "Palette de stockage filmée" },
+  { id: "sac", label: "Grand sac hermétique étanche (DASRI / Solides)" },
+  { id: "fut_200", label: "Fût plastique étanche PEHD (200 Litres)" },
+  { id: "fut_60", label: "Fût plastique étanche (60 Litres)" },
+  { id: "carton", label: "Carton renforcé sécurisé & scellé" },
+  { id: "bac", label: "Bac rigide de stockage & manutention" },
+  { id: "palette", label: "Palette sécurisée sous film rétractable" },
 ]
 
 const PREDEFINED_ZONES = [
@@ -69,15 +69,16 @@ export function WasteGroupingDialog({
   const [groupingMode, setGroupingMode] = useState<"new" | "existing">("new")
   const [selectedExistingPackageId, setSelectedExistingPackageId] = useState<string>("")
   const [packageType, setPackageType] = useState(PACKAGE_CONTAINERS[0].label)
-  const [packageName, setPackageName] = useState("")
   const [location, setLocation] = useState(PREDEFINED_ZONES[0])
   const [observations, setObservations] = useState("")
   const [customPackageNumber, setCustomPackageNumber] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const wasOpenRef = useRef(false)
 
-  // Initialisation automatique dès l'ouverture de la boîte de dialogue
+  // Initialisation UNIQUEMENT à l'ouverture de la boîte de dialogue (évite tout reset en arrière-plan)
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
+      wasOpenRef.current = true
       const list = [...initialSelected]
       setItemsToGroup(list)
       setGroupingMode("new")
@@ -95,10 +96,11 @@ export function WasteGroupingDialog({
       }
       setCustomPackageNumber(uniqueRef)
 
-      setPackageName("")
       setPackageType(PACKAGE_CONTAINERS[0].label)
       setLocation(list[0]?.current_location || PREDEFINED_ZONES[0])
       setObservations("")
+    } else if (!open) {
+      wasOpenRef.current = false
     }
   }, [open, initialSelected, existingPackages])
 
@@ -182,14 +184,13 @@ export function WasteGroupingDialog({
         return
       }
 
-      // CAS 2 : CRÉER UN NOUVEAU COLIS
+      // CAS 2 : CRÉER UN NOUVEAU COLIS (Uniquement Référence / Numéro de colis)
       const finalPkgNumber = customPackageNumber.trim() || `COLIS-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`
-      const finalPkgName = packageName.trim() || `${packageType.split("(")[0].trim()} — ${itemsToGroup[0]?.waste_type || "Déchets"}`
 
       const newPackage: GroupedWastePackage = {
         id: `pkg-${Date.now()}`,
         package_number: finalPkgNumber,
-        package_name: finalPkgName,
+        package_name: finalPkgNumber,
         package_type: packageType,
         total_weight: Math.round(totalSelectedWeight * 100) / 100,
         unit: "Kg",
@@ -321,12 +322,8 @@ export function WasteGroupingDialog({
               <button
                 type="button"
                 onClick={() => {
-                  if (existingPackages.length === 0) {
-                    toast.info("Aucun colis existant disponible. Créez d'abord un nouveau colis.")
-                    return
-                  }
                   setGroupingMode("existing")
-                  if (!selectedExistingPackageId && existingPackages[0]) {
+                  if (!selectedExistingPackageId && existingPackages.length > 0) {
                     setSelectedExistingPackageId(existingPackages[0].id)
                   }
                 }}
@@ -354,23 +351,25 @@ export function WasteGroupingDialog({
             <div className="space-y-3 p-4 bg-purple-50/40 dark:bg-purple-950/15 border border-purple-200 dark:border-purple-900/40 rounded-xl">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-foreground">
-                  Choisir le Colis / Sac existant <span className="text-red-500">*</span>
+                  Choisir la Référence / Numéro du Colis existant <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={selectedExistingPackageId}
-                  onValueChange={(val) => setSelectedExistingPackageId(val || "")}
-                >
-                  <SelectTrigger className="text-xs h-9 bg-background rounded-lg font-semibold">
-                    <SelectValue placeholder="Sélectionner un colis dans la liste..." />
-                  </SelectTrigger>
-                  <SelectContent>
+                {existingPackages.length === 0 ? (
+                  <div className="p-3 rounded-lg bg-background border border-border/70 text-xs text-muted-foreground">
+                    Aucun colis existant n&apos;est encore enregistré. Basculez sur <strong>« Non — Nouveau colis / sac »</strong> pour en créer un.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedExistingPackageId}
+                    onChange={(e) => setSelectedExistingPackageId(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                  >
                     {existingPackages.map((pkg) => (
-                      <SelectItem key={pkg.id} value={pkg.id} className="text-xs">
-                        {pkg.package_number} — {pkg.package_name} ({pkg.items?.length || 0} lots • {pkg.total_weight} Kg)
-                      </SelectItem>
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.package_number} — {pkg.package_type} ({pkg.items?.length || 0} lots • {pkg.total_weight} Kg)
+                      </option>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </select>
+                )}
               </div>
 
               {selectedExistingPkg && (
@@ -403,11 +402,11 @@ export function WasteGroupingDialog({
             </div>
           ) : (
             <div className="space-y-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold text-foreground">
-                      Référence / Numéro du Colis
+                      Référence / Numéro de Colis
                     </Label>
                     <Badge variant="outline" className="text-[9.5px] bg-emerald-50 text-emerald-700 border-emerald-200 font-bold py-0">
                       Unique Auto
@@ -425,7 +424,7 @@ export function WasteGroupingDialog({
                     Type de contenant / Conditionnement <span className="text-red-500">*</span>
                   </Label>
                   <Select value={packageType} onValueChange={(val) => setPackageType(val || "")}>
-                    <SelectTrigger className="text-xs h-9 rounded-lg">
+                    <SelectTrigger className="w-full text-xs h-9 rounded-lg">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -440,21 +439,10 @@ export function WasteGroupingDialog({
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-foreground">
-                    Libellé / Nom du Colis ou Sac
-                  </Label>
-                  <Input
-                    value={packageName}
-                    onChange={(e) => setPackageName(e.target.value)}
-                    className="text-xs h-9 rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground">
                     Emplacement de stockage du Colis <span className="text-red-500">*</span>
                   </Label>
                   <Select value={location} onValueChange={(val) => setLocation(val || "")}>
-                    <SelectTrigger className="text-xs h-9 rounded-lg">
+                    <SelectTrigger className="w-full text-xs h-9 rounded-lg">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
