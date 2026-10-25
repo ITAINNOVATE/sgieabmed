@@ -67,11 +67,14 @@ export function AppSidebar() {
       // Les vrais sous-modules déchets (hors analytics)
       setOpenSections({ dashboards: false, samples: false, waste: true, reports: false, alerts: false, admin: false })
     } else if (
-      pathname.includes('/receptions') || 
-      pathname.includes('/movements') || 
-      pathname.includes('/inventory') || 
-      pathname.includes('/samples') || 
-      pathname.includes('/documents')
+      !pathname.includes('/waste') && (
+        pathname.includes('/receptions') || 
+        pathname.includes('/movements') || 
+        pathname.includes('/inventory') || 
+        pathname.includes('/locations') || 
+        pathname.includes('/samples') || 
+        pathname.includes('/documents')
+      )
     ) {
       setOpenSections({ dashboards: false, samples: true, waste: false, reports: false, alerts: false, admin: false })
     } else if (pathname.includes('/reports')) {
@@ -198,7 +201,7 @@ export function AppSidebar() {
                 <SidebarMenuButton 
                   onClick={() => toggleSection('samples')}
                   className={`h-9 px-2.5 text-xs font-bold rounded-lg w-full justify-between cursor-pointer transition-all ${
-                    (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/samples') || pathname.includes('/documents')) && !pathname.includes('/waste')
+                    (pathname.includes('/receptions') || pathname.includes('/movements') || pathname.includes('/inventory') || pathname.includes('/locations') || pathname.includes('/samples') || pathname.includes('/documents')) && !pathname.includes('/waste')
                       ? "bg-white/20 text-white font-extrabold shadow-xs"
                       : "text-white hover:bg-white/15 hover:text-white"
                   }`}
