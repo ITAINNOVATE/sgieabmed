@@ -211,11 +211,6 @@ export default function WasteDocumentsPage() {
         dataUrl: reader.result as string
       })
 
-      if (!newDocTitle.trim()) {
-        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
-        setNewDocTitle(cleanName)
-      }
-
       toast.info(`Fichier prêt : ${file.name}`)
     }
     reader.readAsDataURL(file)
@@ -913,7 +908,6 @@ export default function WasteDocumentsPage() {
                 Structure / Établissement Apporteur <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Ex: CHU SO, Pharmacie Centrale, Grossiste..."
                 value={newDocApporteur}
                 onChange={(e) => setNewDocApporteur(e.target.value)}
                 list="structures-datalist"
@@ -932,7 +926,6 @@ export default function WasteDocumentsPage() {
                 Titre du document <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Ex: Bordereau de livraison apporteur, PV de constat..."
                 value={newDocTitle}
                 onChange={(e) => setNewDocTitle(e.target.value)}
                 className="h-9 text-xs bg-background"
@@ -943,7 +936,6 @@ export default function WasteDocumentsPage() {
             <div className="space-y-1.5">
               <label className="font-semibold text-foreground">Réf. Bordereau ou Réception (Optionnel)</label>
               <Input
-                placeholder="Ex: REC-DECH-2026-0001 ou BL-8945"
                 value={newDocReceptionRef}
                 onChange={(e) => setNewDocReceptionRef(e.target.value)}
                 className="h-9 text-xs bg-background"
@@ -954,7 +946,6 @@ export default function WasteDocumentsPage() {
             <div className="space-y-1.5">
               <label className="font-semibold text-foreground">Note / Commentaire (Optionnel)</label>
               <Input
-                placeholder="Ex: Copie scannée avec cachet du pharmacien responsable..."
                 value={newDocDescription}
                 onChange={(e) => setNewDocDescription(e.target.value)}
                 className="h-9 text-xs bg-background"

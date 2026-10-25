@@ -229,12 +229,6 @@ export default function NewWasteReceptionPage() {
         base64: base64Data,
       })
 
-      // Pré-remplir automatiquement le titre si le champ est encore vide
-      if (!docTitle.trim()) {
-        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
-        setDocTitle(cleanName)
-      }
-
       setIsUploadingDoc(false)
       toast.info(`Fichier sélectionné : ${file.name}`)
     }
@@ -993,7 +987,6 @@ export default function NewWasteReceptionPage() {
                         Titre du document <span className="text-red-500">*</span>
                       </label>
                       <Input 
-                        placeholder="Ex: Bordereau de livraison apporteur N° 45" 
                         value={docTitle} 
                         onChange={(e) => setDocTitle(e.target.value)}
                         className="h-9 text-xs bg-background"
@@ -1006,7 +999,6 @@ export default function NewWasteReceptionPage() {
                         Description / Observation (Optionnel)
                       </label>
                       <Input 
-                        placeholder="Ex: Scan tamponné par le pharmacien, 2 pages..." 
                         value={docDescription} 
                         onChange={(e) => setDocDescription(e.target.value)}
                         className="h-9 text-xs bg-background"
