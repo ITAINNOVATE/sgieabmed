@@ -553,11 +553,12 @@ export function HeaderActions() {
           <DropdownMenuLabel className="font-bold text-xs px-3 py-2 hidden sm:block">Espace Administrateur eGED</DropdownMenuLabel>
           <DropdownMenuSeparator className="hidden sm:block" />
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild className="cursor-pointer text-xs font-semibold">
-              <Link href="/dashboard/profile">
-                <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
-                <span>Voir Mon Profil</span>
-              </Link>
+            <DropdownMenuItem 
+              onClick={() => setShowProfileModal(true)} 
+              className="cursor-pointer text-xs font-semibold"
+            >
+              <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
+              <span>Voir Mon Profil</span>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer text-xs">
               <Link href="/dashboard/settings">
@@ -661,88 +662,100 @@ export function HeaderActions() {
         </DialogContent>
       </Dialog>
 
-      {/* 👤 MODALE PROFIL UTILISATEUR COMPACTE (Admin EGED) */}
-      {showProfileModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-border/50 flex items-center justify-between bg-muted/30">
-              <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-[#1B5C2E]" />
-                <h3 className="font-bold text-sm text-foreground">Profil Administrateur — {displayName}</h3>
+      {/* 👤 MODALE PROFIL UTILISATEUR (Admin EGED) */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b border-border/60 bg-muted/30">
+            <DialogTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+              <User className="h-4 w-4 text-[#1B5C2E]" />
+              Profil Administrateur — {displayName}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Compte administrateur principal de la plateforme eGED ABMed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5 space-y-4">
+            <div className="flex items-center gap-4 p-3.5 rounded-xl bg-muted/30 border border-border/60">
+              <Avatar className="h-16 w-16 border-2 border-[#1B5C2E] shadow-xs">
+                <AvatarImage src="/avatar.png" alt={displayName} />
+                <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-lg">{avatarInitials}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-0.5">
+                <h4 className="text-base font-black text-foreground">{displayName}</h4>
+                <p className="text-xs text-muted-foreground font-medium">{currentUser?.fonction || "Administrateur Système & Sécurité"}</p>
+                <div className="flex items-center gap-2 pt-1">
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">Compte Actif</Badge>
+                  <Badge variant="outline" className="text-[10px] font-mono">Matricule : {currentUser?.matricule || "ABM-ADMIN-01"}</Badge>
+                </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full cursor-pointer" onClick={() => setShowProfileModal(false)}>
-                ✕
-              </Button>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border/50">
-                <Avatar className="h-16 w-16 border-2 border-[#1B5C2E]">
-                  <AvatarImage src="/avatar.png" alt={displayName} />
-                  <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-lg">{avatarInitials}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="text-base font-black text-foreground">{displayName}</h4>
-                  <p className="text-xs text-muted-foreground font-medium">{currentUser?.fonction || "Administrateur Système & Sécurité"}</p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">Compte Actif</Badge>
-                    <Badge variant="outline" className="text-[10px]">Matricule: {currentUser?.matricule || "ABM-ADMIN-01"}</Badge>
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-foreground">Adresse Email :</label>
+                <Input 
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="h-8 text-xs bg-background rounded-xl"
+                />
               </div>
+              <div className="space-y-1">
+                <label className="font-bold text-foreground">Téléphone professionnel :</label>
+                <Input 
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="h-8 text-xs bg-background rounded-xl"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold text-muted-foreground">Service / Direction :</label>
+                <div className="h-8 px-2.5 rounded-xl border bg-muted/20 text-xs flex items-center font-medium">Direction SI & Digitalisation</div>
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold text-muted-foreground">Rôle & Privilèges :</label>
+                <div className="h-8 px-2.5 rounded-xl border bg-muted/20 text-xs flex items-center font-bold text-[#1B5C2E]">ADMIN_SYS (Accès Total)</div>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="space-y-1">
-                  <label className="font-bold text-muted-foreground">Email :</label>
-                  <Input 
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="h-8 text-xs bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-muted-foreground">Téléphone :</label>
-                  <Input 
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    className="h-8 text-xs bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-muted-foreground">Service / Direction :</label>
-                  <div className="p-2 rounded-lg border bg-background font-medium">Direction SI & Digitalisation</div>
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-muted-foreground">Rôle & Privilèges :</label>
-                  <div className="p-2 rounded-lg border bg-background font-bold text-[#1B5C2E]">ADMIN_SYS (Accès Total)</div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-xs flex justify-between items-center">
-                <span>Dernière connexion : <strong>Aujourd'hui à 14:30</strong> (IP: 197.234.221.15)</span>
-                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200 text-[10px]">MFA Activée</Badge>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
-                <Button variant="outline" size="sm" onClick={() => setShowProfileModal(false)}>Fermer</Button>
-                <Button 
-                  size="sm" 
-                  onClick={() => {
-                    const updated = { ...currentUser, phone, email }
-                    setCurrentUser(updated)
-                    setCurrentUserLocal(updated)
-                    setShowProfileModal(false)
-                    toast.success("Informations du profil mises à jour avec succès !")
-                  }} 
-                  className="bg-[#1B5C2E] hover:bg-[#154824] text-white"
-                >
-                  Enregistrer
-                </Button>
-              </div>
+            <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-xs flex justify-between items-center">
+              <span>Dernière connexion : <strong>Aujourd'hui à 14:30</strong> (IP: 197.234.221.15)</span>
+              <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 text-[10px] font-semibold">MFA Activée</Badge>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="p-3 bg-muted/20 border-t border-border/60 flex flex-row items-center justify-between sm:justify-between">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              asChild 
+              className="text-xs text-[#1B5C2E] hover:text-[#154824] hover:bg-emerald-50 font-semibold h-8 px-2.5 cursor-pointer"
+            >
+              <Link href="/dashboard/profile" onClick={() => setShowProfileModal(false)}>
+                Consulter la page complète <ExternalLink className="h-3.5 w-3.5 ml-1" />
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowProfileModal(false)} className="h-8 text-xs rounded-xl cursor-pointer">
+                Fermer
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  const updated = { ...currentUser, phone, email }
+                  setCurrentUser(updated)
+                  setCurrentUserLocal(updated)
+                  setShowProfileModal(false)
+                  toast.success("Informations du profil mises à jour avec succès !")
+                }} 
+                className="bg-[#1B5C2E] hover:bg-[#154824] text-white h-8 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Enregistrer
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
