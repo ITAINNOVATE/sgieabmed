@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { WasteStockItem } from "@/app/dashboard/waste/stock/page"
+import { WASTE_LOCATION_OPTIONS, normalizeWasteLocation } from "@/utils/waste-locations"
 
 export interface GroupedWastePackage {
   id: string
@@ -49,14 +50,7 @@ const PACKAGE_CONTAINERS = [
   { id: "palette", label: "Palette sécurisée sous film rétractable" },
 ]
 
-const PREDEFINED_ZONES = [
-  "Local Déchets A1 — Emplacement Sacs & Fûts",
-  "Local Déchets A2 — Médicaments Liquides & Sirops",
-  "Local DASRI B — Déchets d'Activités de Soins",
-  "Zone Quarantaine C2 — Attente Tri",
-  "Chambre Froide Déchets F — Thermosensibles",
-  "Magasin Central Déchets — Zone Palettes",
-]
+const PREDEFINED_ZONES = WASTE_LOCATION_OPTIONS
 
 export function WasteGroupingDialog({
   open,
@@ -97,7 +91,7 @@ export function WasteGroupingDialog({
       setCustomPackageNumber(uniqueRef)
 
       setPackageType(PACKAGE_CONTAINERS[0].label)
-      setLocation(list[0]?.current_location || PREDEFINED_ZONES[0])
+      setLocation(normalizeWasteLocation(list[0]?.current_location, list[0]?.waste_type))
       setObservations("")
     } else if (!open) {
       wasOpenRef.current = false

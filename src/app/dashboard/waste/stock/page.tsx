@@ -37,6 +37,7 @@ import { WasteLocationDialog } from "@/components/waste-location-dialog"
 import { WasteGroupingDialog, GroupedWastePackage } from "@/components/waste-grouping-dialog"
 import { WastePackageDetailDialog } from "@/components/waste-package-detail-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 
 export type WasteStockItem = {
   id: string
@@ -69,11 +70,11 @@ const DEFAULT_INITIAL_PACKAGES: GroupedWastePackage[] = [
   {
     id: "pkg-init-1",
     package_number: "COLIS-2026-1042",
-    package_name: "Grand sac hermétique — Comprimés & Gélules périmés",
+    package_name: "COLIS-2026-1042",
     package_type: "Grand sac hermétique étanche (DASRI / Solides)",
     total_weight: 45.5,
     unit: "Kg",
-    current_location: "Local Déchets A1 — Emplacement Sacs & Fûts",
+    current_location: WASTE_ZONES[0].fullLocation,
     status: "Groupé (En stock)",
     created_at: "2026-02-15T11:30:00.000Z",
     created_by: "Marie ADANDE (ABMed)",
@@ -89,7 +90,7 @@ const DEFAULT_INITIAL_PACKAGES: GroupedWastePackage[] = [
         quantity: 25.5,
         unit: "Kg",
         source_structure: "Pharmacie Tokpa",
-        current_location: "Local Déchets A1",
+        current_location: WASTE_ZONES[0].fullLocation,
         status: "En attente de destruction"
       },
       {
@@ -101,7 +102,7 @@ const DEFAULT_INITIAL_PACKAGES: GroupedWastePackage[] = [
         quantity: 20.0,
         unit: "Kg",
         source_structure: "Pharmacie Saint-Jean",
-        current_location: "Local Déchets A1",
+        current_location: WASTE_ZONES[0].fullLocation,
         status: "En attente de destruction"
       }
     ]
@@ -143,7 +144,11 @@ export default function WasteStockPage() {
     try {
       const storedPkgs = localStorage.getItem("waste_grouped_packages_v1")
       if (storedPkgs) {
-        localPackages = JSON.parse(storedPkgs)
+        const parsed = JSON.parse(storedPkgs)
+        localPackages = parsed.map((p: GroupedWastePackage) => ({
+          ...p,
+          current_location: normalizeWasteLocation(p.current_location, p.package_type),
+        }))
       } else {
         localPackages = DEFAULT_INITIAL_PACKAGES
         localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(DEFAULT_INITIAL_PACKAGES))
@@ -186,7 +191,7 @@ export default function WasteStockPage() {
       if (key) batchMap.set(key, b)
     })
 
-    // S'assurer que les lots inclus dans les packages initiaux portent bien l'identifiant du package
+    // S'assurer que les lots inclus dans les packages initiaux portent bien l'identifiant du package et l'emplacement normalisé
     const finalBatches = Array.from(batchMap.values()).map(batch => {
       const parentPkg = localPackages.find(p => p.item_ids && p.item_ids.includes(batch.id))
       if (parentPkg) {
@@ -194,9 +199,15 @@ export default function WasteStockPage() {
           ...batch,
           grouped_package_id: parentPkg.id,
           package_number: parentPkg.package_number,
+          current_location: parentPkg.current_location,
         }
       }
-      return batch
+      return {
+        ...batch,
+        current_location: batch.current_location && !/localiser|non d[ée]fini/i.test(batch.current_location)
+          ? normalizeWasteLocation(batch.current_location, batch.waste_type)
+          : batch.current_location,
+      }
     })
 
     setData(finalBatches)

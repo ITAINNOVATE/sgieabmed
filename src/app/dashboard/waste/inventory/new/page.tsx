@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/utils/supabase/client'
+import { normalizeWasteLocation } from '@/utils/waste-locations'
 
 const formSchema = z.object({
   name: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
@@ -84,11 +85,10 @@ export default function NewWasteInventoryPage() {
       // Filtrer les lots actifs (non détruits) et appartenant à l'emplacement sélectionné si spécifique
       const activeBatches = Array.from(batchMap.values()).filter(b => {
         if (b.status === 'Détruit' || b.destruction_date) return false
-        if (values.location !== 'Tous les emplacements déchet') {
-          const loc = (b.current_location || 'MAGASIN DES DECHETS').trim().toUpperCase()
-          const targetLoc = values.location.trim().toUpperCase()
-          // Si l'emplacement correspond ou si par défaut c'est le magasin des déchets
-          if (loc !== targetLoc && !loc.includes('DECHET')) {
+        if (values.location !== 'MAGASIN DES DECHETS') {
+          // Inventaire d'une zone précise : seuls les lots orientés dans cette zone sont capturés
+          const loc = normalizeWasteLocation(b.current_location, b.waste_type)
+          if (loc !== values.location) {
             return false
           }
         }
@@ -284,10 +284,10 @@ export default function NewWasteInventoryPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="MAGASIN DES DECHETS">MAGASIN DES DECHETS (Défaut)</SelectItem>
-                          <SelectItem value="Tous les emplacements déchet">Tous les emplacements déchet</SelectItem>
-                          <SelectItem value="Zone Déchets Quarantaine">Zone Déchets Quarantaine</SelectItem>
-                          <SelectItem value="Fosse de rétention / DASRI">Fosse de rétention / DASRI</SelectItem>
+                          <SelectItem value="MAGASIN DES DECHETS">MAGASIN DES DECHETS (Toutes les zones)</SelectItem>
+                          <SelectItem value="MAGASIN DES DECHETS — Zone déchets solides">MAGASIN DES DECHETS — Zone déchets solides</SelectItem>
+                          <SelectItem value="MAGASIN DES DECHETS — Zone déchets Liquide">MAGASIN DES DECHETS — Zone déchets Liquide</SelectItem>
+                          <SelectItem value="MAGASIN DES DECHETS — Zone déchets dangereuses">MAGASIN DES DECHETS — Zone déchets dangereuses</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

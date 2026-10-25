@@ -24,6 +24,7 @@ import {
 
 import { createClient } from "@/utils/supabase/client"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
+import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 
 // Schéma pour une ligne individuelle de déchet
 const wasteItemSchema = z.object({
@@ -101,7 +102,7 @@ export default function NewWasteReceptionPage() {
           unit: "Kg",
           packaging: "Cartons fermés & scotchés",
           packaging_condition: "Conforme et scellé",
-          current_location: "MAGASIN DES DECHETS",
+          current_location: WASTE_ZONES[0].fullLocation,
           destruction_motive: "Péremption",
           observations: "",
         },
@@ -182,7 +183,7 @@ export default function NewWasteReceptionPage() {
       unit: "Kg",
       packaging: "Cartons fermés & scotchés",
       packaging_condition: "Conforme et scellé",
-      current_location: "MAGASIN DES DECHETS",
+      current_location: WASTE_ZONES[0].fullLocation,
       destruction_motive: "Péremption",
       observations: "",
     })
@@ -668,7 +669,13 @@ export default function NewWasteReceptionPage() {
                     <FormField control={form.control} name={`waste_items.${index}.waste_type`} render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs font-bold">Classification Réglementaire <span className="text-red-500">*</span></FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val)
+                            form.setValue(`waste_items.${index}.current_location`, normalizeWasteLocation("", val))
+                          }}
+                          defaultValue={field.value}
+                        >
                           <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Choisir la catégorie" /></SelectTrigger></FormControl>
                           <SelectContent>
                             <SelectItem value="Médicaments périmés (Formes solides)">Médicaments périmés (Formes solides - comprimés, gélules)</SelectItem>
@@ -783,8 +790,21 @@ export default function NewWasteReceptionPage() {
 
                     <FormField control={form.control} name={`waste_items.${index}.current_location`} render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs font-semibold">Localisation Affectée</FormLabel>
-                        <FormControl><Input {...field} className="h-9 text-xs bg-background" /></FormControl>
+                        <FormLabel className="text-xs font-bold">Orientation (MAGASIN DES DECHETS) <span className="text-red-500">*</span></FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-9 text-xs bg-background font-semibold">
+                              <SelectValue placeholder="Choisir la zone du Magasin des Déchets" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {WASTE_ZONES.map((z) => (
+                              <SelectItem key={z.id} value={z.fullLocation} className="text-xs">
+                                {z.fullLocation}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
