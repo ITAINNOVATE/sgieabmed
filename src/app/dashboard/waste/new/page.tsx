@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { 
   ArrowLeft, Save, Trash2, Box, Building2, User, Phone, 
   FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, 
-  Plus, Layers, Scale, Sparkles
+  Plus, Layers, Scale, Sparkles, Eye, Pencil
 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
@@ -68,6 +68,8 @@ export default function NewWasteReceptionPage() {
   const [samples, setSamples] = useState<any[]>([])
   const [savedSlipData, setSavedSlipData] = useState<any | null>(null)
   const [showSlipModal, setShowSlipModal] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [previewData, setPreviewData] = useState<any | null>(null)
   const [baseLotPrefix, setBaseLotPrefix] = useState("")
   const router = useRouter()
   const supabase = createClient()
@@ -191,10 +193,57 @@ export default function NewWasteReceptionPage() {
   const watchedItems = form.watch("waste_items") || []
   const totalQuantity = watchedItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
 
-  const onSubmit = async (values: FormValues) => {
+  // 1. Valider la saisie et ouvrir la fenêtre de prévisualisation
+  const handleOpenPreview = async () => {
+    const isValid = await form.trigger()
+    if (!isValid) {
+      toast.error("Veuillez remplir correctement tous les champs obligatoires avant de prévisualiser.")
+      return
+    }
+
+    const values = form.getValues()
+    const slipPayload = {
+      reception_number: values.reception_number,
+      reception_date: values.reception_date,
+      reception_time: values.reception_time,
+      delivery_slip_ref: values.delivery_slip_ref,
+      recipient_agent: values.recipient_agent,
+      source_structure: values.source_structure,
+      source_type: values.source_type,
+      city: values.city,
+      depositor_name: values.depositor_name,
+      depositor_phone: values.depositor_phone,
+      depositor_id_card: values.depositor_id_card,
+      general_observations: `Dépôt de ${values.waste_items.length} catégorie(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
+      items: values.waste_items.map((item) => {
+        const s = samples.find((x) => x.id === item.sample_id)
+        return {
+          batch_number: item.batch_number,
+          waste_type: item.waste_type,
+          commercial_name: item.commercial_name || (s ? s.commercial_name : ""),
+          original_batch: item.original_batch || (s ? s.batch_number : ""),
+          quantity: item.quantity,
+          unit: item.unit,
+          packaging: item.packaging,
+          packaging_condition: item.packaging_condition,
+          destruction_motive: item.destruction_motive,
+          location: item.current_location,
+          observations: item.observations,
+        }
+      }),
+    }
+
+    setPreviewData(slipPayload)
+    setShowPreviewModal(true)
+  }
+
+  // 2. Confirmer et enregistrer définitivement après vérification de l'aperçu
+  const handleConfirmSave = async () => {
+    if (!previewData) return
     setIsSaving(true)
 
     try {
+      const values = form.getValues()
       const timestamp = Date.now()
       const newBatches = values.waste_items.map((item, idx) => {
         const selectedSample = samples.find((s) => s.id === item.sample_id)
@@ -321,37 +370,8 @@ export default function NewWasteReceptionPage() {
         console.warn("Échec synchronisation Supabase waste_batches:", remoteErr)
       })
 
-      // 3. Préparer le document d'attestation consolidé pour tous les déchets
-      const slipPayload = {
-        reception_number: values.reception_number,
-        reception_date: values.reception_date,
-        reception_time: values.reception_time,
-        delivery_slip_ref: values.delivery_slip_ref,
-        recipient_agent: values.recipient_agent,
-        source_structure: values.source_structure,
-        source_type: values.source_type,
-        city: values.city,
-        depositor_name: values.depositor_name,
-        depositor_phone: values.depositor_phone,
-        depositor_id_card: values.depositor_id_card,
-        general_observations: `Dépôt de ${values.waste_items.length} catégorie(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
-        items: values.waste_items.map((item) => {
-          const s = samples.find((x) => x.id === item.sample_id)
-          return {
-            batch_number: item.batch_number,
-            waste_type: item.waste_type,
-            commercial_name: item.commercial_name || (s ? s.commercial_name : ""),
-            original_batch: item.original_batch || (s ? s.batch_number : ""),
-            quantity: item.quantity,
-            unit: item.unit,
-            packaging: item.packaging,
-            location: item.current_location,
-            observations: item.observations,
-          }
-        }),
-      }
-
-      setSavedSlipData(slipPayload)
+      setSavedSlipData(previewData)
+      setShowPreviewModal(false)
       setShowSlipModal(true)
       toast.success(`${values.waste_items.length} déchet(s) enregistré(s) avec succès pour ${values.source_structure} !`)
     } catch (error: any) {
@@ -401,17 +421,17 @@ export default function NewWasteReceptionPage() {
           <Button 
             type="button" 
             size="sm"
-            onClick={form.handleSubmit(onSubmit)} 
+            onClick={handleOpenPreview} 
             disabled={isSaving} 
-            className="h-9 text-xs font-bold px-4 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2"
+            className="h-9 text-xs font-bold px-4 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2 cursor-pointer"
           >
-            {isSaving ? "Enregistrement..." : <><Save className="h-4 w-4" /> Valider ({fields.length} lot{fields.length > 1 ? 's' : ''}) & Signer</>}
+            <Eye className="h-4 w-4" /> Visualiser avant d&apos;enregistrer ({fields.length} lot{fields.length > 1 ? 's' : ''})
           </Button>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 print:hidden">
+        <form onSubmit={(e) => { e.preventDefault(); handleOpenPreview() }} className="space-y-4 print:hidden">
           
           {/* SECTION 1 : INFORMATIONS GÉNÉRALES RÉCEPTION */}
           <Card className="shadow-sm border border-border/70 rounded-2xl bg-card">
@@ -799,11 +819,12 @@ export default function NewWasteReceptionPage() {
                 <Link href="/dashboard/waste">Annuler</Link>
               </Button>
               <Button 
-                type="submit" 
+                type="button" 
+                onClick={handleOpenPreview}
                 disabled={isSaving}
-                className="h-10 text-xs font-bold px-6 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2"
+                className="h-10 text-xs font-bold px-6 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm gap-2 cursor-pointer"
               >
-                {isSaving ? "Traitement..." : <><Save className="h-4 w-4" /> Enregistrer ({fields.length} lot{fields.length > 1 ? 's' : ''}) & Générer l&apos;Attestation</>}
+                <Eye className="h-4 w-4" /> Visualiser avant d&apos;enregistrer ({fields.length} lot{fields.length > 1 ? 's' : ''})
               </Button>
             </div>
           </div>
@@ -811,7 +832,207 @@ export default function NewWasteReceptionPage() {
         </form>
       </Form>
 
-      {/* DIALOG OFFICIEL D'ATTESTATION & BORDEREAU DE RÉCEPTION DE DÉCHETS (PRÊT À IMPRIMER & FAIRE SIGNER) */}
+      {/* DIALOG 1 : PRÉVISUALISATION & VÉRIFICATION AVANT ENREGISTREMENT */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl sm:max-w-4xl w-[95vw] md:w-full bg-card border-border/70 p-4 sm:p-6 rounded-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Eye className="h-5 w-5 text-amber-600" />
+                Prévisualisation & Vérification avant Enregistrement
+              </DialogTitle>
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                Aperçu • {previewData?.items?.length || 1} lot(s)
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Vérifiez l&apos;exactitude de toutes les informations saisies avant l&apos;enregistrement définitif et la génération de l&apos;attestation officielle.
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewData && (
+            <div className="space-y-4 pt-1">
+              {/* BANDEAU D'INFORMATION PRÉVISUALISATION */}
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Relecture avant validation : </span>
+                  Si vous constatez une erreur sur le nom de la structure, le déposant ou les quantités, cliquez sur <strong>« Modifier / Corriger la saisie »</strong> en bas à gauche pour revenir au formulaire et corriger.
+                </div>
+              </div>
+
+              {/* APERÇU DU DOCUMENT OFFICIEL */}
+              <div className="bg-white text-slate-900 p-5 sm:p-7 rounded-xl border-2 border-amber-300/80 shadow-xs space-y-4 relative">
+                <div className="border-b-2 border-[#1B5C2E] pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold tracking-widest text-slate-600 uppercase">
+                      RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ
+                    </p>
+                    <h1 className="text-base sm:text-lg font-black text-[#1B5C2E] tracking-tight">
+                      AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)
+                    </h1>
+                    <p className="text-[11px] font-semibold text-slate-700">
+                      Direction de la Gestion des Déchets Pharmaceutiques (PSQIF)
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block px-2.5 py-1 rounded bg-[#1B5C2E]/10 border border-[#1B5C2E]/30 text-xs font-mono font-bold text-[#1B5C2E]">
+                      {previewData.reception_number}
+                    </span>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Date : {previewData.reception_date} {previewData.reception_time}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-center py-1.5 bg-slate-50 rounded border border-slate-200">
+                  <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+                    APERÇU DE L&apos;ATTESTATION & BORDEREAU DE RÉCEPTION DE DÉCHETS
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                      1. Structure / Établissement Apporteur
+                    </p>
+                    <p className="pt-1">
+                      <span className="text-slate-500">Établissement :</span>{" "}
+                      <strong className="text-slate-900">{previewData.source_structure}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Type :</span> {previewData.source_type}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Localité :</span> {previewData.city || "Non renseignée"}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Apporté par :</span>{" "}
+                      <strong>{previewData.depositor_name}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Téléphone :</span> {previewData.depositor_phone}
+                    </p>
+                    {previewData.depositor_id_card && (
+                      <p>
+                        <span className="text-slate-500">Pièce ID :</span> {previewData.depositor_id_card}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                      2. Prise en charge ABMed
+                    </p>
+                    <p className="pt-1">
+                      <span className="text-slate-500">Agent Récepteur :</span>{" "}
+                      <strong className="text-slate-900">{previewData.recipient_agent}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Réf. Bordereau apport :</span>{" "}
+                      {previewData.delivery_slip_ref || "Remise directe sur site"}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Nombre de lots :</span>{" "}
+                      <strong>{previewData.items.length} lot(s)</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Poids total estimé :</span>{" "}
+                      <strong>{previewData.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    3. Détail des Déchets à Réceptionner ({previewData.items.length} lots)
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
+                      <thead className="bg-[#1B5C2E] text-white text-[11px]">
+                        <tr>
+                          <th className="p-2 border-r border-[#1B5C2E]/30 whitespace-nowrap">N° Lot Déchet</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Désignation & Classification</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Conditionnement & Motif</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Localisation</th>
+                          <th className="p-2 text-right whitespace-nowrap">Poids / Quantité</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {previewData.items.map((item: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                              {item.batch_number}
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <p className="font-semibold text-slate-900">{item.waste_type}</p>
+                              {item.commercial_name && (
+                                <p className="text-[10px] text-slate-600">{item.commercial_name}</p>
+                              )}
+                              {item.original_batch && (
+                                <p className="text-[10px] text-slate-500">Lot d&apos;origine : {item.original_batch}</p>
+                              )}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-700">
+                              <div>{item.packaging}</div>
+                              <div className="text-[10px] text-slate-500">Motif : {item.destruction_motive || "Péremption"}</div>
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-700 text-[11px]">
+                              {item.location}
+                            </td>
+                            <td className="p-2 text-right font-black text-slate-900 whitespace-nowrap">
+                              {item.quantity} {item.unit}
+                            </td>
+                          </tr>
+                        ))}
+                        {previewData.items.length > 1 && (
+                          <tr className="bg-slate-100 font-bold">
+                            <td colSpan={4} className="p-2 text-right border-r border-slate-300">
+                              TOTAL DÉPÔT ({previewData.items.length} lots) :
+                            </td>
+                            <td className="p-2 text-right font-black text-[#1B5C2E] whitespace-nowrap">
+                              {previewData.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0).toFixed(2)} Kg/Unités
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* BOUTONS DE VALIDATION OU CORRECTION */}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-border/60">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowPreviewModal(false)}
+                  className="w-full sm:w-auto text-xs font-semibold gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-50 cursor-pointer"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-amber-600" /> Modifier / Corriger la saisie
+                </Button>
+                
+                <Button 
+                  type="button"
+                  size="sm" 
+                  onClick={handleConfirmSave}
+                  disabled={isSaving}
+                  className="w-full sm:w-auto gap-2 text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm px-5 h-9 cursor-pointer"
+                >
+                  {isSaving ? "Enregistrement en cours..." : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" /> Confirmer, Enregistrer & Générer l&apos;Attestation
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG 2 : OFFICIEL D'ATTESTATION & BORDEREAU DE RÉCEPTION DE DÉCHETS (PRÊT À IMPRIMER & FAIRE SIGNER) */}
       <Dialog open={showSlipModal} onOpenChange={setShowSlipModal}>
         <DialogContent className="max-w-4xl sm:max-w-4xl w-[95vw] md:w-full bg-card border-border/70 p-4 sm:p-6 rounded-2xl max-h-[92vh] overflow-y-auto print:max-w-full print:m-0 print:p-0 print:border-none print:shadow-none">
           <DialogHeader className="print:hidden">
