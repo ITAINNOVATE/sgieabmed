@@ -553,9 +553,9 @@ export function HeaderActions() {
             <p className="text-[11px] text-muted-foreground truncate">{currentUser?.role || "Administrateur Système"}</p>
             <p className="text-[10px] text-muted-foreground/80 truncate">{currentUser?.email || email}</p>
           </div>
-          <DropdownMenuLabel className="font-bold text-xs px-3 py-2 hidden sm:block">Espace Administrateur eGED</DropdownMenuLabel>
-          <DropdownMenuSeparator className="hidden sm:block" />
           <DropdownMenuGroup>
+            <DropdownMenuLabel className="font-bold text-xs px-3 py-2 hidden sm:block">Espace Administrateur eGED</DropdownMenuLabel>
+            <DropdownMenuSeparator className="hidden sm:block" />
             <DropdownMenuItem 
               onSelect={() => setShowProfileModal(true)} 
               className="cursor-pointer text-xs font-semibold"
