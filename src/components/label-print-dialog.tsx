@@ -407,35 +407,39 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
               format === 'A4' ? (
                 isWaste ? (
                   // Mode Placard A4 Réglementaire Déchets (Fût / Carton)
-                  <div className="border-2 border-slate-300 rounded-2xl bg-white shadow-2xl p-4 w-[380px] h-[520px] overflow-y-auto text-black select-none flex flex-col justify-between scale-[0.95] origin-top">
-                    {/* En-tête officiel République du Bénin */}
-                    <div className="border-b-2 border-slate-900 pb-2 text-center">
-                      <div className="flex justify-between items-center mb-1">
-                        <div dangerouslySetInnerHTML={{ __html: abMedLogoSvg }} className="scale-90 origin-left" />
-                        <div className="text-center flex-1">
-                          <p className="text-[6.5px] font-extrabold uppercase tracking-wider text-slate-800 m-0">RÉPUBLIQUE DU BÉNIN</p>
-                          <p className="text-[5.5px] font-bold text-slate-500 m-0">MINISTÈRE DE LA SANTÉ</p>
+                  <div className="border-2 border-red-500 rounded-2xl bg-white shadow-2xl p-4 w-[380px] h-[520px] overflow-y-auto text-black select-none flex flex-col justify-between scale-[0.95] origin-top">
+                    {/* En-tête épuré officiel ABMed */}
+                    <div className="border-b-2 border-red-600 pb-2 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div dangerouslySetInnerHTML={{ __html: abMedLogoSvg }} className="scale-75 origin-left" />
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-red-600 m-0">ABMed • DÉCHETS PHARMACEUTIQUES</p>
+                          <p className="text-[6.5px] font-bold text-slate-600 uppercase m-0">Fiche d&apos;Identification & Traçabilité (Fût / Carton)</p>
                         </div>
-                        <div dangerouslySetInnerHTML={{ __html: egedLogoSvg }} className="scale-90 origin-right" />
                       </div>
-                      <h3 className="text-[9px] font-black uppercase text-[#D97706] tracking-wider m-0">
-                        AUTORITÉ BÉNINOISE DE RÉGULATION DU MÉDICAMENT
-                      </h3>
-                      <p className="text-[6.5px] font-extrabold text-slate-700 uppercase m-0 mt-0.5">
-                        FICHE D&apos;IDENTIFICATION & DE TRAÇABILITÉ — LOT DE DÉCHET
-                      </p>
+                      <div className="text-right flex flex-col items-end">
+                        <div dangerouslySetInnerHTML={{ __html: egedLogoSvg }} className="scale-75 origin-right" />
+                        <span className="text-[5.5px] text-slate-400 font-bold mt-0.5">Émis le : {dateStr}</span>
+                      </div>
                     </div>
 
                     {/* Bannière N° Lot Grand Format */}
-                    <div className="my-2 bg-amber-500 text-white rounded-lg p-2 text-center shadow-xs">
-                      <span className="text-[7px] font-bold uppercase tracking-widest block opacity-90">N° IDENTIFIANT DU LOT DÉCHET</span>
-                      <span className="text-sm font-black font-mono tracking-wider">{currentItem.itemNumber}</span>
+                    <div className="my-2 bg-red-50 border border-red-200 rounded-lg p-2 flex justify-between items-center">
+                      <div>
+                        <span className="text-[6.5px] font-extrabold text-red-800 uppercase tracking-wider block">N° IDENTIFIANT DU LOT DÉCHET</span>
+                        <span className="text-base font-black font-mono tracking-wider text-slate-900">{currentItem.itemNumber}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="px-2 py-0.5 rounded-full text-[7.5px] font-black border uppercase tracking-wider bg-white border-red-500 text-red-600">
+                          ● {currentItem.status || 'Déclaré'}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Données & QR Code */}
-                    <div className="grid grid-cols-12 gap-2 my-1 items-start">
+                    {/* Données & QR Code Géant */}
+                    <div className="grid grid-cols-12 gap-2 my-1 items-start flex-1">
                       {/* Colonne gauche : Métadonnées */}
-                      <div className="col-span-7 space-y-1 text-[7px] leading-tight">
+                      <div className="col-span-6 space-y-1 text-[7px] leading-tight">
                         <div className="bg-slate-50 p-1.5 rounded border border-slate-200">
                           <span className="font-bold text-slate-500 block text-[6px]">DÉSIGNATION / TYPE :</span>
                           <span className="font-extrabold text-slate-900 text-[8px] line-clamp-2 uppercase">{currentItem.productName}</span>
@@ -443,7 +447,7 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
                         <div className="grid grid-cols-2 gap-1">
                           <div className="bg-slate-50 p-1 rounded border border-slate-200">
                             <span className="font-bold text-slate-500 block text-[5.5px]">POIDS / QTÉ :</span>
-                            <span className="font-bold text-slate-800">{currentItem.extraData?.weight || 'N/A'}</span>
+                            <span className="font-black text-red-600 text-[9px]">{currentItem.extraData?.weight || 'N/A'}</span>
                           </div>
                           <div className="bg-slate-50 p-1 rounded border border-slate-200">
                             <span className="font-bold text-slate-500 block text-[5.5px]">LOT ORIGINE :</span>
@@ -455,50 +459,45 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
                           <span className="font-medium text-slate-800 line-clamp-1">{currentItem.extraData?.sourceStructure || 'Structure sanitaire'}</span>
                         </div>
                         <div className="bg-slate-50 p-1 rounded border border-slate-200">
+                          <span className="font-bold text-slate-500 block text-[5.5px]">EMPLACEMENT MAGASIN :</span>
+                          <span className="font-mono font-bold text-emerald-700">{currentItem.location?.salle || 'Local Déchets'}</span>
+                        </div>
+                        <div className="bg-slate-50 p-1 rounded border border-slate-200">
                           <span className="font-bold text-slate-500 block text-[5.5px]">CONDITIONNEMENT :</span>
                           <span className="font-medium text-slate-800">{currentItem.extraData?.packaging || 'Fût étanche / Carton'}</span>
                         </div>
                       </div>
 
-                      {/* Colonne droite : QR Code Grand Format Récapitulatif */}
-                      <div className="col-span-5 flex flex-col items-center justify-center p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs">
-                        <div className="w-24 h-24 bg-white p-1">
+                      {/* Colonne droite : QR Code Géant Récapitulatif */}
+                      <div className="col-span-6 flex flex-col items-center justify-center p-2 bg-red-50/40 border-2 border-red-500 rounded-xl shadow-xs">
+                        <span className="text-[6.5px] font-black text-red-700 uppercase tracking-wider mb-1 text-center">
+                          CODE QR RÉCAPITULATIF PRODUIT
+                        </span>
+                        
+                        {/* QR Code Agrandie */}
+                        <div className="w-32 h-32 bg-white p-1.5 rounded-lg border border-slate-300 shadow-sm flex items-center justify-center">
                           {qrCodes[currentItem.id] ? (
                             <img src={qrCodes[currentItem.id]} alt="QR Code Récapitulatif" className="w-full h-full object-contain" />
                           ) : (
                             <div className="w-full h-full bg-slate-100 animate-pulse rounded" />
                           )}
                         </div>
-                        <span className="text-[5.5px] font-black text-amber-700 uppercase tracking-widest mt-1 text-center">
-                          QR RÉCAPITULATIF PRODUIT
-                        </span>
-                        <span className="text-[4.5px] text-slate-400 text-center">
-                          Scannable avec le lecteur eGED
+
+                        <span className="text-[5.5px] font-bold text-slate-800 text-center mt-1.5 leading-tight">
+                          Scannez pour afficher tout le récapitulatif officiel
                         </span>
                       </div>
                     </div>
 
                     {/* Avertissement Sécurité */}
-                    <div className="p-1.5 bg-red-50 border border-red-200 rounded-lg text-red-900 text-[6px] my-1">
-                      <span className="font-extrabold uppercase block text-[6.5px]">⚠️ SÉCURITÉ & MANIPULATION RÉGLEMENTAIRE</span>
-                      <span>Matière pharmaceutique destinée à la destruction officielle. Port des EPI obligatoire (gants, masque, blouse). Ne pas ouvrir avant incinération.</span>
+                    <div className="p-1.5 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-[6px] my-1">
+                      <span className="font-extrabold uppercase block text-[6.5px]">⚠️ SÉCURITÉ & MANIPULATION STRICTE</span>
+                      <span>Port des EPI obligatoire. Matière réservée à la filière officielle de destruction pharmaceutique ABMed.</span>
                     </div>
 
-                    {/* Bloc Double Signature */}
-                    <div className="grid grid-cols-2 gap-2 border-t pt-1.5 mt-1 text-[6px]">
-                      <div className="border border-slate-200 rounded p-1 h-12 flex flex-col justify-between">
-                        <span className="font-bold text-slate-500 uppercase text-[5.5px]">Visa Déposant :</span>
-                        <span className="text-[5px] text-slate-400 border-t border-dashed pt-0.5">Signature & Date</span>
-                      </div>
-                      <div className="border border-slate-200 rounded p-1 h-12 flex flex-col justify-between">
-                        <span className="font-bold text-slate-500 uppercase text-[5.5px]">Visa Agent ABMed :</span>
-                        <span className="text-[5px] text-slate-400 border-t border-dashed pt-0.5">Cachet & Signature</span>
-                      </div>
-                    </div>
-
-                    {/* Pied de page */}
-                    <div className="text-[5px] text-slate-400 font-bold uppercase tracking-wider flex justify-between border-t pt-1 mt-1">
-                      <span>Fiche Placard A4 Réglementaire Déchets</span>
+                    {/* Pied de page épuré sans signature */}
+                    <div className="text-[5.5px] text-slate-400 font-bold uppercase tracking-wider flex justify-between border-t pt-1.5 mt-1">
+                      <span>Fiche Placard A4 • Traçabilité Officielle</span>
                       <span className="font-mono">eGED-ABMed</span>
                     </div>
                   </div>

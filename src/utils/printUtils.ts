@@ -97,12 +97,12 @@ function getLabelStyles(format: LabelFormat, type: 'sample' | 'waste'): string {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 0 !important;
           }
           body {
-            margin: 0;
-            padding: 0;
-            background: white;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
           }
         }
         .a4-waste-placard {
@@ -110,6 +110,7 @@ function getLabelStyles(format: LabelFormat, type: 'sample' | 'waste'): string {
           max-width: 194mm;
           min-height: 275mm;
           margin: 0 auto;
+          padding: 8mm 6mm;
           box-sizing: border-box;
           background: white;
           font-family: 'Inter', -apple-system, sans-serif;
@@ -220,172 +221,145 @@ export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: strin
   );
 
   return `
-    <div class="a4-waste-placard" style="border: 1.5px solid #DC2626; border-radius: 4px; padding: 10mm; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div class="a4-waste-placard" style="border: 2px solid #DC2626; border-radius: 8px; padding: 8mm; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: white;">
       
-      <!-- 1. EN-TÊTE RÉPUBLICAIN OFFICIEL -->
-      <div style="border-bottom: 2px solid #DC2626; padding-bottom: 5mm; display: flex; align-items: center; justify-content: space-between;">
+      <!-- 1. EN-TÊTE ÉPURÉ OFFICIEL ABMED -->
+      <div style="border-bottom: 2.5px solid #DC2626; padding-bottom: 4mm; display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 4mm;">
           <div style="width: 44px; height: 44px;">${abMedLogoSvg}</div>
           <div>
-            <div style="font-size: 8.5pt; font-weight: 800; color: #1E293B; text-transform: uppercase; letter-spacing: 0.3px;">RÉPUBLIQUE DU BÉNIN</div>
-            <div style="font-size: 7.5pt; font-weight: 700; color: #64748B;">MINISTÈRE DE LA SANTÉ</div>
-            <div style="font-size: 8pt; font-weight: 800; color: #DC2626;">AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)</div>
-            <div style="font-size: 6.5pt; font-weight: 600; color: #475569;">Direction de la Gestion des Déchets & Sécurité Pharmaceutique</div>
+            <div style="font-size: 15pt; font-weight: 900; color: #DC2626; text-transform: uppercase; letter-spacing: 0.5px;">ABMed • DÉCHETS PHARMACEUTIQUES</div>
+            <div style="font-size: 8.5pt; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 1mm;">
+              Fiche d'Identification & Traçabilité (Fût / Carton / Palette)
+            </div>
           </div>
         </div>
 
         <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
-          <div style="width: 44px; height: 44px;">${egedLogoSvg}</div>
-          <div style="margin-top: 1.5mm; font-size: 6.5pt; font-weight: 700; color: #64748B; font-family: monospace;">eGED-ABMed • SGIE</div>
-          <div style="font-size: 6.5pt; color: #94A3B8;">Émis le : <strong>${dateStr}</strong></div>
+          <div style="width: 40px; height: 40px;">${egedLogoSvg}</div>
+          <div style="font-size: 7pt; font-weight: 700; color: #64748B; font-family: monospace; margin-top: 1mm;">eGED-ABMed • SGIE</div>
+          <div style="font-size: 7pt; color: #94A3B8;">Émis le : <strong>${dateStr}</strong></div>
         </div>
       </div>
 
-      <!-- 2. TITRE PRINCIPAL & BANDEAU IDENTIFICATION -->
-      <div style="margin-top: 4mm; text-align: center;">
-        <div style="display: inline-block; background: #FEF2F2; border: 1.2px solid #FCA5A5; border-radius: 6px; padding: 2mm 8mm;">
-          <h1 style="margin: 0; font-size: 13pt; font-weight: 900; color: #991B1B; text-transform: uppercase; letter-spacing: 0.5px;">
-            FICHE D'IDENTIFICATION & DE TRAÇABILITÉ DES DÉCHETS
-          </h1>
-          <div style="font-size: 7.5pt; font-weight: 600; color: #B91C1C; margin-top: 0.5mm;">
-            Étiquette Réglementaire A4 pour Fûts, Bacs, Conteneurs & Palettes de Stockage
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. BANDEAU N° LOT & STATUT -->
-      <div style="margin-top: 4mm; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm 5mm; display: flex; justify-content: space-between; align-items: center;">
+      <!-- 2. BANDEAU IDENTIFICATION DU LOT GRAND FORMAT -->
+      <div style="margin-top: 4mm; background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 8px; padding: 3.5mm 6mm; display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <span style="font-size: 7.5pt; font-weight: 700; color: #64748B; text-transform: uppercase;">N° de Lot Déchet Officiel :</span>
-          <div style="font-size: 15pt; font-weight: 900; color: #0F172A; font-family: monospace; letter-spacing: 0.5px;">
+          <span style="font-size: 8pt; font-weight: 800; color: #991B1B; text-transform: uppercase; letter-spacing: 0.5px;">N° IDENTIFIANT DU LOT DÉCHET :</span>
+          <div style="font-size: 18pt; font-weight: 900; color: #0F172A; font-family: monospace; letter-spacing: 1px; margin-top: 0.5mm;">
             ${item.itemNumber}
           </div>
-          ${ex.receptionNumber ? `<div style="font-size: 7pt; color: #64748B; margin-top: 0.5mm;">Réf. Réception : <strong>${ex.receptionNumber}</strong></div>` : ''}
+          ${ex.receptionNumber ? `<div style="font-size: 7.5pt; color: #64748B; margin-top: 0.5mm;">Réf. Réception : <strong>${ex.receptionNumber}</strong></div>` : ''}
         </div>
 
         <div style="text-align: right;">
-          <span style="font-size: 7pt; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 1mm;">Statut Réglementaire :</span>
-          <span style="display: inline-block; padding: 1.5mm 4.5mm; border-radius: 9999px; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; border: 1.2px solid ${statusInfo.hex}; color: ${statusInfo.hex}; background: white;">
+          <span style="display: inline-block; padding: 2mm 5mm; border-radius: 9999px; font-size: 9.5pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.4px; border: 1.5px solid ${statusInfo.hex}; color: ${statusInfo.hex}; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
             ● ${item.status || 'Déclaré'}
           </span>
         </div>
       </div>
 
-      <!-- 4. CONTENU PRINCIPAL EN 2 COLONNES -->
-      <div style="margin-top: 4mm; display: flex; gap: 5mm; flex: 1;">
+      <!-- 3. CONTENU PRINCIPAL EN 2 COLONNES AVEC CODE QR GÉANT -->
+      <div style="margin-top: 5mm; display: flex; gap: 6mm; flex: 1; align-items: stretch;">
         
-        <!-- COLONNE GAUCHE : DÉTAILS PRODUIT, ORIGINE ET LOCALISATION -->
-        <div style="flex: 1.4; display: flex; flex-direction: column; gap: 3.5mm;">
+        <!-- COLONNE GAUCHE : DÉTAILS DU PRODUIT RÉCEPTIONNÉ -->
+        <div style="flex: 1.1; display: flex; flex-direction: column; gap: 3.5mm;">
           
-          <!-- BLOC 1 : CARACTÉRISTIQUES DU DÉCHET -->
-          <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm; background: white;">
-            <div style="font-size: 8pt; font-weight: 800; color: #B91C1C; text-transform: uppercase; border-bottom: 1px solid #FEE2E2; padding-bottom: 1.5mm; margin-bottom: 2mm;">
-              1. Caractéristiques du Déchet Réceptionné
+          <!-- BLOC 1 : CARACTÉRISTIQUES -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 3.5mm 4mm; background: white; flex: 1;">
+            <div style="font-size: 8.5pt; font-weight: 800; color: #B91C1C; text-transform: uppercase; border-bottom: 1.5px solid #FEE2E2; padding-bottom: 1.5mm; margin-bottom: 2.5mm;">
+              1. Informations du Déchet
             </div>
-            <table style="width: 100%; font-size: 7.5pt; border-collapse: collapse; line-height: 1.4;">
+            <table style="width: 100%; font-size: 8pt; border-collapse: collapse; line-height: 1.5;">
               <tr>
-                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1mm 0;">Classification :</td>
+                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1.2mm 0;">Classification :</td>
                 <td style="color: #0F172A; font-weight: 800;">${ex.category || item.productName}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Dénomination :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Dénomination :</td>
                 <td style="color: #0F172A; font-weight: 700;">${item.productName || 'Non spécifié'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">N° Lot d'origine :</td>
-                <td style="color: #0F172A; font-weight: 600; font-family: monospace;">${ex.originalBatch || item.batchNumber || '—'}</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">N° Lot d'origine :</td>
+                <td style="color: #0F172A; font-weight: 700; font-family: monospace;">${ex.originalBatch || item.batchNumber || '—'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Quantité / Poids :</td>
-                <td style="color: #B91C1C; font-weight: 900; font-size: 9.5pt;">${ex.weight || '1 Kg'}</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Quantité / Poids :</td>
+                <td style="color: #B91C1C; font-weight: 900; font-size: 13pt;">${ex.weight || '1 Kg'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Conditionnement :</td>
-                <td style="color: #0F172A; font-weight: 600;">${ex.packaging || 'Cartons fermés et sécurisés'}</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Conditionnement :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.packaging || 'Fûts / Cartons scellés'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Motif de rejet :</td>
-                <td style="color: #0F172A; font-weight: 600;">${ex.motive || 'Péremption / Non-conformité réglementaire'}</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Motif de rejet :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.motive || 'Péremption / Non-conformité'}</td>
               </tr>
             </table>
           </div>
 
-          <!-- BLOC 2 : PROVENANCE & DÉPOSANT -->
-          <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm; background: white;">
-            <div style="font-size: 8pt; font-weight: 800; color: #1E40AF; text-transform: uppercase; border-bottom: 1px solid #DBEAFE; padding-bottom: 1.5mm; margin-bottom: 2mm;">
-              2. Provenance & Structure Déposante
+          <!-- BLOC 2 : PROVENANCE & LOCALISATION -->
+          <div style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 3.5mm 4mm; background: white; flex: 1;">
+            <div style="font-size: 8.5pt; font-weight: 800; color: #1E40AF; text-transform: uppercase; border-bottom: 1.5px solid #DBEAFE; padding-bottom: 1.5mm; margin-bottom: 2.5mm;">
+              2. Provenance & Stockage
             </div>
-            <table style="width: 100%; font-size: 7.5pt; border-collapse: collapse; line-height: 1.4;">
+            <table style="width: 100%; font-size: 8pt; border-collapse: collapse; line-height: 1.5;">
               <tr>
-                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1mm 0;">Structure :</td>
+                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1.2mm 0;">Structure Source :</td>
                 <td style="color: #0F172A; font-weight: 800;">${ex.sourceStructure || 'Interne ABMed'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Type d'entité :</td>
-                <td style="color: #0F172A; font-weight: 600;">${ex.sourceType || 'Établissement Pharmaceutique'}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Apporteur :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Apporteur / Déposant :</td>
                 <td style="color: #0F172A; font-weight: 600;">${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Date déclaration :</td>
-                <td style="color: #0F172A; font-weight: 600;">${ex.declarationDate || dateStr}</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- BLOC 3 : LOCALISATION & DESTRUCTION -->
-          <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 3mm; background: white;">
-            <div style="font-size: 8pt; font-weight: 800; color: #0F5C4A; text-transform: uppercase; border-bottom: 1px solid #D1FAE5; padding-bottom: 1.5mm; margin-bottom: 2mm;">
-              3. Localisation en Stock & Planification
-            </div>
-            <table style="width: 100%; font-size: 7.5pt; border-collapse: collapse; line-height: 1.4;">
-              <tr>
-                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1mm 0;">Emplacement Magasin :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Emplacement Magasin :</td>
                 <td style="color: #0F5C4A; font-weight: 800; font-family: monospace;">${locStr}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Plan de Destruction :</td>
-                <td style="color: #7E22CE; font-weight: 800; font-family: monospace;">${ex.destructionPlan || 'Non assigné (En préparation)'}</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Plan de Destruction :</td>
+                <td style="color: #7E22CE; font-weight: 800; font-family: monospace;">${ex.destructionPlan || 'En attente de planification'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1mm 0;">Agent Récepteur :</td>
-                <td style="color: #0F172A; font-weight: 600;">${ex.recipientAgent || 'Marie ADANDE (ABMed)'}</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Date d'entrée :</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.declarationDate || dateStr}</td>
               </tr>
             </table>
           </div>
 
         </div>
 
-        <!-- COLONNE DROITE : GRAND CODE QR & CONSIGNES DE SÉCURITÉ -->
-        <div style="flex: 1.1; display: flex; flex-direction: column; gap: 3.5mm;">
+        <!-- COLONNE DROITE : CODE QR TRÈS GRAND & CONSIGNES -->
+        <div style="flex: 1.1; display: flex; flex-direction: column; gap: 3.5mm; justify-content: space-between;">
           
           <!-- GRAND CODE QR RÉCAPITULATIF SÉCURISÉ -->
-          <div style="border: 1.5px solid #DC2626; border-radius: 8px; padding: 4mm; background: #FFFDFD; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div style="font-size: 7.5pt; font-weight: 800; color: #991B1B; text-transform: uppercase; margin-bottom: 2mm; letter-spacing: 0.3px;">
-              Code QR Récapitulatif Produit
+          <div style="border: 2px solid #DC2626; border-radius: 10px; padding: 5mm; background: #FFFDFD; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.06); flex: 1.4;">
+            <div style="font-size: 9.5pt; font-weight: 900; color: #991B1B; text-transform: uppercase; margin-bottom: 3mm; letter-spacing: 0.4px;">
+              CODE QR RÉCAPITULATIF PRODUIT
             </div>
             
-            <div style="background: white; border: 1px solid #CBD5E1; border-radius: 6px; padding: 2mm; width: 55mm; height: 55mm; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+            <!-- CODE QR GÉANT (92mm x 92mm) -->
+            <div style="background: white; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 3mm; width: 92mm; height: 92mm; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
               <img src="${qrUrl}" alt="QR Code Récapitulatif Déchet" style="width: 100%; height: 100%; object-fit: contain;" />
             </div>
 
-            <div style="font-size: 6.5pt; font-weight: 700; color: #475569; margin-top: 2.5mm; line-height: 1.3; max-width: 60mm;">
-              Scannez ce QR Code avec tout smartphone ou terminal eGED pour afficher l'intégralité du récapitulatif officiel.
+            <div style="font-size: 7.5pt; font-weight: 800; color: #0F172A; margin-top: 3mm; line-height: 1.4; max-width: 85mm;">
+              Scannez ce QR Code pour afficher le récapitulatif complet et certifié du produit réceptionné.
+            </div>
+            <div style="font-size: 6.5pt; color: #64748B; margin-top: 1mm;">
+              Compatible caméra smartphone & lecteurs optiques eGED
             </div>
           </div>
 
-          <!-- CONSIGNES DE SÉCURITÉ & MANIPULATION STRICTES -->
-          <div style="border: 1.2px solid #F59E0B; border-radius: 6px; padding: 3mm; background: #FFFBEB; flex: 1;">
-            <div style="display: flex; align-items: center; gap: 1.5mm; font-size: 7.5pt; font-weight: 800; color: #B45309; text-transform: uppercase; margin-bottom: 2mm;">
+          <!-- CONSIGNES DE SÉCURITÉ & MANIPULATION -->
+          <div style="border: 1.5px solid #F59E0B; border-radius: 8px; padding: 3.5mm 4mm; background: #FFFBEB;">
+            <div style="display: flex; align-items: center; gap: 2mm; font-size: 8pt; font-weight: 900; color: #B45309; text-transform: uppercase; margin-bottom: 1.5mm;">
               <span>⚠️</span> Consignes Strictes de Sécurité
             </div>
-            <ul style="margin: 0; padding-left: 4mm; font-size: 6.8pt; color: #78350F; line-height: 1.4; font-weight: 600;">
-              <li style="margin-bottom: 1mm;">Port des Équipements de Protection Individuelle (EPI) obligatoire : gants nitrile, masque FFP2 et blouse.</li>
-              <li style="margin-bottom: 1mm;">Ne pas ouvrir, ni transvaser ni manipuler le contenu des fûts et cartons scellés.</li>
-              <li style="margin-bottom: 1mm;">Stockage exclusivement dans le local déchets agréé sous contrôle thermique et ventilation continue.</li>
-              <li>Interdiction formelle de dispersion ou d'évacuation dans le circuit des ordures ménagères.</li>
+            <ul style="margin: 0; padding-left: 4.5mm; font-size: 7pt; color: #78350F; line-height: 1.4; font-weight: 600;">
+              <li style="margin-bottom: 0.8mm;">Port des Équipements de Protection Individuelle (EPI) obligatoire.</li>
+              <li style="margin-bottom: 0.8mm;">Ne pas ouvrir, ni transvaser ni manipuler les contenants scellés.</li>
+              <li>Matière réservée à la filière officielle de destruction pharmaceutique ABMed.</li>
             </ul>
           </div>
 
@@ -393,23 +367,10 @@ export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: strin
 
       </div>
 
-      <!-- 5. SIGNATURES & VISAS OFFICIELS -->
-      <div style="margin-top: 4mm; border-top: 1px dashed #CBD5E1; padding-top: 3mm; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm;">
-        <div style="border: 1px solid #CBD5E1; border-radius: 6px; padding: 2.5mm 3.5mm; height: 24mm; display: flex; flex-direction: column; justify-content: space-between;">
-          <div style="font-size: 6.8pt; font-weight: 700; color: #64748B; text-transform: uppercase;">Visa & Signature du Déposant :</div>
-          <div style="font-size: 6.5pt; color: #94A3B8; text-align: center; border-bottom: 1px dotted #CBD5E1; padding-bottom: 1mm;">Nom & Signature autorisée</div>
-        </div>
-
-        <div style="border: 1px solid #CBD5E1; border-radius: 6px; padding: 2.5mm 3.5mm; height: 24mm; display: flex; flex-direction: column; justify-content: space-between;">
-          <div style="font-size: 6.8pt; font-weight: 700; color: #64748B; text-transform: uppercase;">Visa de l'Agent Récepteur ABMed :</div>
-          <div style="font-size: 6.5pt; color: #94A3B8; text-align: center; border-bottom: 1px dotted #CBD5E1; padding-bottom: 1mm;">Cachet officiel & Date de validation</div>
-        </div>
-      </div>
-
-      <!-- 6. PIED DE PAGE RÉGLEMENTAIRE INVIOLABLE -->
-      <div style="margin-top: 3mm; border-top: 1px solid #E2E8F0; padding-top: 2mm; display: flex; justify-content: space-between; align-items: center; font-size: 6pt; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px;">
-        <span>Autorité Béninoise de Régulation du Médicament (ABMed) • SGIE - PSQIF</span>
-        <span>Plateforme Nationale de Traçabilité eGED-ABMed • www.abmed.bj</span>
+      <!-- 4. PIED DE PAGE MINIMALISTE PROPRE (SANS SIGNATURES INUTILES) -->
+      <div style="margin-top: 5mm; border-top: 1px solid #CBD5E1; padding-top: 3mm; display: flex; justify-content: space-between; align-items: center; font-size: 7pt; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">
+        <span>Autorité Béninoise de Régulation du Médicament (ABMed) • eGED-SGIE</span>
+        <span>Plateforme Nationale de Traçabilité • www.abmed.bj</span>
       </div>
 
     </div>
@@ -562,7 +523,7 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
     <html>
       <head>
         <meta charset="utf-8">
-        <title>eGED-ABMed - Impression Officielle</title>
+        <title></title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
           ${styleString}
@@ -609,274 +570,205 @@ function drawWasteA4PagePDF(doc: jsPDF, item: LabelData, qrCodeDataUrl: string, 
   doc.setLineWidth(1.2);
   doc.rect(8, 8, 194, 281, 'S');
 
-  // 2. En-tête officiel
+  // 2. En-tête épuré officiel ABMed
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(30, 41, 59);
-  doc.text("RÉPUBLIQUE DU BÉNIN", 15, 18);
+  doc.setFontSize(15);
+  doc.setTextColor(220, 38, 38);
+  doc.text("ABMed • DÉCHETS PHARMACEUTIQUES", 15, 20);
 
   doc.setFontSize(8.5);
-  doc.setFont("Helvetica", "normal");
-  doc.setTextColor(100, 116, 139);
-  doc.text("MINISTÈRE DE LA SANTÉ", 15, 23);
-
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(9.5);
-  doc.setTextColor(220, 38, 38);
-  doc.text("AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)", 15, 28);
-
-  doc.setFont("Helvetica", "normal");
-  doc.setFontSize(7.5);
   doc.setTextColor(71, 85, 105);
-  doc.text("Direction de la Gestion des Déchets & Sécurité Pharmaceutique (PSQIF)", 15, 33);
+  doc.text("FICHE D'IDENTIFICATION & DE TRAÇABILITÉ (FÛT / CARTON)", 15, 26);
 
   // Réf droite
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
-  doc.text("eGED-ABMed • SGIE", 192, 18, { align: 'right' });
+  doc.text("eGED-ABMed • SGIE", 192, 19, { align: 'right' });
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Date d'émission : ${dateStr}`, 192, 23, { align: 'right' });
-  doc.text("Fiche Grand Format A4", 192, 28, { align: 'right' });
+  doc.text(`Date d'émission : ${dateStr}`, 192, 25, { align: 'right' });
 
   // Ligne de séparation en-tête
   doc.setDrawColor(220, 38, 38);
   doc.setLineWidth(0.8);
-  doc.line(15, 37, 192, 37);
+  doc.line(15, 30, 192, 30);
 
-  // 3. Titre du document
+  // 3. Bandeau N° Lot Déchet Grand Format
   doc.setFillColor(254, 242, 242); // Red-50
   doc.setDrawColor(252, 165, 165); // Red-300
-  doc.setLineWidth(0.4);
-  doc.rect(20, 42, 170, 13, 'FD');
+  doc.setLineWidth(0.6);
+  doc.roundedRect(15, 34, 177, 18, 3, 3, 'FD');
 
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(13);
-  doc.setTextColor(153, 27, 27);
-  doc.text("FICHE RÉGLEMENTAIRE D'IDENTIFICATION DU LOT DE DÉCHET", 105, 49, { align: 'center' });
-
-  doc.setFontSize(7.5);
-  doc.setFont("Helvetica", "normal");
-  doc.setTextColor(185, 28, 28);
-  doc.text("Étiquette A4 d'identification pour fûts, conteneurs, bacs et palettes de stockage", 105, 53, { align: 'center' });
-
-  // 4. Bandeau N° Lot Déchet
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.rect(15, 60, 179, 17, 'FD');
-
-  doc.setFont("Helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text("N° DE LOT DÉCHET OFFICIEL :", 20, 66);
+  doc.setTextColor(153, 27, 27);
+  doc.text("N° IDENTIFIANT DU LOT DÉCHET :", 20, 41);
 
   doc.setFont("Courier", "bold");
-  doc.setFontSize(16);
+  doc.setFontSize(19);
   doc.setTextColor(15, 23, 42);
-  doc.text(item.itemNumber, 20, 73);
+  doc.text(item.itemNumber, 20, 49);
 
   if (ex.receptionNumber) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Réf. Réception : ${ex.receptionNumber}`, 85, 71);
+    doc.text(`Réf. Réception : ${ex.receptionNumber}`, 90, 48);
   }
 
   // Statut Badge
-  doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text("STATUT RÉGLEMENTAIRE :", 188, 66, { align: 'right' });
-
   doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(220, 38, 38);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(135, 68, 55, 6.5, 3, 3, 'FD');
+  doc.setDrawColor(statusInfo.hex);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(140, 39, 48, 8, 4, 4, 'FD');
 
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(7.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(statusInfo.hex);
-  doc.text(`● ${item.status || 'Déclaré'}`.toUpperCase(), 162.5, 72.5, { align: 'center' });
+  doc.text(`● ${item.status || 'Déclaré'}`.toUpperCase(), 164, 44.5, { align: 'center' });
 
-  // 5. Blocs d'informations gauche (X: 15 à 120)
-  let curY = 83;
+  // 4. Blocs d'informations gauche (X: 15 à 110, W: 95)
+  const leftX = 15;
+  const leftW = 95;
 
   // BLOC 1 : CARACTÉRISTIQUES
+  let curY = 56;
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.3);
-  doc.rect(15, curY, 105, 52, 'FD');
+  doc.roundedRect(leftX, curY, leftW, 86, 3, 3, 'FD');
 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(185, 28, 28);
-  doc.text("1. CARACTÉRISTIQUES DU DÉCHET RÉCEPTIONNÉ", 19, curY + 6);
+  doc.text("1. INFORMATIONS DU DÉCHET", leftX + 4, curY + 6);
   doc.setDrawColor(254, 226, 226);
-  doc.line(19, curY + 8, 115, curY + 8);
+  doc.line(leftX + 4, curY + 8, leftX + leftW - 4, curY + 8);
 
   const drawField = (label: string, value: string, yPos: number, isBig = false) => {
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(label, 19, yPos);
+    doc.text(label, leftX + 4, yPos);
 
     if (isBig) {
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(10);
+      doc.setFontSize(13);
       doc.setTextColor(185, 28, 28);
     } else {
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(7.5);
       doc.setTextColor(15, 23, 42);
     }
-    const safeVal = doc.splitTextToSize(value || '—', 65);
-    doc.text(safeVal, 52, yPos);
+    const safeVal = doc.splitTextToSize(value || '—', 56);
+    doc.text(safeVal, leftX + 36, yPos);
   };
 
-  drawField("Classification :", ex.category || item.productName || 'Déchet standard', curY + 14);
-  drawField("Dénomination :", item.productName || '—', curY + 21);
-  drawField("N° Lot d'origine :", ex.originalBatch || item.batchNumber || '—', curY + 28);
-  drawField("Quantité / Poids :", ex.weight || '1 Kg', curY + 36, true);
-  drawField("Conditionnement :", ex.packaging || 'Cartons fermés et scellés', curY + 43);
-  drawField("Motif de rejet :", ex.motive || 'Péremption / Non-conformité', curY + 49);
+  drawField("Classification :", ex.category || item.productName || 'Déchet standard', curY + 15);
+  drawField("Dénomination :", item.productName || '—', curY + 24);
+  drawField("N° Lot d'origine :", ex.originalBatch || item.batchNumber || '—', curY + 33);
+  drawField("Quantité / Poids :", ex.weight || '1 Kg', curY + 44, true);
+  drawField("Conditionnement :", ex.packaging || 'Fûts / Cartons scellés', curY + 55);
+  drawField("Motif de rejet :", ex.motive || 'Péremption / Non-conformité', curY + 66);
 
-  // BLOC 2 : PROVENANCE
-  curY = 140;
-  doc.rect(15, curY, 105, 38, 'FD');
+  // BLOC 2 : PROVENANCE & STOCKAGE
+  curY = 146;
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(leftX, curY, leftW, 88, 3, 3, 'FD');
 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(30, 64, 175);
-  doc.text("2. PROVENANCE & STRUCTURE DÉPOSANTE", 19, curY + 6);
+  doc.text("2. PROVENANCE & STOCKAGE", leftX + 4, curY + 6);
   doc.setDrawColor(219, 234, 254);
-  doc.line(19, curY + 8, 115, curY + 8);
-
-  drawField("Structure :", ex.sourceStructure || 'Interne ABMed', curY + 14);
-  drawField("Type d'entité :", ex.sourceType || 'Établissement Pharmaceutique', curY + 21);
-  drawField("Apporteur :", `${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}`, curY + 28);
-  drawField("Date déclaration :", ex.declarationDate || dateStr, curY + 34);
-
-  // BLOC 3 : LOCALISATION
-  curY = 183;
-  doc.rect(15, curY, 105, 34, 'FD');
-
-  doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(15, 92, 74);
-  doc.text("3. LOCALISATION & GESTION EN STOCK", 19, curY + 6);
-  doc.setDrawColor(209, 250, 229);
-  doc.line(19, curY + 8, 115, curY + 8);
+  doc.line(leftX + 4, curY + 8, leftX + leftW - 4, curY + 8);
 
   const locRaw = item.location?.raw || (item.location?.salle ? `${item.location.salle} — ${item.location.zone || ''}` : 'Local Déchets Central');
-  drawField("Emplacement :", locRaw, curY + 14);
-  drawField("Planification :", ex.destructionPlan || 'En attente de plan de destruction', curY + 22);
-  drawField("Agent Récepteur :", ex.recipientAgent || 'Marie ADANDE (ABMed)', curY + 29);
+  drawField("Structure Source :", ex.sourceStructure || 'Interne ABMed', curY + 16);
+  drawField("Apporteur :", `${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}`, curY + 28);
+  drawField("Emplacement :", locRaw, curY + 40);
+  drawField("Destruction :", ex.destructionPlan || 'En attente de planification', curY + 52);
+  drawField("Date d'entrée :", ex.declarationDate || dateStr, curY + 64);
 
-  // 6. Blocs droits : GRAND QR CODE & SÉCURITÉ (X: 125 à 194)
-  const rightX = 125;
-  const rightW = 69;
+  // 5. Blocs droits : TRÈS GRAND CODE QR & SÉCURITÉ (X: 115 à 192, W: 77)
+  const rightX = 115;
+  const rightW = 77;
 
-  // CADRE QR CODE
+  // CADRE QR CODE GÉANT
   doc.setFillColor(255, 253, 253);
   doc.setDrawColor(220, 38, 38);
-  doc.setLineWidth(0.6);
-  doc.rect(rightX, 83, rightW, 77, 'FD');
+  doc.setLineWidth(0.8);
+  doc.roundedRect(rightX, 56, rightW, 126, 3, 3, 'FD');
 
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(8.5);
+  doc.setFontSize(9);
   doc.setTextColor(153, 27, 27);
-  doc.text("CODE QR RÉCAPITULATIF PRODUIT", rightX + rightW / 2, 90, { align: 'center' });
+  doc.text("CODE QR RÉCAPITULATIF PRODUIT", rightX + rightW / 2, 63, { align: 'center' });
 
-  // Image QR Code (48mm x 48mm)
+  // Image QR Code Géant (74mm x 74mm)
   if (qrCodeDataUrl) {
     try {
-      const qrSize = 48;
+      const qrSize = 74;
       const qrPosX = rightX + (rightW - qrSize) / 2;
-      doc.addImage(qrCodeDataUrl, 'PNG', qrPosX, 94, qrSize, qrSize);
+      doc.addImage(qrCodeDataUrl, 'PNG', qrPosX, 67, qrSize, qrSize);
     } catch (e) {
       console.error("QR Code image error", e);
     }
   }
 
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text("Scannez ce QR Code avec tout smartphone pour", rightX + rightW / 2, 147, { align: 'center' });
+  doc.text("afficher le récapitulatif officiel certifié eGED-ABMed.", rightX + rightW / 2, 151, { align: 'center' });
+
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(6.5);
-  doc.setTextColor(71, 85, 105);
-  doc.text("Scannez ce QR Code avec tout smartphone pour", rightX + rightW / 2, 148, { align: 'center' });
-  doc.text("afficher le récapitulatif officiel certifié eGED-ABMed.", rightX + rightW / 2, 152, { align: 'center' });
+  doc.setTextColor(100, 116, 139);
+  doc.text("Compatible caméra mobile & terminaux optiques", rightX + rightW / 2, 156, { align: 'center' });
 
   // CADRE CONSIGNES DE SÉCURITÉ
   doc.setFillColor(255, 251, 235); // Amber-50
   doc.setDrawColor(245, 158, 11); // Amber-500
   doc.setLineWidth(0.5);
-  doc.rect(rightX, 165, rightW, 52, 'FD');
+  doc.roundedRect(rightX, 186, rightW, 48, 3, 3, 'FD');
 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(180, 83, 9);
-  doc.text("⚠️ CONSIGNES DE SÉCURITÉ STRICTES", rightX + 4, 172);
+  doc.text("⚠️ CONSIGNES DE SÉCURITÉ STRICTES", rightX + 4, 193);
 
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(6.8);
+  doc.setFontSize(7);
   doc.setTextColor(120, 53, 15);
   const secLines = [
-    "• Port obligatoire des EPI (gants nitrile, masque FFP2, blouse).",
-    "• Ne pas ouvrir, transvaser ni manipuler les contenants scellés.",
-    "• Stockage exclusif dans le local déchets agréé sous contrôle.",
-    "• Interdiction formelle de rejet dans les ordures ménagères."
+    "• Port obligatoire des EPI (gants, masque, blouse).",
+    "• Ne pas ouvrir ni manipuler les contenants scellés.",
+    "• Stockage exclusif dans le local déchets agréé.",
+    "• Matière réservée à l'incinération officielle ABMed."
   ];
-  let secY = 179;
+  let secY = 200;
   secLines.forEach(l => {
     const wrapped = doc.splitTextToSize(l, rightW - 8);
     doc.text(wrapped, rightX + 4, secY);
     secY += (wrapped.length * 4) + 1.5;
   });
 
-  // 7. Cadres de Signatures & Visas
-  curY = 223;
-  const sigW = 86;
-  const sigH = 38;
-
-  // Signature 1
-  doc.setFillColor(255, 255, 255);
+  // 6. Pied de page épuré officiel (AUCUNE SIGNATURE INUTILE)
   doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.3);
-  doc.rect(15, curY, sigW, sigH, 'S');
+  doc.setLineWidth(0.4);
+  doc.line(15, 242, 192, 242);
 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text("VISA & SIGNATURE DE L'APPORTEUR / DÉPOSANT :", 18, curY + 6);
-
-  doc.setFont("Helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text("Nom & Signature autorisée :", 18, curY + sigH - 4);
-
-  // Signature 2
-  doc.rect(108, curY, sigW, sigH, 'S');
-
-  doc.setFont("Helvetica", "bold");
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text("VISA & SIGNATURE DE L'AGENT RÉCEPTEUR ABMed :", 111, curY + 6);
-
-  doc.setFont("Helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text("Cachet officiel & Date de validation :", 111, curY + sigH - 4);
-
-  // 8. Pied de page officiel
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(15, 269, 194, 269);
-
-  doc.setFont("Helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.setTextColor(148, 163, 184);
-  doc.text("AUTORITÉ BÉNINOISE DE RÉGULATION DU MÉDICAMENT (ABMed) • DIRECTION DE LA GESTION DES DÉCHETS", 15, 274);
-  doc.text("PLATEFORME NATIONALE eGED-ABMed • WWW.ABMED.BJ", 194, 274, { align: 'right' });
+  doc.text("AUTORITÉ BÉNINOISE DU MÉDICAMENT (ABMed) • eGED-SGIE", 15, 248);
+  doc.text("PLATEFORME NATIONALE DE TRAÇABILITÉ • WWW.ABMED.BJ", 192, 248, { align: 'right' });
 }
 
 /**
