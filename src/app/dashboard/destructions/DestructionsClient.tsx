@@ -83,7 +83,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
         execution_date: lp.execution_date || null,
         destruction_method: lp.destruction_method || 'Incinération',
         destruction_site: lp.destruction_site || 'Centre Agréé',
-        supervisor_name: lp.supervisor_name || 'Marie ADANDE',
+        supervisor_name: lp.supervisor_name || 'Admin EGED',
         observations: lp.observations || '',
         certificate_number: lp.certificate_number || null,
         status: lp.status || 'En préparation',

@@ -62,7 +62,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       source_structure: structureName,
       source_type: "Officine / Grossiste / Établissement de Santé",
       city: "Cotonou",
-      supervisor_name: plan.supervisor_name || "Marie ADANDE (Resp. Déchets ABMed)",
+      supervisor_name: plan.supervisor_name || "Admin EGED (Resp. Déchets ABMed)",
       quality_manager_name: "Dr. Christian KOSSOU (Resp. Assurance Qualité)",
       items: itemsToCertify.map((it: any) => ({
         batch_number: it.waste_batch?.batch_number || "N/A",
@@ -265,7 +265,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           waste_type: wb.waste_type || 'Déchets pharmaceutiques',
           commercial_name: wb.commercial_name || '',
           quantity: `${item.quantity || wb.quantity || 1} ${wb.unit || 'Kg'}`,
-          operator: plan.supervisor_name || 'Marie ADANDE (Resp. Déchets)',
+          operator: plan.supervisor_name || 'Admin EGED (Resp. Déchets)',
           origin: wb.current_location || 'MAGASIN DES DECHETS',
           destination: plan.destruction_site || 'Centre d\'Incinération Agréé',
           certificate_number: certNum,
@@ -593,7 +593,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                   <p className="pt-1"><span className="text-slate-500">Méthode :</span> {plan.destruction_method || "Incinération haute température (>1200°C)"}</p>
                   <p><span className="text-slate-500">Site :</span> {plan.destruction_site || "Centre d'Incinération Agréé Cotonou"}</p>
                   <p><span className="text-slate-500">Contrôle :</span> Procédure réglementaire à Quatre Yeux</p>
-                  <p><span className="text-slate-500">Superviseur :</span> {plan.supervisor_name || "Marie ADANDE (Resp. Déchets)"}</p>
+                  <p><span className="text-slate-500">Superviseur :</span> {plan.supervisor_name || "Admin EGED (Resp. Déchets)"}</p>
                 </div>
 
               </div>
@@ -673,7 +673,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                       LE RESPONSABLE GESTION DES DÉCHETS
                     </p>
                     <p className="text-[10px] text-slate-500">
-                      {plan.supervisor_name || "Marie ADANDE"}
+                      {plan.supervisor_name || "Admin EGED"}
                     </p>
                     <p className="text-[10px] text-slate-500">
                       Direction de la Gestion des Déchets — ABMed

@@ -89,7 +89,7 @@ export default function NewWasteReceptionPage() {
       reception_date: new Date().toISOString().split("T")[0],
       reception_time: new Date().toTimeString().substring(0, 5),
       delivery_slip_ref: "",
-      recipient_agent: "Marie ADANDE (Agent ABMed)",
+      recipient_agent: "Admin EGED (Agent ABMed)",
 
       source_structure: "",
       source_type: "Officine privée de pharmacie",
@@ -380,7 +380,7 @@ export default function NewWasteReceptionPage() {
         waste_type: b.waste_type,
         commercial_name: b.commercial_name,
         quantity: `${b.quantity} ${b.unit}`,
-        operator: values.recipient_agent || 'Marie ADANDE',
+        operator: values.recipient_agent || 'Admin EGED',
         destination: b.current_location,
         origin: `${values.source_structure} (${values.depositor_name})`,
         reception_number: values.reception_number,

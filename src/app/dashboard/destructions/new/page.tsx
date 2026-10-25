@@ -51,7 +51,7 @@ export default function NewDestructionPlanPage() {
       planned_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       destruction_method: "Incinération haute température (>1200°C)",
       destruction_site: "Centre d'Incinération Agréé Cotonou",
-      supervisor_name: "Marie ADANDE (Responsable Déchets ABMed)",
+      supervisor_name: "Admin EGED (Responsable Déchets ABMed)",
       observations: "",
       selected_batches: [],
     },

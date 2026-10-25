@@ -120,7 +120,7 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
       reception_date: wasteBatch.reception_date || (wasteBatch.created_at ? new Date(wasteBatch.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
       reception_time: wasteBatch.reception_time || '09:00',
       delivery_slip_ref: wasteBatch.delivery_slip_ref || 'Remise directe sur site',
-      recipient_agent: wasteBatch.recipient_agent || (wasteBatch.creator ? `${wasteBatch.creator.first_name} ${wasteBatch.creator.last_name}` : 'Marie ADANDE (Agent ABMed)'),
+      recipient_agent: wasteBatch.recipient_agent || (wasteBatch.creator ? `${wasteBatch.creator.first_name} ${wasteBatch.creator.last_name}` : 'Admin EGED (Agent ABMed)'),
       source_structure: wasteBatch.source_structure || 'Structure Déposante Référencée',
       source_type: wasteBatch.source_type || 'Officine / Établissement de Santé',
       city: wasteBatch.city || 'Cotonou',
@@ -464,7 +464,7 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
                     <p className="text-[10px] font-bold text-muted-foreground uppercase border-b border-border/40 pb-1">
                       2. Prise en charge ABMed
                     </p>
-                    <p><span className="text-muted-foreground">Agent Récepteur :</span> <strong>{wasteBatch.recipient_agent || (wasteBatch.creator ? `${wasteBatch.creator.first_name} ${wasteBatch.creator.last_name}` : 'Marie ADANDE')}</strong></p>
+                    <p><span className="text-muted-foreground">Agent Récepteur :</span> <strong>{wasteBatch.recipient_agent || (wasteBatch.creator ? `${wasteBatch.creator.first_name} ${wasteBatch.creator.last_name}` : 'Admin EGED')}</strong></p>
                     <p><span className="text-muted-foreground">Lot Déchet ABMed :</span> <span className="font-mono font-bold">{wasteBatch.batch_number}</span></p>
                     <p><span className="text-muted-foreground">Quantité / Poids :</span> <strong>{wasteBatch.quantity} {wasteBatch.unit}</strong></p>
                     <p><span className="text-muted-foreground">Localisation :</span> {wasteBatch.current_location || 'Zone Quarantaine'}</p>
@@ -498,7 +498,7 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="border border-border/70 rounded-xl p-3 min-h-[90px] flex flex-col justify-between">
                     <div>
                       <p className="font-bold text-[10px] uppercase text-foreground">POUR L&apos;ABMed (AGENT RÉCEPTEUR)</p>
-                      <p className="text-[10px] text-muted-foreground">{wasteBatch.recipient_agent || 'Marie ADANDE'}</p>
+                      <p className="text-[10px] text-muted-foreground">{wasteBatch.recipient_agent || 'Admin EGED'}</p>
                       <p className="text-[9px] text-muted-foreground">Direction Déchets Pharmaceutiques</p>
                     </div>
                     <div className="border-t border-dashed border-border/60 pt-1 text-[9px] text-muted-foreground">

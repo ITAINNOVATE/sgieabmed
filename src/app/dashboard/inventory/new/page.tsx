@@ -179,7 +179,7 @@ export default function NewInventoryPage() {
         inventory_type: values.inventory_type,
         status: 'En cours',
         items_count: items.length,
-        controller: 'Marie ADANDE',
+        controller: 'Admin EGED',
         observations: JSON.stringify({ items, completed_at: null }),
         created_at: nowIso,
       }, { onConflict: 'inv_number' })

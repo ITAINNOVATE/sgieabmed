@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,14 +12,32 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { getCurrentUser, setCurrentUser } from "@/app/dashboard/admin/adminMockData"
 
 export default function ProfileClient() {
+  const [currentUser, setCurrentUserState] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [phone, setPhone] = useState("+229 97 00 01 02")
-  const [email, setEmail] = useState("marie.adande@abmed.bj")
+  const [phone, setPhone] = useState("+229 01 97 00 00 01")
+  const [email, setEmail] = useState("admin@eged.bj")
+  const [displayName, setDisplayName] = useState("Admin EGED")
+
+  useEffect(() => {
+    const u = getCurrentUser()
+    if (u) {
+      setCurrentUserState(u)
+      setDisplayName(`${u.first_name} ${u.last_name}`)
+      if (u.phone) setPhone(u.phone)
+      if (u.email) setEmail(u.email)
+    }
+  }, [])
 
   const handleSave = () => {
     setIsEditing(false)
+    if (currentUser) {
+      const updated = { ...currentUser, phone, email }
+      setCurrentUser(updated)
+      setCurrentUserState(updated)
+    }
     toast.success("Profil mis à jour avec succès !")
   }
 
@@ -61,19 +79,23 @@ export default function ProfileClient() {
         {/* COLONNE GAUCHE : CARTE IDENTITÉ */}
         <Card className="md:col-span-4 shadow-2xs border border-border/70 rounded-xl bg-card flex flex-col items-center justify-center p-4 text-center">
           <Avatar className="h-20 w-20 border-4 border-[#1B5C2E]/20 shadow-md mb-2">
-            <AvatarImage src="/avatar.png" alt="Marie ADANDE" />
-            <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-xl">MA</AvatarFallback>
+            <AvatarImage src="/avatar.png" alt={displayName} />
+            <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-xl">
+              {currentUser ? `${currentUser.first_name?.[0] || ''}${currentUser.last_name?.[0] || ''}` : "AE"}
+            </AvatarFallback>
           </Avatar>
           
-          <h3 className="text-base font-black text-foreground leading-tight">Marie ADANDE</h3>
-          <p className="text-xs text-muted-foreground font-medium mt-0.5">Administrateur Système & Sécurité</p>
+          <h3 className="text-base font-black text-foreground leading-tight">{displayName}</h3>
+          <p className="text-xs text-muted-foreground font-medium mt-0.5">
+            {currentUser?.role || "Administrateur Système & Sécurité"}
+          </p>
 
           <div className="flex items-center gap-1.5 mt-2">
             <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] gap-1">
               <CheckCircle2 className="h-3 w-3" /> Compte Actif
             </Badge>
             <Badge variant="outline" className="text-[10px] bg-background">
-              Matricule: ABM-001
+              Matricule: {currentUser?.matricule || "ABM-ADMIN-01"}
             </Badge>
           </div>
 

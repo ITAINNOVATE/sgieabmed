@@ -202,7 +202,7 @@ function ReceptionsContent() {
                 date_reception: parsed.formData?.date_reception || new Date().toISOString().split('T')[0],
                 supplier: parsed.formData?.supplier || "DEMANDEUR NON PRÉCISÉ",
                 status: parsed.status || parsed.formData?.status || "En attente de validation",
-                inspector: parsed.formData?.inspector || "Marie ADANDE",
+                inspector: parsed.formData?.inspector || "Admin EGED",
                 created_at: parsed.formData?.created_at || new Date().toISOString(),
                 samples: [{ count: sampleCount }],
               })
@@ -344,7 +344,7 @@ function ReceptionsContent() {
               time_reception: fd.time_reception || '08:00',
               ref_document: fd.ref_document || null,
               type_reception: fd.type_reception || null,
-              inspector: fd.inspector || item.inspector || "Marie ADANDE",
+              inspector: fd.inspector || item.inspector || "Admin EGED",
               status: remoteItem?.status === 'Validée' ? 'Validée' : (item.status || fd.status || "En attente de validation"),
               supplier: fd.supplier || item.supplier || "DEMANDEUR NON PRÉCISÉ",
               manufacturer: fd.manufacturer || null,

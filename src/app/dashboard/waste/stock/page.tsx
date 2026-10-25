@@ -656,7 +656,7 @@ export default function WasteStockPage() {
                       reception_date: item.reception_date ? new Date(item.reception_date).toLocaleDateString("fr-FR") : new Date().toLocaleDateString("fr-FR"),
                       reception_time: "08:00",
                       delivery_slip_ref: "N/A",
-                      recipient_agent: "Marie ADANDE",
+                      recipient_agent: "Admin EGED",
                       source_structure: item.source_structure || "Interne ABMed",
                       source_type: item.source_type || "Établissement Pharmaceutique",
                       city: "Cotonou",

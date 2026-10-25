@@ -112,19 +112,19 @@ const MOCK_ROLES: UserRole[] = [
 const MOCK_USERS: User[] = [
   {
     id: "usr-1",
-    first_name: "Marie",
-    last_name: "ADANDE",
-    matricule: "ABM-2024-001",
+    first_name: "Admin",
+    last_name: "EGED",
+    matricule: "ABM-ADMIN-01",
     fonction: "Administrateur Système & Sécurité",
     department_id: "dept-5",
     role: "Administrateur Système",
-    phone: "+229 97 00 01 02",
-    email: "marie.adande@abmed.bj",
-    username: "m.adande",
+    phone: "+229 01 97 00 00 01",
+    email: "admin@eged.bj",
+    username: "admin",
     photo_url: "/avatar.png",
     status: "Actif",
     created_at: "2026-01-10T08:00:00Z",
-    last_login: "2026-07-29T10:30:00Z",
+    last_login: "2026-10-25T14:30:00Z",
     mfa_enabled: true,
     login_attempts: 0,
     locked_until: null,
@@ -316,7 +316,7 @@ const MOCK_LOGIN_LOGS: LoginLog[] = [
 ]
 
 const MOCK_AUDIT_LOGS: AdminAuditLog[] = [
-  { id: "aud-1", username: "Marie ADANDE", action: "Modification", entity_type: "Sécurité", details: "Mise à jour de la politique de sécurité et traçabilité", ip_address: "197.234.221.15", created_at: new Date().toISOString() }
+  { id: "aud-1", username: "Admin EGED", action: "Modification", entity_type: "Sécurité", details: "Mise à jour de la politique de sécurité et traçabilité", ip_address: "197.234.221.15", created_at: new Date().toISOString() }
 ]
 
 // Fallback modules
@@ -1048,10 +1048,12 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
   )
 
   // Compte par défaut administrateur
-  if (!user && (idLower === 'admin@sgie.com' || idLower === 'admin')) {
+  if (!user && (idLower === 'admin@sgie.com' || idLower === 'admin' || idLower === 'admin@eged.bj' || idLower === 'admin.eged')) {
     const defaultAdmin: User = {
       ...MOCK_USERS[0],
-      email: 'admin@sgie.com',
+      first_name: "Admin",
+      last_name: "EGED",
+      email: idLower.includes('@') ? idLower : 'admin@eged.bj',
       username: 'admin'
     }
     if (passwordAttempt === 'Password123!' || passwordAttempt === 'admin' || passwordAttempt === 'eGed2026!') {
@@ -1078,6 +1080,8 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
     (user.initial_password && passwordAttempt === user.initial_password) ||
     (passwordAttempt === "Password123!") ||
     (passwordAttempt === "eGed2026!") ||
+    (passwordAttempt === "admin") ||
+    (user.username === "admin" && passwordAttempt === "Password123!") ||
     (user.username === "m.adande" && passwordAttempt === "Password123!")
 
   if (!isMatch) {
@@ -1169,7 +1173,7 @@ export const recordAuditLog = (
   ipAddress: string = "197.234.221.15"
 ): AdminAuditLog => {
   const currentUser = getCurrentUser()
-  const effectiveUser = username || (currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Marie ADANDE")
+  const effectiveUser = username || (currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Admin EGED")
   const newLog: AdminAuditLog = {
     id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     username: effectiveUser,
@@ -1206,7 +1210,7 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
   if (localLogs.length === 0) {
     const now = Date.now()
     const currentUser = getCurrentUser()
-    const activeUsername = currentUser?.username || "m.adande"
+    const activeUsername = currentUser?.username || "admin"
     
     localLogs = [
       {
@@ -1335,7 +1339,7 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
       receptions.slice(0, 8).forEach((rec: any) => {
         dynamicLogs.push({
           id: `aud-rec-${rec.id || rec.rec_number}`,
-          username: rec.operator || 'Marie ADANDE',
+          username: rec.operator || 'Admin EGED',
           action: 'Création',
           entity_type: 'Réception Échantillons',
           details: `Enregistrement du bordereau ${rec.rec_number} (${rec.source || 'Fournisseur'})`,
@@ -1349,7 +1353,7 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
       sampleInvs.slice(0, 5).forEach((inv: any) => {
         dynamicLogs.push({
           id: `aud-inv-${inv.id || inv.inv_number}`,
-          username: inv.controller || 'Marie ADANDE',
+          username: inv.controller || 'Admin EGED',
           action: inv.status === 'Validé' ? 'Validation' : 'Initialisation',
           entity_type: 'Inventaire Échantillons',
           details: `Session ${inv.name || inv.inv_number} - Statut : ${inv.status} (${inv.items?.length || 0} articles)`,
@@ -1363,7 +1367,7 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
       wasteInvs.slice(0, 5).forEach((winv: any) => {
         dynamicLogs.push({
           id: `aud-winv-${winv.id || winv.inv_number}`,
-          username: winv.controller || 'Marie ADANDE',
+          username: winv.controller || 'Admin EGED',
           action: winv.status === 'Validé' ? 'Validation' : 'Contrôle',
           entity_type: 'Inventaire Déchets',
           details: `Session ${winv.name || winv.inv_number} (${winv.location}) - Masse pesée : ${winv.physical_weight || 0} Kg (Écart: ${winv.diff || 0} Kg)`,
@@ -1377,7 +1381,7 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
       customUsers.forEach((u: any) => {
         dynamicLogs.push({
           id: `aud-usr-${u.id || u.username}`,
-          username: 'Marie ADANDE (Admin)',
+          username: 'Admin EGED',
           action: 'Création Compte',
           entity_type: 'Habilitation Utilisateur',
           details: `Création du compte utilisateur pour ${u.first_name} ${u.last_name} (${u.role}) avec mot de passe initial`,
@@ -1396,7 +1400,7 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
   if (auditMap.size === 0) {
     auditMap.set('aud-initial-1', {
       id: 'aud-initial-1',
-      username: 'Marie ADANDE',
+      username: 'Admin EGED',
       action: 'Initialisation',
       entity_type: 'Sécurité & Audit',
       details: 'Activation du moteur de traçabilité et synchronisation temps réel des audits',

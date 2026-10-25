@@ -1,15 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { 
   Bell, Mail, Scan, ChevronDown, CheckCheck, Clock, ShieldAlert, 
-  Package, Trash2, FileText, User, Settings, Lock, LogOut, ExternalLink, Plus
+  Package, Trash2, FileText, User, Settings, Lock, LogOut, ExternalLink, Plus,
+  CheckCircle2, Send, MessageSquare, AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +23,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import Link from "next/link"
 import dynamic from "next/dynamic"
@@ -30,108 +49,256 @@ const QRCodeScannerDialog = dynamic(
   { ssr: false }
 )
 
+const DEFAULT_ADMIN: AdminUser = {
+  id: "usr-1",
+  first_name: "Admin",
+  last_name: "EGED",
+  matricule: "ABM-ADMIN-01",
+  fonction: "Administrateur Système & Sécurité",
+  department_id: "dept-5",
+  role: "Administrateur Système",
+  phone: "+229 01 97 00 00 01",
+  email: "admin@eged.bj",
+  username: "admin",
+  photo_url: "/avatar.png",
+  status: "Actif",
+  created_at: "2026-01-10T08:00:00Z",
+  last_login: "2026-10-25T14:30:00Z",
+  mfa_enabled: true,
+  login_attempts: 0,
+  locked_until: null,
+  must_change_password: false,
+}
+
+interface RealNotification {
+  id: string
+  type: "reception" | "alert" | "waste" | "report" | "security"
+  title: string
+  description: string
+  time: string
+  href: string
+  read?: boolean
+}
+
+interface RealMessage {
+  id: string
+  sender: string
+  recipient: string
+  role: string
+  subject: string
+  text: string
+  time: string
+  avatar: string
+  read: boolean
+}
+
+const MESSAGES_STORAGE_KEY = "eged_messages_v1"
+const READ_NOTIFS_STORAGE_KEY = "eged_read_notifications_v1"
+
 export function HeaderActions() {
-  const [currentUser, setCurrentUserLocal] = useState<AdminUser | null>(null)
+  const [currentUser, setCurrentUserLocal] = useState<AdminUser>(DEFAULT_ADMIN)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
-  const [unreadNotifsCount, setUnreadNotifsCount] = useState(6)
-  const [unreadMsgCount, setUnreadMsgCount] = useState(3)
-  const [phone, setPhone] = useState("+229 97 00 01 02")
-  const [email, setEmail] = useState("marie.adande@abmed.bj")
-  const [isEditing, setIsEditing] = useState(false)
+  const [phone, setPhone] = useState("+229 01 97 00 00 01")
+  const [email, setEmail] = useState("admin@eged.bj")
 
-  useEffect(() => {
+  // Données réelles notifications & messages
+  const [notifications, setNotifications] = useState<RealNotification[]>([])
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0)
+  const [messages, setMessages] = useState<RealMessage[]>([])
+  const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0)
+
+  // Dialogue nouveau message
+  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
+  const [msgRecipient, setMsgRecipient] = useState("Support Technique ABMed")
+  const [msgSubject, setMsgSubject] = useState("")
+  const [msgContent, setMsgContent] = useState("")
+  const [isSendingMsg, setIsSendingMsg] = useState(false)
+
+  // Lecture des alertes & réceptions réelles du système
+  const refreshRealData = useCallback(() => {
+    if (typeof window === "undefined") return
+
+    // 1. Profil utilisateur actif
     const u = getCurrentUser()
     if (u) {
       setCurrentUserLocal(u)
       if (u.phone) setPhone(u.phone)
       if (u.email) setEmail(u.email)
+    } else {
+      setCurrentUserLocal(DEFAULT_ADMIN)
+      setPhone(DEFAULT_ADMIN.phone)
+      setEmail(DEFAULT_ADMIN.email)
     }
+
+    const isWiped = localStorage.getItem("all_data_wiped") === "true"
+    let readNotifIds: string[] = []
+    try {
+      readNotifIds = JSON.parse(localStorage.getItem(READ_NOTIFS_STORAGE_KEY) || "[]")
+    } catch (e) {}
+
+    const realNotifs: RealNotification[] = []
+
+    if (!isWiped) {
+      // 1.1 Réceptions réelles en attente
+      try {
+        const receptions = JSON.parse(localStorage.getItem("reception_history_records") || "[]")
+        const pendingRecs = receptions.filter((r: any) => 
+          r.status && r.status !== "Validée" && r.status !== "Finalisé" && r.status !== "Refusé"
+        )
+        pendingRecs.forEach((r: any) => {
+          realNotifs.push({
+            id: `notif-rec-${r.rec_number || r.id}`,
+            type: "reception",
+            title: `Réception ${r.rec_number || "en cours"}`,
+            description: `Bordereau ${r.rec_number} (${r.supplier || "Apporteur"}) en attente de validation qualité.`,
+            time: r.date_reception ? `Date : ${r.date_reception}` : "En instance",
+            href: "/dashboard/receptions?status=en_attente",
+            read: readNotifIds.includes(`notif-rec-${r.rec_number || r.id}`),
+          })
+        })
+
+        // 1.2 Déchets & plans de destruction réels en attente
+        const destPlans = JSON.parse(localStorage.getItem("destruction_plans_custom_v1") || "[]")
+        const pendingPlans = destPlans.filter((p: any) => p.status === "En attente" || p.status === "Brouillon")
+        pendingPlans.forEach((p: any) => {
+          realNotifs.push({
+            id: `notif-plan-${p.plan_number || p.id}`,
+            type: "waste",
+            title: `Plan de destruction ${p.plan_number || ""}`,
+            description: `Session de neutralisation de ${p.total_weight || 0} kg en attente d'exécution.`,
+            time: p.scheduled_date ? `Prévu le ${p.scheduled_date}` : "À planifier",
+            href: "/dashboard/destructions",
+            read: readNotifIds.includes(`notif-plan-${p.plan_number || p.id}`),
+          })
+        })
+      } catch (e) {}
+    }
+
+    setNotifications(realNotifs)
+    const unreadNotifs = realNotifs.filter(n => !n.read).length
+    setUnreadNotifsCount(unreadNotifs)
+
+    // 1.3 Messages réels
+    try {
+      const storedMsgs = localStorage.getItem(MESSAGES_STORAGE_KEY)
+      if (storedMsgs) {
+        const parsedMsgs: RealMessage[] = JSON.parse(storedMsgs)
+        if (Array.isArray(parsedMsgs)) {
+          setMessages(parsedMsgs)
+          setUnreadMsgCount(parsedMsgs.filter(m => !m.read).length)
+          return
+        }
+      }
+    } catch (e) {}
+
+    // Par défaut, si aucune discussion n'a été créée, boîte vierge à 0
+    setMessages([])
+    setUnreadMsgCount(0)
   }, [])
 
-  const notifications = [
-    {
-      id: 1,
-      type: "alert",
-      title: "Alerte Péremption",
-      description: "3 lots de Paracétamol expirent dans 15 jours.",
-      time: "il y a 10 min",
-      icon: <ShieldAlert className="h-4 w-4 text-red-600" />,
-      bg: "bg-red-50 dark:bg-red-950/30"
-    },
-    {
-      id: 2,
-      type: "temp",
-      title: "Chambre Froide 02",
-      description: "Température repassée sous le seuil critique (+4°C).",
-      time: "il y a 35 min",
-      icon: <Clock className="h-4 w-4 text-amber-600" />,
-      bg: "bg-amber-50 dark:bg-amber-950/30"
-    },
-    {
-      id: 3,
-      type: "reception",
-      title: "Nouveau mouvement",
-      description: "Réception REC-2026-004 assignée à l'Armoire B2.",
-      time: "il y a 1h",
-      icon: <Package className="h-4 w-4 text-[#1B5C2E]" />,
-      bg: "bg-emerald-50 dark:bg-emerald-950/30"
-    },
-    {
-      id: 4,
-      type: "waste",
-      title: "Plan de destruction",
-      description: "Session d'incinération validée par le responsable.",
-      time: "il y a 3h",
-      icon: <Trash2 className="h-4 w-4 text-red-500" />,
-      bg: "bg-red-50 dark:bg-red-950/30"
-    },
-    {
-      id: 5,
-      type: "report",
-      title: "Rapport d'audit",
-      description: "Rapport trimestriel généré avec succès en PDF.",
-      time: "il y a 5h",
-      icon: <FileText className="h-4 w-4 text-blue-600" />,
-      bg: "bg-blue-50 dark:bg-blue-950/30"
-    },
-    {
-      id: 6,
-      type: "auth",
-      title: "Connexion sécurisée",
-      description: "Nouvelle connexion enregistrée depuis le Labo 03.",
-      time: "Hier",
-      icon: <Lock className="h-4 w-4 text-purple-600" />,
-      bg: "bg-purple-50 dark:bg-purple-950/30"
-    }
-  ]
+  useEffect(() => {
+    refreshRealData()
 
-  const messages = [
-    {
-      id: 1,
-      sender: "Dr. Alain KOUASSI",
-      role: "Support Technique ABMed",
-      text: "La mise à jour de la cartographie des armoires est terminée pour la Zone B.",
-      time: "il y a 15 min",
-      avatar: "AK"
-    },
-    {
-      id: 2,
-      sender: "Chantal DOSSA",
-      role: "Chef de Réception",
-      text: "Les bordereaux de livraison REC-2026-005 ont été signés et archivés.",
-      time: "il y a 2h",
-      avatar: "CD"
-    },
-    {
-      id: 3,
-      sender: "Support eGED-ABMed",
-      role: "Administrateur Système",
-      text: "Votre demande de validation d'accès sécurisé a été approuvée.",
-      time: "il y a 1 jour",
-      avatar: "SG"
+    const handleStorage = (e: StorageEvent) => {
+      if (
+        e.key === "reception_history_records" ||
+        e.key === "destruction_plans_custom_v1" ||
+        e.key === "all_data_wiped" ||
+        e.key === MESSAGES_STORAGE_KEY ||
+        e.key === READ_NOTIFS_STORAGE_KEY
+      ) {
+        refreshRealData()
+      }
     }
-  ]
+
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener("eged_data_updated", refreshRealData)
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("eged_data_updated", refreshRealData)
+    }
+  }, [refreshRealData])
+
+  // Marquer toutes les notifications réelles comme lues
+  const handleMarkAllNotifsRead = () => {
+    try {
+      const allIds = notifications.map(n => n.id)
+      localStorage.setItem(READ_NOTIFS_STORAGE_KEY, JSON.stringify(allIds))
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      setUnreadNotifsCount(0)
+      toast.success("Toutes les alertes et notifications ont été marquées comme lues.")
+    } catch (e) {}
+  }
+
+  // Marquer une notification individuelle comme lue
+  const handleNotificationClick = (notif: RealNotification) => {
+    try {
+      const readNotifIds = JSON.parse(localStorage.getItem(READ_NOTIFS_STORAGE_KEY) || "[]")
+      if (!readNotifIds.includes(notif.id)) {
+        readNotifIds.push(notif.id)
+        localStorage.setItem(READ_NOTIFS_STORAGE_KEY, JSON.stringify(readNotifIds))
+      }
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))
+      setUnreadNotifsCount(prev => Math.max(0, prev - 1))
+    } catch (e) {}
+  }
+
+  // Envoi d'un message réel
+  const handleSendMessage = () => {
+    if (!msgSubject.trim() || !msgContent.trim()) {
+      toast.error("Veuillez renseigner l'objet et le texte de votre message.")
+      return
+    }
+
+    setIsSendingMsg(true)
+    setTimeout(() => {
+      const newMsg: RealMessage = {
+        id: `msg-${Date.now()}`,
+        sender: `${currentUser.first_name} ${currentUser.last_name}`,
+        recipient: msgRecipient,
+        role: currentUser.role,
+        subject: msgSubject.trim(),
+        text: msgContent.trim(),
+        time: "À l'instant",
+        avatar: "AE",
+        read: false,
+      }
+
+      const updated = [newMsg, ...messages]
+      setMessages(updated)
+      setUnreadMsgCount(prev => prev + 1)
+      try {
+        localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(updated))
+      } catch (e) {}
+
+      setIsSendingMsg(false)
+      setIsNewMessageOpen(false)
+      setMsgSubject("")
+      setMsgContent("")
+      toast.success(`Message transmis avec succès à : ${msgRecipient}`)
+    }, 400)
+  }
+
+  // Marquer un message comme lu
+  const handleMessageClick = (msg: RealMessage) => {
+    const updated = messages.map(m => m.id === msg.id ? { ...m, read: true } : m)
+    setMessages(updated)
+    setUnreadMsgCount(updated.filter(m => !m.read).length)
+    try {
+      localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(updated))
+    } catch (e) {}
+    toast.info(`Message : ${msg.subject}`)
+  }
+
+  // Initiales de l'avatar
+  const avatarInitials = currentUser 
+    ? `${currentUser.first_name?.[0] || 'A'}${currentUser.last_name?.[0] || 'E'}`.toUpperCase()
+    : "AE"
+
+  const displayName = currentUser 
+    ? `${currentUser.first_name} ${currentUser.last_name}` 
+    : "Admin EGED"
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -150,17 +317,18 @@ export function HeaderActions() {
         <Scan className="h-5 w-5 text-white" />
       </Button>
 
-      {/* 🔔 BOUTON ET MENU DÉROULANT DES NOTIFICATIONS (6) */}
+      {/* 🔔 BOUTON ET MENU DÉROULANT DES NOTIFICATIONS RÉELLES */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
             size="icon" 
             className="relative text-white hover:text-white/80 transition-colors rounded-full h-9 w-9 cursor-pointer"
+            title="Notifications réelles"
           >
             <Bell className="h-5 w-5 text-white" />
             {unreadNotifsCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-75">
                 {unreadNotifsCount}
               </span>
             )}
@@ -171,49 +339,67 @@ export function HeaderActions() {
           {/* EN-TÊTE DU MENU NOTIFICATIONS */}
           <div className="flex items-center justify-between p-3.5 border-b border-border/80 bg-muted/30">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-xs text-foreground">Notifications</span>
-              {unreadNotifsCount > 0 && (
+              <span className="font-bold text-xs text-foreground">Notifications & Alertes</span>
+              {unreadNotifsCount > 0 ? (
                 <Badge className="bg-red-600 hover:bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.2">
-                  {unreadNotifsCount} nouvelles
+                  {unreadNotifsCount} active{unreadNotifsCount > 1 ? "s" : ""}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 text-[10px]">
+                  À jour
                 </Badge>
               )}
             </div>
-            <button 
-              onClick={() => {
-                setUnreadNotifsCount(0)
-                toast.success("Toutes les notifications ont été marquées comme lues.")
-              }}
-              className="text-[11px] font-semibold text-[#1B5C2E] hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              Tout marquer comme lu
-            </button>
+            {unreadNotifsCount > 0 && (
+              <button 
+                onClick={handleMarkAllNotifsRead}
+                className="text-[11px] font-semibold text-[#1B5C2E] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Tout marquer comme lu
+              </button>
+            )}
           </div>
 
-          {/* LISTE DES NOTIFICATIONS */}
+          {/* LISTE DES NOTIFICATIONS RÉELLES */}
           <div className="max-h-80 overflow-y-auto divide-y divide-border/40">
-            {notifications.map((n) => (
-              <div 
-                key={n.id} 
-                className="p-3 hover:bg-muted/50 transition-colors flex items-start gap-3 cursor-pointer group"
-                onClick={() => toast.info(`Notification: ${n.title}`)}
-              >
-                <div className={`p-2 rounded-xl shrink-0 ${n.bg}`}>
-                  {n.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-xs text-foreground truncate group-hover:text-[#1B5C2E] transition-colors">
-                      {n.title}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{n.time}</span>
+            {notifications.length > 0 ? (
+              notifications.map((n) => (
+                <Link 
+                  key={n.id} 
+                  href={n.href}
+                  onClick={() => handleNotificationClick(n)}
+                  className={`p-3 hover:bg-muted/50 transition-colors flex items-start gap-3 cursor-pointer group block ${n.read ? "opacity-60" : "bg-card"}`}
+                >
+                  <div className={`p-2 rounded-xl shrink-0 ${
+                    n.type === "reception" ? "bg-emerald-50 text-[#1B5C2E]" : 
+                    n.type === "waste" ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-600"
+                  }`}>
+                    {n.type === "reception" ? <Package className="h-4 w-4" /> : 
+                     n.type === "waste" ? <Trash2 className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">
-                    {n.description}
-                  </p>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-foreground truncate group-hover:text-[#1B5C2E] transition-colors">
+                        {n.title}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{n.time}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">
+                      {n.description}
+                    </p>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-muted-foreground space-y-1.5">
+                <CheckCircle2 className="h-7 w-7 text-emerald-600 mx-auto" />
+                <p className="font-bold text-foreground">Aucune notification en attente</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Toutes les réceptions, mouvements et alertes de la plateforme sont à jour.
+                </p>
               </div>
-            ))}
+            )}
           </div>
 
           {/* PIED DU MENU NOTIFICATIONS */}
@@ -223,8 +409,8 @@ export function HeaderActions() {
               variant="ghost" 
               className="w-full text-xs font-semibold text-[#1B5C2E] hover:text-[#154824] hover:bg-muted h-8"
             >
-              <Link href="/dashboard/reports">
-                Voir le journal des notifications <ExternalLink className="h-3.5 w-3.5 ml-1" />
+              <Link href="/dashboard/alerts">
+                Consulter le Centre d'Alertes <ExternalLink className="h-3.5 w-3.5 ml-1" />
               </Link>
             </Button>
           </div>
@@ -232,17 +418,18 @@ export function HeaderActions() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* ✉️ BOUTON ET MENU DÉROULANT DES MESSAGES (3) */}
+      {/* ✉️ BOUTON ET MENU DÉROULANT DES MESSAGES RÉELS */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
             size="icon" 
             className="relative text-white hover:text-white/80 transition-colors rounded-full h-9 w-9 cursor-pointer"
+            title="Messages & Sollicitations"
           >
             <Mail className="h-5 w-5 text-white" />
             {unreadMsgCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-75">
                 {unreadMsgCount}
               </span>
             )}
@@ -253,15 +440,19 @@ export function HeaderActions() {
           {/* EN-TÊTE DU MENU MESSAGES */}
           <div className="flex items-center justify-between p-3.5 border-b border-border/80 bg-muted/30">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-xs text-foreground">Messages & Support</span>
-              {unreadMsgCount > 0 && (
+              <span className="font-bold text-xs text-foreground">Messages & Assistance</span>
+              {unreadMsgCount > 0 ? (
                 <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.2">
-                  {unreadMsgCount} récents
+                  {unreadMsgCount} non lu{unreadMsgCount > 1 ? "s" : ""}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground text-[10px]">
+                  0 non lu
                 </Badge>
               )}
             </div>
             <button 
-              onClick={() => toast.info("Ouverture du formulaire de rédaction de message...")}
+              onClick={() => setIsNewMessageOpen(true)}
               className="text-[11px] font-semibold text-[#1B5C2E] hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -271,48 +462,53 @@ export function HeaderActions() {
 
           {/* LISTE DES MESSAGES */}
           <div className="max-h-80 overflow-y-auto divide-y divide-border/40">
-            {messages.map((m) => (
-              <div 
-                key={m.id} 
-                className="p-3 hover:bg-muted/50 transition-colors flex items-start gap-3 cursor-pointer group"
-                onClick={() => {
-                  setUnreadMsgCount(prev => Math.max(0, prev - 1))
-                  toast.info(`Message de ${m.sender}`)
-                }}
-              >
-                <Avatar className="h-8 w-8 shrink-0 border border-emerald-600/30">
-                  <AvatarFallback className="bg-[#1B5C2E] text-white text-[10px] font-bold">
-                    {m.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-xs text-foreground truncate group-hover:text-[#1B5C2E] transition-colors">
-                      {m.sender}
+            {messages.length > 0 ? (
+              messages.map((m) => (
+                <div 
+                  key={m.id} 
+                  className={`p-3 hover:bg-muted/50 transition-colors flex items-start gap-3 cursor-pointer group ${!m.read ? "bg-emerald-50/20" : ""}`}
+                  onClick={() => handleMessageClick(m)}
+                >
+                  <Avatar className="h-8 w-8 shrink-0 border border-emerald-600/30">
+                    <AvatarFallback className="bg-[#1B5C2E] text-white text-[10px] font-bold">
+                      {m.avatar}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-foreground truncate group-hover:text-[#1B5C2E] transition-colors">
+                        {m.subject || m.sender}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{m.time}</span>
+                    </div>
+                    <span className="text-[10px] font-medium text-[#1B5C2E] block leading-none mt-0.5 truncate">
+                      À : {m.recipient}
                     </span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{m.time}</span>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-1 line-clamp-2">
+                      {m.text}
+                    </p>
                   </div>
-                  <span className="text-[10px] font-medium text-[#1B5C2E] block leading-none mt-0.5">
-                    {m.role}
-                  </span>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-1 line-clamp-2">
-                    {m.text}
-                  </p>
                 </div>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-muted-foreground space-y-1.5">
+                <Mail className="h-7 w-7 text-muted-foreground/50 mx-auto" />
+                <p className="font-bold text-foreground">Aucun message pour le moment</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Vos échanges avec le support et les équipes apparaîtront ici.
+                </p>
               </div>
-            ))}
+            )}
           </div>
 
           {/* PIED DU MENU MESSAGES */}
           <div className="p-2 border-t border-border/80 text-center bg-muted/20">
             <Button 
-              asChild 
+              onClick={() => setIsNewMessageOpen(true)}
               variant="ghost" 
               className="w-full text-xs font-semibold text-[#1B5C2E] hover:text-[#154824] hover:bg-muted h-8"
             >
-              <Link href="/dashboard/settings">
-                Accéder au support technique <ExternalLink className="h-3.5 w-3.5 ml-1" />
-              </Link>
+              Envoyer une demande d'assistance <Plus className="h-3.5 w-3.5 ml-1" />
             </Button>
           </div>
 
@@ -321,29 +517,29 @@ export function HeaderActions() {
 
       <Separator orientation="vertical" className="h-6 bg-white/40 opacity-100 mx-1" />
 
-      {/* 👤 PROFIL UTILISATEUR ET MENU DÉROULANT (EN BLANC PUR) */}
+      {/* 👤 PROFIL UTILISATEUR ET MENU DÉROULANT (Admin EGED) */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-auto p-1.5 flex items-center gap-2.5 cursor-pointer hover:bg-white/10 rounded-xl transition-colors text-white focus:outline-none focus-visible:ring-0">
             <Avatar className="h-9 w-9 border-2 border-white/40 group-hover:border-white transition-colors shadow-xs shrink-0">
-              <AvatarImage src="/avatar.png" alt="Profile" />
+              <AvatarImage src="/avatar.png" alt={displayName} />
               <AvatarFallback className="bg-white/20 text-white font-bold text-xs">
-                {currentUser ? `${currentUser.first_name[0] || ''}${currentUser.last_name[0] || ''}` : "MA"}
+                {avatarInitials}
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col text-left">
               <span className="text-xs font-bold leading-tight text-white group-hover:text-white/90 transition-colors">
-                {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Marie ADANDE"}
+                {displayName}
               </span>
               <span className="text-[11px] text-white/80 font-medium">
-                {currentUser ? currentUser.role : "Administrateur"}
+                {currentUser?.role || "Administrateur Système"}
               </span>
             </div>
             <ChevronDown className="h-4 w-4 text-white shrink-0" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-xl border-border">
-          <DropdownMenuLabel className="font-bold text-xs px-3 py-2">Mon Compte ABMed</DropdownMenuLabel>
+          <DropdownMenuLabel className="font-bold text-xs px-3 py-2">Espace Administrateur eGED</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => setShowProfileModal(true)} className="cursor-pointer text-xs font-semibold">
@@ -361,7 +557,7 @@ export function HeaderActions() {
           <form action={logout} onSubmit={() => {
             if (currentUser) {
               recordLoginLog(currentUser.username, "Déconnexion")
-              recordAuditLog("Déconnexion", "Authentification", `Déconnexion de l'utilisateur ${currentUser.first_name} ${currentUser.last_name}`, `${currentUser.first_name} ${currentUser.last_name}`)
+              recordAuditLog("Déconnexion", "Authentification", `Déconnexion de l'administrateur ${currentUser.first_name} ${currentUser.last_name}`, `${currentUser.first_name} ${currentUser.last_name}`)
             }
             setCurrentUser(null)
             if (typeof document !== "undefined") {
@@ -384,16 +580,84 @@ export function HeaderActions() {
         onClose={() => setIsScannerOpen(false)} 
       />
 
-      {/* 👤 MODALE PROFIL UTILISATEUR COMPACTE */}
+      {/* ✉️ MODALE CRÉATION DE NOUVEAU MESSAGE / ASSISTANCE */}
+      <Dialog open={isNewMessageOpen} onOpenChange={setIsNewMessageOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <MessageSquare className="h-5 w-5 text-[#1B5C2E]" />
+              Nouveau message d'assistance
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Transmettre une demande ou un signalement interne.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="space-y-1">
+              <Label className="font-semibold text-foreground">Destinataire</Label>
+              <Select value={msgRecipient} onValueChange={(val) => setMsgRecipient(val || "Support Technique ABMed")}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Sélectionnez un destinataire" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Support Technique ABMed">Support Technique ABMed</SelectItem>
+                  <SelectItem value="Direction de l'Assurance Qualité">Direction de l'Assurance Qualité</SelectItem>
+                  <SelectItem value="Direction des Déchets Pharmaceutiques">Direction des Déchets Pharmaceutiques</SelectItem>
+                  <SelectItem value="Direction des Systèmes d'Information">Direction des Systèmes d'Information</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="font-semibold text-foreground">Objet</Label>
+              <Input 
+                value={msgSubject}
+                onChange={e => setMsgSubject(e.target.value)}
+                placeholder="Objet de la sollicitation"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="font-semibold text-foreground">Message</Label>
+              <Textarea 
+                value={msgContent}
+                onChange={e => setMsgContent(e.target.value)}
+                placeholder="Détaillez votre message ou observation..."
+                rows={4}
+                className="text-xs resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsNewMessageOpen(false)}>
+              Annuler
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleSendMessage} 
+              disabled={isSendingMsg || !msgSubject.trim() || !msgContent.trim()}
+              className="bg-[#1B5C2E] hover:bg-[#154824] text-white gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {isSendingMsg ? "Transmission..." : "Envoyer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 👤 MODALE PROFIL UTILISATEUR COMPACTE (Admin EGED) */}
       {showProfileModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-border/50 flex items-center justify-between bg-muted/30">
               <div className="flex items-center gap-2">
                 <User className="h-5 w-5 text-[#1B5C2E]" />
-                <h3 className="font-bold text-sm text-foreground">Profil Administrateur — Marie ADANDE</h3>
+                <h3 className="font-bold text-sm text-foreground">Profil Administrateur — {displayName}</h3>
               </div>
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setShowProfileModal(false)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full cursor-pointer" onClick={() => setShowProfileModal(false)}>
                 ✕
               </Button>
             </div>
@@ -401,15 +665,15 @@ export function HeaderActions() {
             <div className="p-5 space-y-4">
               <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border/50">
                 <Avatar className="h-16 w-16 border-2 border-[#1B5C2E]">
-                  <AvatarImage src="/avatar.png" alt="Marie ADANDE" />
-                  <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-lg">MA</AvatarFallback>
+                  <AvatarImage src="/avatar.png" alt={displayName} />
+                  <AvatarFallback className="bg-[#1B5C2E] text-white font-bold text-lg">{avatarInitials}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="text-base font-black text-foreground">Marie ADANDE</h4>
-                  <p className="text-xs text-muted-foreground font-medium">Administrateur Système & Sécurité</p>
+                  <h4 className="text-base font-black text-foreground">{displayName}</h4>
+                  <p className="text-xs text-muted-foreground font-medium">{currentUser?.fonction || "Administrateur Système & Sécurité"}</p>
                   <div className="flex items-center gap-2 mt-1.5">
                     <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">Compte Actif</Badge>
-                    <Badge variant="outline" className="text-[10px]">Matricule: ABM-001</Badge>
+                    <Badge variant="outline" className="text-[10px]">Matricule: {currentUser?.matricule || "ABM-ADMIN-01"}</Badge>
                   </div>
                 </div>
               </div>
@@ -417,15 +681,23 @@ export function HeaderActions() {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="space-y-1">
                   <label className="font-bold text-muted-foreground">Email :</label>
-                  <div className="p-2 rounded-lg border bg-background font-medium">marie.adande@abmed.bj</div>
+                  <Input 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="h-8 text-xs bg-background"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="font-bold text-muted-foreground">Téléphone :</label>
-                  <div className="p-2 rounded-lg border bg-background font-medium">+229 97 00 01 02</div>
+                  <Input 
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="h-8 text-xs bg-background"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="font-bold text-muted-foreground">Service / Direction :</label>
-                  <div className="p-2 rounded-lg border bg-background font-medium">Direction SI</div>
+                  <div className="p-2 rounded-lg border bg-background font-medium">Direction SI & Digitalisation</div>
                 </div>
                 <div className="space-y-1">
                   <label className="font-bold text-muted-foreground">Rôle & Privilèges :</label>
@@ -440,11 +712,18 @@ export function HeaderActions() {
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
                 <Button variant="outline" size="sm" onClick={() => setShowProfileModal(false)}>Fermer</Button>
-                <Button size="sm" onClick={() => {
-                  setShowProfileModal(false)
-                  toast.success("Demande de modification enregistrée.")
-                }} className="bg-[#1B5C2E] hover:bg-[#154824] text-white">
-                  Mettre à jour
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    const updated = { ...currentUser, phone, email }
+                    setCurrentUser(updated)
+                    setCurrentUserLocal(updated)
+                    setShowProfileModal(false)
+                    toast.success("Informations du profil mises à jour avec succès !")
+                  }} 
+                  className="bg-[#1B5C2E] hover:bg-[#154824] text-white"
+                >
+                  Enregistrer
                 </Button>
               </div>
             </div>

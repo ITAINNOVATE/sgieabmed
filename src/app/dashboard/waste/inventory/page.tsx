@@ -133,7 +133,7 @@ export default function WasteInventoryPage() {
       physical_weight: Math.round(physWeight * 100) / 100,
       diff,
       items_count: Number(inv.items_count) || items.length,
-      controller: inv.controller || 'Marie ADANDE',
+      controller: inv.controller || 'Admin EGED',
       observations: notes,
       items,
     }

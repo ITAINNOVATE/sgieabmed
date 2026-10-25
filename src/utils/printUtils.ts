@@ -310,7 +310,7 @@ export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: strin
               </tr>
               <tr>
                 <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Apporteur / Déposant :</td>
-                <td style="color: #0F172A; font-weight: 600;">${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}</td>
+                <td style="color: #0F172A; font-weight: 600;">${ex.depositorName || 'Admin EGED'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}</td>
               </tr>
               <tr>
                 <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Emplacement Magasin :</td>
@@ -690,7 +690,7 @@ function drawWasteA4PagePDF(doc: jsPDF, item: LabelData, qrCodeDataUrl: string, 
 
   const locRaw = item.location?.raw || (item.location?.salle ? `${item.location.salle} — ${item.location.zone || ''}` : 'Local Déchets Central');
   drawField("Structure Source :", ex.sourceStructure || 'Interne ABMed', curY + 16);
-  drawField("Apporteur :", `${ex.depositorName || 'Marie ADANDE'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}`, curY + 28);
+  drawField("Apporteur :", `${ex.depositorName || 'Admin EGED'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}`, curY + 28);
   drawField("Emplacement :", locRaw, curY + 40);
   drawField("Destruction :", ex.destructionPlan || 'En attente de planification', curY + 52);
   drawField("Date d'entrée :", ex.declarationDate || dateStr, curY + 64);

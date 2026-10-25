@@ -101,7 +101,7 @@ export function WasteLocationDialog({ open, onOpenChange, batch, onSuccess }: Wa
             batch: batch.batch_number,
             waste_type: batch.waste_type || "Déchet pharmaceutique",
             quantity: `${batch.quantity || 1} ${batch.unit || "Kg"}`,
-            operator: "Marie ADANDE",
+            operator: "Admin EGED",
             origin: batch.current_location || WASTE_STORE_NAME,
             destination: finalLocation,
             observations: `Orientation dans ${finalLocation}`,

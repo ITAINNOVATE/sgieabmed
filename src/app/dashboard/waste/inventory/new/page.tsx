@@ -134,7 +134,7 @@ export default function NewWasteInventoryPage() {
         physical_weight: totalSystemWeight,
         diff: 0,
         items_count: items.length,
-        controller: 'Marie ADANDE',
+        controller: 'Admin EGED',
         date: nowIso,
         created_at: nowIso,
         completed_at: null,
@@ -162,7 +162,7 @@ export default function NewWasteInventoryPage() {
         system_weight: totalSystemWeight,
         physical_weight: totalSystemWeight,
         diff: 0,
-        controller: 'Marie ADANDE',
+        controller: 'Admin EGED',
         observations: JSON.stringify({ items, completed_at: null, notes: '' }),
         created_at: nowIso,
       }, { onConflict: 'inv_number' })

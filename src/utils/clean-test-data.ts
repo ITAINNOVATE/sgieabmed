@@ -48,8 +48,9 @@ export async function clearAllTestData(): Promise<boolean> {
       await supabase.from('samples').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       await supabase.from('receptions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       await supabase.from('users').delete()
+        .neq('username', 'admin')
         .neq('username', 'm.adande')
-        .neq('email', 'marie.adande@abmed.bj')
+        .neq('email', 'admin@eged.bj')
         .neq('email', 'admin@sgie.com')
     } catch (e) {
       console.warn("Supabase total cleanup notice:", e)

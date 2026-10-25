@@ -518,7 +518,7 @@ function NewReceptionContent() {
       rec_number: "REC-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000),
       date_reception: new Date().toISOString().split('T')[0],
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
-      inspector: "Marie ADANDE",
+      inspector: "Admin EGED",
       status: "En attente",
       samples: [{ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 }],
       check_packaging: false,
@@ -637,7 +637,7 @@ function NewReceptionContent() {
             time_reception: sourceData.time_reception || "12:00",
             ref_document: sourceData.ref_document || "",
             type_reception: sourceData.type_reception || "",
-            inspector: sourceData.inspector || "Marie ADANDE",
+            inspector: sourceData.inspector || "Admin EGED",
             status: finalStatus,
             supplier: sourceData.supplier || "",
             manufacturer: sourceData.manufacturer || "",
@@ -704,7 +704,7 @@ function NewReceptionContent() {
       time_reception: values.time_reception || new Date().toTimeString().substring(0, 5),
       ref_document: values.ref_document || null,
       type_reception: values.type_reception || null,
-      inspector: values.inspector || "Marie ADANDE",
+      inspector: values.inspector || "Admin EGED",
       status: status,
       supplier: values.supplier || null,
       manufacturer: values.manufacturer || null,
@@ -736,7 +736,7 @@ function NewReceptionContent() {
         date_reception: values.date_reception || new Date().toISOString().split('T')[0],
         supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
         status: status,
-        inspector: values.inspector || "Marie ADANDE",
+        inspector: values.inspector || "Admin EGED",
         created_at: new Date().toISOString(),
         samples: [{ count: (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "").length }],
       }
@@ -827,7 +827,7 @@ function NewReceptionContent() {
             source_location: values.supplier || "Fournisseur / Demandeur",
             destination_location: "Zone de Réception / Quarantaine",
             reason: `Réception d'échantillons - Réf: ${values.rec_number}`,
-            observations: values.global_comments || `Réception enregistrée par ${values.inspector || 'Marie ADANDE'}`,
+            observations: values.global_comments || `Réception enregistrée par ${values.inspector || 'Admin EGED'}`,
             movement_date: values.date_reception ? new Date(values.date_reception).toISOString() : new Date().toISOString(),
             operator: values.inspector || "MARIE ADANDE",
             status: status === "Validée" ? "Validé" : "En attente de validation",
@@ -1171,7 +1171,7 @@ function NewReceptionContent() {
                   <FormItem>
                     <FormLabel>Agent de réception</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value || "Marie ADANDE"} readOnly disabled className="bg-muted/50 font-bold text-foreground cursor-not-allowed opacity-100" />
+                      <Input {...field} value={field.value || "Admin EGED"} readOnly disabled className="bg-muted/50 font-bold text-foreground cursor-not-allowed opacity-100" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

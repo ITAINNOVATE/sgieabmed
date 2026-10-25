@@ -95,7 +95,7 @@ export default function MovementsPage() {
               source_location: rec.supplier || "Fournisseur / Demandeur",
               destination_location: sample.location || "Zone de Quarantaine / Réception",
               reason: `Réception d'échantillons - Réf: ${rec.rec_number}`,
-              observations: `Réception enregistrée par ${rec.inspector || 'Marie ADANDE'}`,
+              observations: `Réception enregistrée par ${rec.inspector || 'Admin EGED'}`,
               movement_date: rec.date_reception ? new Date(rec.date_reception).toISOString() : new Date().toISOString(),
               operator: rec.inspector || "MARIE ADANDE",
               status: isFinalized ? "Validé" : "En attente de validation",
@@ -135,7 +135,7 @@ export default function MovementsPage() {
           ...m,
           commercial_name: m.commercial_name || "Échantillon",
           batch_number: m.batch_number || "LOT-SANS",
-          operator: m.operator || 'Marie ADANDE'
+          operator: m.operator || 'Admin EGED'
         }))
       }
     } catch (e) {

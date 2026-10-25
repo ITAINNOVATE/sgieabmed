@@ -96,7 +96,7 @@ export default function WasteClient({
         reception_date: lb.reception_date || null,
         reception_time: lb.reception_time || null,
         delivery_slip_ref: lb.delivery_slip_ref || null,
-        recipient_agent: lb.recipient_agent || 'Marie ADANDE',
+        recipient_agent: lb.recipient_agent || 'Admin EGED',
         source_structure: lb.source_structure || 'Structure Déposante',
         source_type: lb.source_type || 'Officine',
         city: lb.city || 'Cotonou',

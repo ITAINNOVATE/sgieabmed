@@ -387,7 +387,7 @@ export function exportWasteReceptionSlipPDF(slipData: {
 
   doc.setFontSize(8.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Agent récepteur : ${slipData.recipient_agent || 'Marie ADANDE'}`, 112, 68)
+  doc.text(`Agent récepteur : ${slipData.recipient_agent || 'Admin EGED'}`, 112, 68)
   doc.text(`Service : Direction de la Gestion des Déchets`, 112, 74)
   doc.text(`Bordereau apport : ${slipData.delivery_slip_ref || 'Remise directe sur site'}`, 112, 80)
   doc.text(`Statut initial : Déclaré / En attente de destruction`, 112, 86)
@@ -482,7 +482,7 @@ export function exportWasteReceptionSlipPDF(slipData: {
   doc.text("POUR L'ABMed (AGENT RÉCEPTEUR)", 114, sigY + 7)
   doc.setFontSize(7.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Agent : ${slipData.recipient_agent || 'Marie ADANDE'}`, 114, sigY + 14)
+  doc.text(`Agent : ${slipData.recipient_agent || 'Admin EGED'}`, 114, sigY + 14)
   doc.text("Direction de la Gestion des Déchets", 114, sigY + 20)
   doc.text("Signature & Cachet officiel :", 114, sigY + 26)
 
@@ -653,7 +653,7 @@ export function exportDestructionCertificatePDF(certData: {
   doc.text("LE RESPONSABLE GESTION DES DÉCHETS", 18, sigY + 7)
   doc.setFontSize(7.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Nom : ${certData.supervisor_name || 'Marie ADANDE'}`, 18, sigY + 14)
+  doc.text(`Nom : ${certData.supervisor_name || 'Admin EGED'}`, 18, sigY + 14)
   doc.text("Direction de la Gestion des Déchets - ABMed", 18, sigY + 20)
   doc.text("Signature & Cachet officiel :", 18, sigY + 26)
 
@@ -757,7 +757,7 @@ export function exportWasteInventoryReportPDF(inventoryData: {
   doc.text(inventoryData.name || "Inventaire Déchets", 146, 52)
   doc.text(inventoryData.completed_at ? new Date(inventoryData.completed_at).toLocaleDateString("fr-FR") : "—", 146, 59)
   doc.text(inventoryData.inventory_type || "Périodique", 146, 66)
-  doc.text(inventoryData.controller || "Marie ADANDE", 146, 73)
+  doc.text(inventoryData.controller || "Admin EGED", 146, 73)
 
   // Synthèse comparative des masses (3 boîtes KPI)
   const kpiY = 82
@@ -879,7 +879,7 @@ export function exportWasteInventoryReportPDF(inventoryData: {
   doc.text("L'AGENT CONTRÔLEUR / RESPONSABLE DÉCHET", 18, sigY + 6)
   doc.setFontSize(7)
   doc.setFont("helvetica", "normal")
-  doc.text(`Nom : ${inventoryData.controller || "Marie ADANDE"}`, 18, sigY + 12)
+  doc.text(`Nom : ${inventoryData.controller || "Admin EGED"}`, 18, sigY + 12)
   doc.text("Visa et signature de pesée :", 18, sigY + 18)
 
   // Signature Resp Qualité / Direction
