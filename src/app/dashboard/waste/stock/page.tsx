@@ -788,39 +788,6 @@ export default function WasteStockPage() {
             </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportExcel}
-            className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-            Excel
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPDF}
-            className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <Download className="h-3.5 w-3.5 text-red-600" />
-            PDF
-          </Button>
-
-          <Button
-            size="sm"
-            asChild
-            className="h-8 text-xs font-bold bg-red-600 hover:bg-red-700 text-white gap-1.5 cursor-pointer shadow-xs"
-          >
-            <Link href="/dashboard/waste/new">
-              <Plus className="h-4 w-4" />
-              Nouvelle Réception Déchet
-            </Link>
-          </Button>
-        </div>
       </div>
 
       {/* CARTES KPIS DE SYNTHÈSE DU STOCK DÉCHETS */}
@@ -828,7 +795,6 @@ export default function WasteStockPage() {
         <Card className="rounded-xl border border-border/60 shadow-2xs">
           <CardHeader className="p-3.5 pb-1 flex flex-row items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">Total Lots en Stock</span>
-            <Boxes className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-black text-foreground">{data.length}</div>
@@ -841,7 +807,6 @@ export default function WasteStockPage() {
         <Card className="rounded-xl border border-border/60 shadow-2xs">
           <CardHeader className="p-3.5 pb-1 flex flex-row items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">Masse Totale Stockée</span>
-            <Scale className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-black text-foreground">
@@ -854,7 +819,6 @@ export default function WasteStockPage() {
         <Card className="rounded-xl border border-border/60 shadow-2xs">
           <CardHeader className="p-3.5 pb-1 flex flex-row items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">Colis & Sacs Groupés</span>
-            <Layers className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-black text-purple-700 dark:text-purple-400">{packages.length}</div>
@@ -867,7 +831,6 @@ export default function WasteStockPage() {
         <Card className="rounded-xl border border-border/60 shadow-2xs">
           <CardHeader className="p-3.5 pb-1 flex flex-row items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">À Regrouper / Dispo</span>
-            <PackagePlus className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{looseAvailableCount}</div>
@@ -881,25 +844,23 @@ export default function WasteStockPage() {
         
         {/* SÉLECTEUR D'ONGLET */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <TabsList className="bg-muted/60 p-1 rounded-xl h-auto border border-border/60">
+          <TabsList className="bg-muted/60 p-1.5 rounded-xl h-auto border border-border/60 gap-1">
             <TabsTrigger 
               value="detail" 
-              className="rounded-lg text-xs font-bold gap-2 py-2 px-4 cursor-pointer data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+              className="rounded-lg text-sm font-bold gap-2.5 py-2.5 px-6 h-11 cursor-pointer data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
-              <Boxes className="h-4 w-4 text-red-600" />
               Stocks en détail
-              <Badge variant="secondary" className="text-[10px] ml-1 px-1.5 py-0 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+              <Badge variant="secondary" className="text-xs ml-1 px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-bold">
                 {data.length}
               </Badge>
             </TabsTrigger>
 
             <TabsTrigger 
               value="grouped" 
-              className="rounded-lg text-xs font-bold gap-2 py-2 px-4 cursor-pointer data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+              className="rounded-lg text-sm font-bold gap-2.5 py-2.5 px-6 h-11 cursor-pointer data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
-              <Layers className="h-4 w-4 text-purple-600" />
               Stocks Groupés (Colis & Sacs)
-              <Badge variant="secondary" className="text-[10px] ml-1 px-1.5 py-0 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+              <Badge variant="secondary" className="text-xs ml-1 px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold">
                 {packages.length}
               </Badge>
             </TabsTrigger>
