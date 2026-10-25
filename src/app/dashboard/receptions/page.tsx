@@ -168,6 +168,14 @@ function ReceptionsContent() {
   }
 
   const fetchData = async () => {
+    const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
+    if (isWiped) {
+      setReceptions([])
+      setLoading(false)
+      hasLoadedOnceRef.current = true
+      return
+    }
+
     let deletedIds: string[] = []
     let syncedIds: string[] = []
     let localData: any[] = []

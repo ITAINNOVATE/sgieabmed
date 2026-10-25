@@ -27,58 +27,7 @@ const formSchema = z.object({
   category: z.string().optional(),
 })
 
-const MOCK_SAMPLES_EDIT_FALLBACK: Record<string, any> = {
-  "sample-1": {
-    sample_number: "SMP-2024-001",
-    commercial_name: "Paracétamol 500mg",
-    dci: "Paracétamol",
-    batch_number: "LOT-2023-A45",
-    expiry_date: "2026-12-31",
-    status: "Conforme",
-    quantity: 150,
-    category: "Médicaments",
-  },
-  "sample-2": {
-    sample_number: "SMP-2024-002",
-    commercial_name: "Amoxicilline 250mg/5ml",
-    dci: "Amoxicilline",
-    batch_number: "LOT-2023-B12",
-    expiry_date: "2025-06-30",
-    status: "En attente d'analyse",
-    quantity: 45,
-    category: "Antibiotiques",
-  },
-  "sample-3": {
-    sample_number: "SMP-2024-003",
-    commercial_name: "Artéméther / Luméfantrine 20/120mg",
-    dci: "Artéméther + Luméfantrine",
-    batch_number: "LOT-2024-C88",
-    expiry_date: "2027-01-15",
-    status: "Conforme",
-    quantity: 300,
-    category: "Antipaludiques",
-  },
-  "sample-4": {
-    sample_number: "SMP-2024-004",
-    commercial_name: "Sérum Physiologique 0.9%",
-    dci: "Chlorure de sodium",
-    batch_number: "LOT-2024-D01",
-    expiry_date: "2024-02-28",
-    status: "Périmé",
-    quantity: 12,
-    category: "Solutés massifs",
-  },
-  "sample-5": {
-    sample_number: "SMP-2024-005",
-    commercial_name: "Ciprofloxacine 500mg",
-    dci: "Ciprofloxacine",
-    batch_number: "LOT-2024-E33",
-    expiry_date: "2026-08-31",
-    status: "Non conforme",
-    quantity: 0,
-    category: "Antibiotiques",
-  }
-}
+const MOCK_SAMPLES_EDIT_FALLBACK: Record<string, any> = {}
 
 export default function EditSamplePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -103,26 +52,55 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     async function fetchSample() {
-      const fallbackData = MOCK_SAMPLES_EDIT_FALLBACK[resolvedParams.id] || {
-        sample_number: `SMP-${resolvedParams.id.toUpperCase()}`,
-        commercial_name: `Échantillon ${resolvedParams.id}`,
-        dci: "Principe Actif Démonstration",
-        batch_number: "LOT-DEMO-2024",
-        expiry_date: "2026-12-31",
-        status: "Conforme",
-        quantity: 100,
-        category: "Médicaments",
+      const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
+      let fallbackData: any = null
+
+      if (!isWiped && typeof window !== 'undefined') {
+        try {
+          const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+          for (const rec of historyRecords) {
+            const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+            if (rawDetails) {
+              const parsed = JSON.parse(rawDetails)
+              if (parsed.formData && parsed.formData.samples) {
+                parsed.formData.samples.forEach((s: any, idx: number) => {
+                  const sId = `local-sample-${rec.rec_number}-${idx}`
+                  const sNum = `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`
+                  if (sId === resolvedParams.id || sNum === resolvedParams.id || s.id === resolvedParams.id) {
+                    const dciStr = Array.isArray(s.dci_list)
+                      ? s.dci_list.map((d: any) => `${d.dci} ${d.dosage || ''}`).join(', ')
+                      : (s.dci || '')
+                    fallbackData = {
+                      sample_number: sNum,
+                      commercial_name: (s.commercial_name || '').toUpperCase(),
+                      dci: (dciStr || s.commercial_name || '').toUpperCase(),
+                      batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
+                      quantity: Number(s.qty) || 1,
+                      status: rec.status === 'Finalisé' || rec.status === 'Validée' ? 'Disponible' : (rec.status || 'Disponible'),
+                      expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
+                      category: 'Médicaments',
+                    }
+                  }
+                })
+              }
+            }
+            if (fallbackData) break
+          }
+        } catch (e) {}
       }
-      setSampleNumber(fallbackData.sample_number)
-      form.reset({
-        commercial_name: fallbackData.commercial_name || "",
-        dci: fallbackData.dci || "",
-        batch_number: fallbackData.batch_number || "",
-        expiry_date: fallbackData.expiry_date || "",
-        status: fallbackData.status || "Conforme",
-        quantity: fallbackData.quantity ?? 0,
-        category: fallbackData.category || "Autres",
-      })
+
+      if (fallbackData) {
+        setSampleNumber(fallbackData.sample_number)
+        form.reset({
+          commercial_name: fallbackData.commercial_name || "",
+          dci: fallbackData.dci || "",
+          batch_number: fallbackData.batch_number || "",
+          expiry_date: fallbackData.expiry_date || "",
+          status: fallbackData.status || "Disponible",
+          quantity: fallbackData.quantity ?? 0,
+          category: fallbackData.category || "Médicaments",
+        })
+      }
       setLoading(false)
 
       try {

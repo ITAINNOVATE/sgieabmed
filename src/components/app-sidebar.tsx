@@ -26,6 +26,7 @@ import Image from "next/image"
 import { logout } from "@/app/actions/auth"
 import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
 import "@/utils/waste-locations"
+import "@/utils/sample-reset"
 
 export function AppSidebar() {
   const pathname = usePathname()

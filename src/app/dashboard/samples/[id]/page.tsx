@@ -29,106 +29,9 @@ import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { toast } from "sonner"
 
-const MOCK_SAMPLES_MAP: Record<string, DetailedSample> = {
-  'sample-1': {
-    id: 'sample-1',
-    sample_number: 'ECH-2026-8832',
-    reception_ref: 'REC-2026-001',
-    commercial_name: 'AMOXICILLINE 500MG',
-    dci: 'AMOXICILLINE',
-    batch_number: 'LOT-8832',
-    quantity: 150,
-    status: 'Disponible',
-    expiry_date: '2028-11-30',
-    current_location: 'Magasin Central - Zone A - Armoire 2, Étagère 4',
-    form: 'Gélule',
-    dosage: '500 mg',
-    manufacturer: 'Laboratoires Pharmaceutiques Bénin',
-    storage_condition: 'Température ambiante (15-25°C)',
-    category: 'Antibiotique',
-  },
-  'sample-2': {
-    id: 'sample-2',
-    sample_number: 'ECH-2026-1192',
-    reception_ref: 'REC-2026-002',
-    commercial_name: 'PARACÉTAMOL 1G',
-    dci: 'PARACÉTAMOL',
-    batch_number: 'LOT-1192',
-    quantity: 50,
-    status: 'Disponible',
-    expiry_date: '2027-08-15',
-    current_location: 'Magasin Central - Zone A - Armoire 1, Étagère 2',
-    form: 'Comprimé',
-    dosage: '1 g',
-    manufacturer: 'Sanofi Bénin',
-    storage_condition: 'À l\'abri de l\'humidité',
-    category: 'Antalgique / Antipyrétique',
-  },
-  'sample-3': {
-    id: 'sample-3',
-    sample_number: 'ECH-2026-9920',
-    reception_ref: 'REC-2026-003',
-    commercial_name: 'IBUPROFÈNE 400MG',
-    dci: 'IBUPROFÈNE',
-    batch_number: 'LOT-9920',
-    quantity: 20,
-    status: 'En quarantaine',
-    expiry_date: '2027-05-20',
-    current_location: 'Zone Quarantaine - Armoire Q1',
-    form: 'Comprimé pelliculé',
-    dosage: '400 mg',
-    manufacturer: 'PharmaAfrique',
-    storage_condition: 'Contrôle qualité en attente',
-    category: 'Anti-inflammatoire non stéroïdien',
-  },
-  'sample-4': {
-    id: 'sample-4',
-    sample_number: 'ECH-2026-7331',
-    reception_ref: 'REC-2026-004',
-    commercial_name: 'CÉFOTAXIME 1G',
-    dci: 'CÉFOTAXIME',
-    batch_number: 'LOT-7331',
-    quantity: 10,
-    status: 'Disponible',
-    expiry_date: '2028-03-10',
-    current_location: 'Chambre Froide B - Rayon 2',
-    form: 'Poudre pour injection',
-    dosage: '1 g',
-    manufacturer: 'EuroPharma',
-    storage_condition: 'Au frais (+2°C à +8°C)',
-    category: 'Antibiotique céphalosporine',
-  },
-  'sample-5': {
-    id: 'sample-5',
-    sample_number: 'ECH-2026-4410',
-    reception_ref: 'REC-2026-005',
-    commercial_name: 'ARTEMETHER + LUMEFANTRINE 80/480MG',
-    dci: 'ARTEMETHER / LUMEFANTRINE',
-    batch_number: 'LOT-4410',
-    quantity: 200,
-    status: 'Disponible',
-    expiry_date: '2029-01-31',
-    current_location: 'Magasin Central - Zone B - Armoire 4',
-    form: 'Comprimé',
-    dosage: '80/480 mg',
-    manufacturer: 'Novartis Afrique',
-    storage_condition: 'Température ambiante',
-    category: 'Antipaludique',
-  },
-}
+const MOCK_SAMPLES_MAP: Record<string, DetailedSample> = {}
 
-const MOCK_SAMPLE_MOVEMENTS: Record<string, any[]> = {
-  'sample-1': [
-    { id: 'mvt-1', mvt_number: 'MVT-2026-001', movement_date: '2026-01-15T10:00:00.000Z', movement_type: 'Entrée', quantity: 150, reason: 'Réception initiale conforme' },
-    { id: 'mvt-2', mvt_number: 'MVT-2026-089', movement_date: '2026-02-10T14:20:00.000Z', movement_type: 'Transfert', quantity: 150, reason: 'Rangement étagère 4' },
-  ],
-  'sample-2': [
-    { id: 'mvt-3', mvt_number: 'MVT-2026-002', movement_date: '2026-02-02T14:30:00.000Z', movement_type: 'Entrée', quantity: 50, reason: 'Réception et étiquetage' },
-  ],
-  'sample-3': [
-    { id: 'mvt-4', mvt_number: 'MVT-2026-003', movement_date: '2026-02-18T09:15:00.000Z', movement_type: 'Mise en quarantaine', quantity: 20, reason: 'Échantillon suspecté non-conforme' },
-  ]
-}
+const MOCK_SAMPLE_MOVEMENTS: Record<string, any[]> = {}
 
 export default function SampleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -140,33 +43,77 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     async function fetchSample() {
-      const initialSample = MOCK_SAMPLES_MAP[resolvedParams.id] || {
-        id: resolvedParams.id,
-        sample_number: `ECH-2026-${resolvedParams.id.substring(0, 4).toUpperCase()}`,
-        reception_ref: 'REC-2026-001',
-        commercial_name: 'Échantillon Pharmaceutique',
-        dci: 'Principe Actif Standard',
-        batch_number: 'LOT-STD-2026',
-        quantity: 100,
-        status: 'Disponible',
-        expiry_date: '2028-12-31',
-        current_location: 'Magasin Central - Zone A',
-        category: 'Médicament',
+      const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
+      if (isWiped) {
+        setSample(null)
+        setMovements([])
+        setLoading(false)
+        return
       }
-      setSample(initialSample)
-      setMovements(MOCK_SAMPLE_MOVEMENTS[resolvedParams.id] || [
-        { id: 'mvt-def', mvt_number: 'MVT-2026-001', movement_date: new Date().toISOString(), movement_type: 'Entrée', quantity: 100, reason: 'Enregistrement de stock initial' }
-      ])
-      setLoading(false)
 
+      let foundSample: DetailedSample | null = null
+      let foundMovements: any[] = []
+
+      // 1. Recherche dans les réceptions locales
+      if (typeof window !== 'undefined') {
+        try {
+          const historyRecords = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
+          for (const rec of historyRecords) {
+            const rawDetails = localStorage.getItem('reception_draft_details_' + rec.rec_number)
+            if (rawDetails) {
+              const parsed = JSON.parse(rawDetails)
+              if (parsed.formData && parsed.formData.samples) {
+                parsed.formData.samples.forEach((s: any, idx: number) => {
+                  const sId = `local-sample-${rec.rec_number}-${idx}`
+                  const sNum = `ECH-${rec.rec_number.replace('REC-', '')}-${idx + 1}`
+                  if (sId === resolvedParams.id || sNum === resolvedParams.id || s.id === resolvedParams.id) {
+                    const dciStr = Array.isArray(s.dci_list)
+                      ? s.dci_list.map((d: any) => `${d.dci} ${d.dosage || ''}`).join(', ')
+                      : (s.dci || '')
+                    foundSample = {
+                      id: sId,
+                      sample_number: sNum,
+                      reception_ref: rec.rec_number,
+                      commercial_name: (s.commercial_name || '').toUpperCase(),
+                      dci: (dciStr || s.commercial_name || '').toUpperCase(),
+                      batch_number: (s.batch || 'LOT-TEMP').toUpperCase(),
+                      quantity: Number(s.qty) || 1,
+                      status: rec.status === 'Finalisé' || rec.status === 'Validée' ? 'Disponible' : (rec.status || 'Disponible'),
+                      expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
+                      current_location: s.location || 'Magasin Central (Zone A)',
+                      dosage: s.dosage || '',
+                      form: s.presentation || s.dosage_form || 'Unité',
+                      manufacturer: rec.supplier || 'Fabricant non précisé',
+                    }
+                  }
+                })
+              }
+            }
+            if (foundSample) break
+          }
+
+          const localMvts = JSON.parse(localStorage.getItem('local_movements_history') || '[]')
+          foundMovements = localMvts.filter((m: any) => 
+            m.sample_id === resolvedParams.id || 
+            m.sample_number === resolvedParams.id ||
+            (foundSample && (m.sample_id === (foundSample as any).id || m.sample_number === (foundSample as any).sample_number))
+          )
+        } catch (e) {}
+      }
+
+      // 2. Recherche distante Supabase
       try {
         const [sampleRes, mvtRes] = await Promise.all([
-          supabase.from('samples').select('*').eq('id', resolvedParams.id).single(),
+          supabase.from('samples').select('*').eq('id', resolvedParams.id).maybeSingle(),
           supabase.from('movements').select('*').eq('sample_id', resolvedParams.id).order('movement_date', { ascending: false })
         ])
-        if (sampleRes.data) setSample(sampleRes.data)
-        if (mvtRes.data && mvtRes.data.length > 0) setMovements(mvtRes.data)
+        if (sampleRes?.data) foundSample = sampleRes.data
+        if (mvtRes?.data && mvtRes.data.length > 0) foundMovements = mvtRes.data
       } catch (e) {}
+
+      setSample(foundSample)
+      setMovements(foundMovements)
+      setLoading(false)
     }
     fetchSample()
   }, [resolvedParams.id, supabase])

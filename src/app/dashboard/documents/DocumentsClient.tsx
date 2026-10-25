@@ -49,6 +49,11 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   // Chargement et synchronisation des documents échantillons
   const loadDocuments = () => {
     try {
+      if (typeof window !== "undefined" && localStorage.getItem('all_data_wiped') === 'true') {
+        setDocuments([])
+        return
+      }
+
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
