@@ -137,10 +137,26 @@ export function QRCodeScannerDialog({ isOpen, onClose }: QRCodeScannerDialogProp
           return
         }
       }
+      if (code.includes("/verify/waste/")) {
+        const rawId = code.split("/verify/waste/")[1]?.split("?")[0]?.split("#")[0]?.trim()
+        if (rawId) {
+          router.push(`/verify/waste/${rawId}`)
+          onClose()
+          return
+        }
+      }
 
       // 2. Extraire les références normalisées dans le texte récapitulatif
       const echMatch = code.match(/ECH-[A-Za-z0-9-]+/i)
       const decMatch = code.match(/DEC-[A-Za-z0-9-]+/i)
+      const colisMatch = code.match(/COLIS-[A-Za-z0-9-]+/i)
+
+      if (colisMatch) {
+        toast.success(`Colis groupé ${colisMatch[0]} identifié !`)
+        router.push(`/verify/waste/${colisMatch[0]}`)
+        onClose()
+        return
+      }
 
       // 3. Nettoyer le code
       const cleanCode = (echMatch ? echMatch[0] : decMatch ? decMatch[0] : code).trim()

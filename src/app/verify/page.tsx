@@ -82,7 +82,7 @@ export default function VerifyPortalPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={type === "waste" ? "Ex: DEC-2026-43081-1" : "Ex: ECH-2026-0001"}
+              placeholder={type === "waste" ? "Ex: DEC-2026-43081-1 ou COLIS-2026-..." : "Ex: ECH-2026-0001"}
               className="w-full px-4 py-3 pl-10 text-sm font-mono bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#003B5C] text-foreground"
               required
             />
