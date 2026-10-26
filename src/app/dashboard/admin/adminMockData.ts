@@ -111,6 +111,28 @@ const MOCK_ROLES: UserRole[] = [
 
 const MOCK_USERS: User[] = [
   {
+    id: "usr-0",
+    first_name: "Yossounon",
+    last_name: "CHABI",
+    matricule: "ABM-DIR-001",
+    fonction: "Directeur Général",
+    department_id: "dept-5",
+    role: "Administrateur Système",
+    phone: "+229 01 97 00 00 00",
+    email: "yoschabi@gouv.bj",
+    username: "y.chabi",
+    photo_url: "/avatar.png",
+    status: "Actif",
+    created_at: "2026-01-01T08:00:00Z",
+    last_login: "2026-10-26T07:00:00Z",
+    mfa_enabled: true,
+    login_attempts: 0,
+    locked_until: null,
+    must_change_password: false,
+    initial_password: "AbMed@2026YC",
+    password: "AbMed@2026YC"
+  },
+  {
     id: "usr-1",
     first_name: "Admin",
     last_name: "EGED",
@@ -135,11 +157,11 @@ const MOCK_USERS: User[] = [
     first_name: "Jocelyne",
     last_name: "SATCHIVI",
     matricule: "ABM-2026-002",
-    fonction: "Cadre Technique ABMed",
+    fonction: "DLVS",
     department_id: "dept-1",
     role: "Responsable Échantillothèque",
     phone: "+229 01 97 00 00 02",
-    email: "jocelyne.satchivi@abmed.bj",
+    email: "ksatchivi@gouv.bj",
     username: "j.satchivi",
     photo_url: "/avatar.png",
     status: "Actif",
@@ -157,11 +179,11 @@ const MOCK_USERS: User[] = [
     first_name: "Hubert",
     last_name: "ALOFA",
     matricule: "ABM-2026-003",
-    fonction: "Cadre Technique ABMed",
+    fonction: "C/SSMUR",
     department_id: "dept-1",
     role: "Responsable Échantillothèque",
     phone: "+229 01 97 00 00 03",
-    email: "hubert.alofa@abmed.bj",
+    email: "halofa@gouv.bj",
     username: "h.alofa",
     photo_url: "/avatar.png",
     status: "Actif",
@@ -179,11 +201,11 @@ const MOCK_USERS: User[] = [
     first_name: "Joël",
     last_name: "TONOUKOUIN",
     matricule: "ABM-2026-004",
-    fonction: "Cadre Technique ABMed",
+    fonction: "Responsable des activités de surveillance du marché et de gestion des déchets pharmaceutiques",
     department_id: "dept-2",
     role: "Responsable Déchets Pharmaceutiques",
     phone: "+229 01 97 00 00 04",
-    email: "joel.tonoukouin@abmed.bj",
+    email: "bjtonoukouin@gouv.bj",
     username: "j.tonoukouin",
     photo_url: "/avatar.png",
     status: "Actif",
@@ -201,11 +223,11 @@ const MOCK_USERS: User[] = [
     first_name: "Ella",
     last_name: "LOKOUN",
     matricule: "ABM-2026-005",
-    fonction: "Cadre Assurance Qualité",
+    fonction: "Responsable de la promotion et de la publicité des médicaments et autres produits de santé",
     department_id: "dept-3",
     role: "Auditeur Qualité",
     phone: "+229 01 97 00 00 05",
-    email: "ella.lokoun@abmed.bj",
+    email: "fplokoun@gouv.bj",
     username: "e.lokoun",
     photo_url: "/avatar.png",
     status: "Actif",
@@ -221,13 +243,13 @@ const MOCK_USERS: User[] = [
   {
     id: "usr-6",
     first_name: "Maëlle",
-    last_name: "DOSSOU YOVO",
+    last_name: "DOSSOU-YOVO",
     matricule: "ABM-2026-006",
-    fonction: "Analyste & Contrôle Échantillons",
+    fonction: "Responsable des autorisations",
     department_id: "dept-4",
     role: "Agent de Saisie & Laboratoire",
     phone: "+229 01 97 00 00 06",
-    email: "maelle.dossouyovo@abmed.bj",
+    email: "maelle.dossouyovo@gouv.bj",
     username: "m.dossouyovo",
     photo_url: "/avatar.png",
     status: "Actif",
@@ -286,14 +308,14 @@ const MOCK_USERS: User[] = [
   },
   {
     id: "usr-9",
-    first_name: "Iréné",
+    first_name: "Irené",
     last_name: "GANHOU",
     matricule: "ABM-2026-009",
-    fonction: "Responsable Déchets Pharmaceutiques",
+    fonction: "Responsable des PSQIFS",
     department_id: "dept-2",
     role: "Responsable Déchets Pharmaceutiques",
     phone: "+229 01 97 00 00 09",
-    email: "irene.ganhou@abmed.bj",
+    email: "sganhou@gouv.bj",
     username: "i.ganhou",
     photo_url: "/avatar.png",
     status: "Actif",
@@ -577,16 +599,68 @@ export const getDetailedPermissions = async (targetType: 'role' | 'user', target
     } catch (e) {}
   }
 
+  // Spécifications ABMed : Vérifier si l'utilisateur a accès restreint aux déchets (DOSSOU-YOVO Maëlle et LOKOUN Ella)
+  // Entrée et vue stock = Oui | Mouvements, inventaire et destruction = Non
+  const isLimitedWasteUser = targetType === 'user' && (
+    targetCodeOrId === 'usr-6' || 
+    targetCodeOrId === 'usr-5' || 
+    targetCodeOrId === 'maelle.dossouyovo@gouv.bj' || 
+    targetCodeOrId === 'fplokoun@gouv.bj' ||
+    targetCodeOrId === 'm.dossouyovo' ||
+    targetCodeOrId === 'e.lokoun'
+  )
+
   return DEFAULT_DETAILED_PERMISSIONS.map(row => {
     let canView = true
     let canCreate = true
     let canModify = true
-    let canDelete = targetCodeOrId === 'ADMIN_SYS' || targetCodeOrId === 'usr-1' || targetCodeOrId === 'usr-admin'
+    let canDelete = targetCodeOrId === 'ADMIN_SYS' || targetCodeOrId === 'usr-0' || targetCodeOrId === 'usr-1' || targetCodeOrId === 'usr-admin' || targetCodeOrId === 'yoschabi@gouv.bj'
     let canValidate = true
 
     if (targetCodeOrId === 'GEST_ECH' || targetCodeOrId === 'RESP_ECH') {
       if (row.module === 'Administration Système') {
         canView = false; canCreate = false; canModify = false; canValidate = false;
+      }
+    }
+
+    // Application stricte des accès responsables désignés par l'ABMed :
+    // DOSSOU-YOVO Maëlle & LOKOUN Ella : Entrée et vue stock = Oui | Mouvements, inventaire et destruction = Non
+    if (isLimitedWasteUser) {
+      if (['waste-movements', 'waste-inventory', 'waste-destructions'].includes(row.id)) {
+        return {
+          ...row,
+          can_view: false,
+          can_create: false,
+          can_modify: false,
+          can_delete: false,
+          can_validate: false,
+          can_export: false,
+          can_print: false,
+        }
+      }
+      if (['waste-main', 'waste-stock'].includes(row.id)) {
+        return {
+          ...row,
+          can_view: true,
+          can_create: false,
+          can_modify: false,
+          can_delete: false,
+          can_validate: false,
+          can_export: true,
+          can_print: true,
+        }
+      }
+      if (row.id === 'waste-new') {
+        return {
+          ...row,
+          can_view: true,
+          can_create: true,
+          can_modify: true,
+          can_delete: false,
+          can_validate: false,
+          can_export: true,
+          can_print: true,
+        }
       }
     }
 

@@ -19,7 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { 
   ArrowLeft, Save, Trash2, Box, Building2, User, Phone, 
   FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, 
-  Plus, Layers, Scale, Sparkles, Eye, Pencil, Paperclip, FileUp, FileSpreadsheet, FileCheck, X
+  Plus, Layers, Scale, Sparkles, Eye, Pencil, Paperclip, FileUp, FileSpreadsheet, FileCheck, X,
+  Warehouse, Calendar, CircleDollarSign, Check, Info
 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
@@ -27,10 +28,87 @@ import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
 
+// --- CONSTANTES OFFICIELLES ABMed ---
+export const WASTE_WAREHOUSES = [
+  "Magasin Cotonou",
+  "Magasin Parakou",
+  "Autres",
+]
+
+export const WASTE_SOURCE_TYPES = [
+  "Officine privée de pharmacie",
+  "Établissement hospitalier / Clinique",
+  "Grossiste-répartiteur pharmaceutique",
+  "Laboratoire d'analyses médicales",
+  "Industrie / Fabricant pharmaceutique",
+  "Organisme de santé publique / ONG",
+  "Site d'essai clinique",
+  "Autre",
+]
+
+export const PRODUCT_NATURES = [
+  "compléments nutritionnels",
+  "médicaments",
+  "psychotropes",
+  "dispositifs médicaux",
+  "cosmétiques",
+  "autres (à préciser)",
+]
+
+export const PRODUCT_CATEGORIES = [
+  "Catégorie 1 : Produits solides et semi-solides (comprimés, gélules, granulés, poudres, crèmes, pommades, gels, suppositoires, etc.)",
+  "Catégorie 2 : Produits liquides (solutions, émulsions, suspensions liquides, sirops, lotions, etc.)",
+  "Catégorie 3 : Produits gazeux ou liquéfiés (bombes aérosols, y compris atomiseurs avec gaz propulseur et inhalateurs)",
+  "Catégorie 4 : Produits particuliers à risque nécessitant une gestion particulière (substances sous contrôle international, stupéfiants, psychotropes, antinéoplasiques/cytotoxiques)",
+  "Catégorie 5 : Produits d'emballage et emballages vides (bidons d'alcool, bouteilles vides de solutés après utilisation, etc.)",
+]
+
+export const WASTE_CLASSIFICATIONS = [
+  "Médicaments périmés (Formes solides)",
+  "Médicaments périmés (Formes liquides / sirops)",
+  "Produits saisis",
+  "Produits chimiques dangereux & solvants",
+  "Déchets infectieux (DASRI)",
+  "Flacons cassés & piquant-tranchant",
+  "Emballages & cartons souillés",
+  "Produits chaîne de froid dégradés",
+  "Autres déchets pharmaceutiques",
+]
+
+export const WASTE_PACKAGINGS = [
+  "Cartons fermés & scotchés",
+  "Fûts étanches scellés",
+  "Boîtes jaunes DASRI sécurisées",
+  "Bacs plastiques fermés",
+  "Sacs étanches plombés",
+  "Sacs de jute",
+  "Autres",
+]
+
+export const PACKAGING_CONDITIONS = [
+  "Conforme et scellé",
+  "Emballage détérioré / Avec réserves",
+  "Fuite constatée / Reconditionné",
+  "Autres",
+]
+
+export const DESTRUCTION_MOTIVES = [
+  "Péremption",
+  "Détérioration physique / Casse",
+  "Rupture de chaîne de froid",
+  "Rappel de lot",
+  "Issus de saisies",
+  "Non-conformité analytique",
+  "Autre",
+]
+
 // Schéma pour une ligne individuelle de déchet
 const wasteItemSchema = z.object({
   batch_number: z.string().min(1, "N° de lot déchet requis"),
-  waste_type: z.string().min(1, "Type de déchet requis"),
+  product_nature: z.string().min(1, "Nature du produit requise"),
+  product_nature_other: z.string().optional(),
+  product_category: z.string().min(1, "Catégorie requise"),
+  waste_type: z.string().min(1, "Classification réglementaire requise"),
   commercial_name: z.string().optional(),
   sample_id: z.string().optional(),
   original_batch: z.string().optional(),
@@ -48,10 +126,12 @@ const formSchema = z.object({
   reception_number: z.string().min(1, "N° de réception requis"),
   reception_date: z.string().min(1, "Date de réception requise"),
   reception_time: z.string().min(1, "Heure requise"),
+  warehouse: z.string().min(1, "Magasin requis"),
+  warehouse_other: z.string().optional(),
   delivery_slip_ref: z.string().optional(),
   recipient_agent: z.string().min(1, "Agent récepteur requis"),
 
-  // 2. Structure Déposante / Provenance (Saisie une seule fois pour tout le dépôt)
+  // 2. Structure Déposante / Provenance (Saisie unique pour tout le dépôt)
   source_structure: z.string().min(2, "Le nom de la structure apportrice est requis"),
   source_type: z.string().min(1, "Type de structure requis"),
   city: z.string().optional(),
@@ -59,7 +139,12 @@ const formSchema = z.object({
   depositor_phone: z.string().min(6, "Numéro de téléphone requis"),
   depositor_id_card: z.string().optional(),
 
-  // 3. Liste dynamique des Déchets apportés
+  // 3. Années d'exercice & Valorisation Financière des Produits Déclarés
+  exercise_years: z.array(z.string()).min(1, "Veuillez renseigner au moins une année d'exercice"),
+  transfer_cost_mode: z.enum(["chiffre", "na", "dons"]),
+  transfer_cost_amount: z.coerce.number().optional(),
+
+  // 4. Liste dynamique des Déchets apportés
   waste_items: z.array(wasteItemSchema).min(1, "Veuillez renseigner au moins un déchet"),
 })
 
@@ -78,9 +163,12 @@ export default function NewWasteReceptionPage() {
   const [docDescription, setDocDescription] = useState<string>("")
   const [pendingFile, setPendingFile] = useState<{ name: string; size: string; type: string; base64: string } | null>(null)
   const [isUploadingDoc, setIsUploadingDoc] = useState(false)
+  const [customYearInput, setCustomYearInput] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
+
+  const currentYearStr = new Date().getFullYear().toString()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
@@ -88,6 +176,8 @@ export default function NewWasteReceptionPage() {
       reception_number: "",
       reception_date: new Date().toISOString().split("T")[0],
       reception_time: new Date().toTimeString().substring(0, 5),
+      warehouse: "Magasin Cotonou",
+      warehouse_other: "",
       delivery_slip_ref: "",
       recipient_agent: "Admin EGED (Agent ABMed)",
 
@@ -98,9 +188,16 @@ export default function NewWasteReceptionPage() {
       depositor_phone: "",
       depositor_id_card: "",
 
+      exercise_years: [currentYearStr],
+      transfer_cost_mode: "chiffre",
+      transfer_cost_amount: 0,
+
       waste_items: [
         {
           batch_number: "",
+          product_nature: "médicaments",
+          product_nature_other: "",
+          product_category: PRODUCT_CATEGORIES[0],
           waste_type: "Médicaments périmés (Formes solides)",
           commercial_name: "",
           sample_id: "none",
@@ -121,6 +218,38 @@ export default function NewWasteReceptionPage() {
     control: form.control,
     name: "waste_items",
   })
+
+  // Gestion des années d'exercice multiples
+  const watchedYears = form.watch("exercise_years") || []
+  const handleToggleYear = (year: string) => {
+    const currentYears = form.getValues("exercise_years") || []
+    if (currentYears.includes(year)) {
+      if (currentYears.length > 1) {
+        form.setValue("exercise_years", currentYears.filter(y => y !== year), { shouldValidate: true })
+      } else {
+        toast.warning("Au moins une année d'exercice doit être sélectionnée.")
+      }
+    } else {
+      form.setValue("exercise_years", [...currentYears, year].sort(), { shouldValidate: true })
+    }
+  }
+
+  const handleAddCustomYear = () => {
+    const y = customYearInput.trim()
+    if (!y || !/^\d{4}$/.test(y)) {
+      toast.error("Veuillez saisir une année valide à 4 chiffres (ex: 2022).")
+      return
+    }
+    const currentYears = form.getValues("exercise_years") || []
+    if (currentYears.includes(y)) {
+      toast.info(`L'année ${y} est déjà dans la liste.`)
+      setCustomYearInput("")
+      return
+    }
+    form.setValue("exercise_years", [...currentYears, y].sort(), { shouldValidate: true })
+    setCustomYearInput("")
+    toast.success(`Année ${y} ajoutée.`)
+  }
 
   useEffect(() => {
     const randomSuffix = Math.floor(1000 + Math.random() * 9000)
@@ -182,6 +311,9 @@ export default function NewWasteReceptionPage() {
     const prefix = baseLotPrefix || `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
     append({
       batch_number: `${prefix}-${nextIndex}`,
+      product_nature: "médicaments",
+      product_nature_other: "",
+      product_category: PRODUCT_CATEGORIES[0],
       waste_type: "Médicaments périmés (Formes solides)",
       commercial_name: "",
       sample_id: "none",
@@ -242,7 +374,6 @@ export default function NewWasteReceptionPage() {
   // Ajout du document à la liste des pièces rattachées
   const handleAddAttachedDoc = () => {
     if (!pendingFile) {
-      // Si aucun fichier n'a été choisi, ouvrir directement le sélecteur
       fileInputRef.current?.click()
       return
     }
@@ -286,10 +417,20 @@ export default function NewWasteReceptionPage() {
     }
 
     const values = form.getValues()
+    const warehouseChosen = values.warehouse === "Autres" && values.warehouse_other ? values.warehouse_other : values.warehouse
+    const fee8 = values.transfer_cost_mode === "chiffre"
+      ? Math.round((Number(values.transfer_cost_amount) || 0) * 0.08)
+      : (values.transfer_cost_mode === "dons" ? "Exonéré (Dons)" : "NA")
+
     const slipPayload = {
       reception_number: values.reception_number,
       reception_date: values.reception_date,
       reception_time: values.reception_time,
+      warehouse: warehouseChosen,
+      exercise_years: values.exercise_years,
+      transfer_cost_mode: values.transfer_cost_mode,
+      transfer_cost_amount: values.transfer_cost_amount,
+      abmed_fee_8_percent: fee8,
       delivery_slip_ref: values.delivery_slip_ref,
       recipient_agent: values.recipient_agent,
       source_structure: values.source_structure,
@@ -299,11 +440,14 @@ export default function NewWasteReceptionPage() {
       depositor_phone: values.depositor_phone,
       depositor_id_card: values.depositor_id_card,
       attachedDocs: attachedDocs,
-      general_observations: `Dépôt de ${values.waste_items.length} catégorie(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
+      general_observations: `Dépôt de ${values.waste_items.length} lot(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
       items: values.waste_items.map((item) => {
         const s = samples.find((x) => x.id === item.sample_id)
+        const finalNature = item.product_nature === "autres (à préciser)" && item.product_nature_other ? item.product_nature_other : item.product_nature
         return {
           batch_number: item.batch_number,
+          product_nature: finalNature,
+          product_category: item.product_category,
           waste_type: item.waste_type,
           commercial_name: item.commercial_name || (s ? s.commercial_name : ""),
           original_batch: item.original_batch || (s ? s.batch_number : ""),
@@ -330,14 +474,25 @@ export default function NewWasteReceptionPage() {
     try {
       const values = form.getValues()
       const timestamp = Date.now()
+      const warehouseChosen = values.warehouse === "Autres" && values.warehouse_other ? values.warehouse_other : values.warehouse
+      const fee8 = values.transfer_cost_mode === "chiffre"
+        ? Math.round((Number(values.transfer_cost_amount) || 0) * 0.08)
+        : (values.transfer_cost_mode === "dons" ? "Exonéré (Dons)" : "NA")
+
       const newBatches = values.waste_items.map((item, idx) => {
         const selectedSample = samples.find((s) => s.id === item.sample_id)
+        const finalNature = item.product_nature === "autres (à préciser)" && item.product_nature_other ? item.product_nature_other : item.product_nature
         return {
           id: `batch-${timestamp}-${idx}`,
           batch_number: item.batch_number,
           reception_number: values.reception_number,
           reception_date: values.reception_date,
           reception_time: values.reception_time,
+          warehouse: warehouseChosen,
+          exercise_years: values.exercise_years,
+          transfer_cost_mode: values.transfer_cost_mode,
+          transfer_cost_amount: values.transfer_cost_amount,
+          abmed_fee_8_percent: fee8,
           delivery_slip_ref: values.delivery_slip_ref || "",
           recipient_agent: values.recipient_agent,
 
@@ -348,8 +503,10 @@ export default function NewWasteReceptionPage() {
           depositor_phone: values.depositor_phone,
           depositor_id_card: values.depositor_id_card || "",
 
+          product_nature: finalNature,
+          product_category: item.product_category,
           waste_type: item.waste_type,
-          commercial_name: item.commercial_name || (selectedSample ? selectedSample.commercial_name : "Divers produits pharmaceutiques"),
+          commercial_name: item.commercial_name || (selectedSample ? selectedSample.commercial_name : item.product_category),
           original_batch: item.original_batch || (selectedSample ? selectedSample.batch_number : ""),
           sample_id: item.sample_id && item.sample_id !== "none" ? item.sample_id : null,
           sample: selectedSample
@@ -367,7 +524,7 @@ export default function NewWasteReceptionPage() {
           status: "Déclaré",
           observations: item.observations || "",
           created_at: new Date().toISOString(),
-          creator: { first_name: "Marie", last_name: "ADANDE" },
+          creator: { first_name: "Agent", last_name: "ABMed" },
         }
       })
 
@@ -574,7 +731,7 @@ export default function NewWasteReceptionPage() {
                 1. Récépissé & Date de Réception
               </CardTitle>
               <CardDescription className="text-xs">
-                Références administratives de la prise en charge par l&apos;ABMed.
+                Références administratives et magasin de stockage de la prise en charge par l&apos;ABMed.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -603,6 +760,43 @@ export default function NewWasteReceptionPage() {
                 </FormItem>
               )} />
 
+              {/* Champ Magasin selon observation ABMed 01 */}
+              <FormField control={form.control} name="warehouse" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Warehouse className="h-3.5 w-3.5 text-emerald-600" />
+                    Magasin de stockage <span className="text-red-500">*</span>
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-9 text-xs bg-background font-semibold">
+                        <SelectValue placeholder="Sélectionner le magasin" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {WASTE_WAREHOUSES.map((w) => (
+                        <SelectItem key={w} value={w} className="text-xs font-semibold">
+                          {w}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {form.watch("warehouse") === "Autres" && (
+                <div className="md:col-span-4">
+                  <FormField control={form.control} name="warehouse_other" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Précisez le magasin / lieu</FormLabel>
+                      <FormControl><Input placeholder="Préciser l'emplacement ou magasin spécifique..." {...field} className="h-9 text-xs bg-background" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              )}
+
               <FormField control={form.control} name="delivery_slip_ref" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs font-semibold">Réf. Bordereau d&apos;apport (externe)</FormLabel>
@@ -611,7 +805,7 @@ export default function NewWasteReceptionPage() {
                 </FormItem>
               )} />
 
-              <div className="md:col-span-4">
+              <div className="md:col-span-3">
                 <FormField control={form.control} name="recipient_agent" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-semibold">Agent Récepteur ABMed</FormLabel>
@@ -669,13 +863,11 @@ export default function NewWasteReceptionPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Officine privée de pharmacie">Officine privée de pharmacie</SelectItem>
-                      <SelectItem value="Établissement hospitalier / Clinique">Établissement hospitalier / Clinique</SelectItem>
-                      <SelectItem value="Grossiste-répartiteur pharmaceutique">Grossiste-répartiteur pharmaceutique</SelectItem>
-                      <SelectItem value="Laboratoire d'analyses médicales">Laboratoire d&apos;analyses médicales</SelectItem>
-                      <SelectItem value="Industrie / Fabricant pharmaceutique">Industrie / Fabricant pharmaceutique</SelectItem>
-                      <SelectItem value="Organisme de santé publique / ONG">Organisme de santé publique / ONG</SelectItem>
-                      <SelectItem value="Autre">Autre</SelectItem>
+                      {WASTE_SOURCE_TYPES.map((st) => (
+                        <SelectItem key={st} value={st} className="text-xs">
+                          {st}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -798,6 +990,81 @@ export default function NewWasteReceptionPage() {
                       </FormItem>
                     )} />
 
+                    {/* Champ Nature des produits déclarés selon observation ABMed 02 */}
+                    <FormField control={form.control} name={`waste_items.${index}.product_nature`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-bold text-foreground">
+                          Nature des produits déclarés <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-9 text-xs bg-background font-semibold">
+                              <SelectValue placeholder="Choisir la nature" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PRODUCT_NATURES.map((nat) => (
+                              <SelectItem key={nat} value={nat} className="text-xs">
+                                {nat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    {/* Catégories officielles 1 à 5 selon observation ABMed 02 */}
+                    <FormField control={form.control} name={`waste_items.${index}.product_category`} render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel className="text-xs font-bold text-foreground">
+                          Catégorie Officielle ABMed <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-9 text-xs bg-background font-semibold">
+                              <SelectValue placeholder="Choisir la catégorie officielle" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-w-xl">
+                            {PRODUCT_CATEGORIES.map((cat, catIdx) => (
+                              <SelectItem key={catIdx} value={cat} className="text-xs whitespace-normal py-2 border-b last:border-b-0">
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    {/* Précision si Nature = 'autres (à préciser)' */}
+                    {form.watch(`waste_items.${index}.product_nature`) === "autres (à préciser)" && (
+                      <div className="md:col-span-3">
+                        <FormField control={form.control} name={`waste_items.${index}.product_nature_other`} render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold">Précisez la nature des produits</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Précisez la nature exacte..." {...field} className="h-9 text-xs bg-background" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
+                    )}
+
+                    {/* Désignation commerciale / Nom de la spécialité */}
+                    <FormField control={form.control} name={`waste_items.${index}.commercial_name`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">Désignation commerciale / Spécialité (Optionnel)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Paracétamol 500mg, Amoxicilline..." {...field} className="h-9 text-xs bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    {/* Classification Réglementaire (avec Produits saisis) */}
                     <FormField control={form.control} name={`waste_items.${index}.waste_type`} render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs font-bold">Classification Réglementaire <span className="text-red-500">*</span></FormLabel>
@@ -810,26 +1077,13 @@ export default function NewWasteReceptionPage() {
                         >
                           <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Choisir la catégorie" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            <SelectItem value="Médicaments périmés (Formes solides)">Médicaments périmés (Formes solides - comprimés, gélules)</SelectItem>
-                            <SelectItem value="Médicaments périmés (Formes liquides / sirops)">Médicaments périmés (Formes liquides / sirops)</SelectItem>
-                            <SelectItem value="Produits chimiques dangereux & solvants">Produits chimiques dangereux & solvants</SelectItem>
-                            <SelectItem value="Déchets infectieux (DASRI)">Déchets infectieux (DASRI)</SelectItem>
-                            <SelectItem value="Flacons cassés & piquant-tranchant">Flacons cassés & piquant-tranchant</SelectItem>
-                            <SelectItem value="Emballages & cartons souillés">Emballages & cartons souillés</SelectItem>
-                            <SelectItem value="Produits chaîne de froid dégradés">Produits chaîne de froid dégradés</SelectItem>
-                            <SelectItem value="Autres déchets pharmaceutiques">Autres déchets pharmaceutiques</SelectItem>
+                            {WASTE_CLASSIFICATIONS.map((c) => (
+                              <SelectItem key={c} value={c} className="text-xs">
+                                {c}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name={`waste_items.${index}.commercial_name`} render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-semibold">Désignation / Produits concernés</FormLabel>
-                        <FormControl>
-                          <Input {...field} className="h-9 text-xs bg-background" />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -862,32 +1116,54 @@ export default function NewWasteReceptionPage() {
                       )} />
                     </div>
 
+                    {/* Conditionnement (avec Sacs de jute) */}
                     <FormField control={form.control} name={`waste_items.${index}.packaging`} render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs font-semibold">Conditionnement</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Conditionnement" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            <SelectItem value="Cartons fermés & scotchés">Cartons fermés & scotchés</SelectItem>
-                            <SelectItem value="Fûts étanches scellés">Fûts étanches scellés</SelectItem>
-                            <SelectItem value="Boîtes jaunes DASRI sécurisées">Boîtes jaunes DASRI sécurisées</SelectItem>
-                            <SelectItem value="Bacs plastiques fermés">Bacs plastiques fermés</SelectItem>
-                            <SelectItem value="Sacs étanches plombés">Sacs étanches plombés</SelectItem>
+                            {WASTE_PACKAGINGS.map((p) => (
+                              <SelectItem key={p} value={p} className="text-xs">
+                                {p}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
 
+                    {/* État du Colisage (avec Autres) */}
                     <FormField control={form.control} name={`waste_items.${index}.packaging_condition`} render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs font-semibold">État du Colisage</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="État colis" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            <SelectItem value="Conforme et scellé">Conforme et scellé</SelectItem>
-                            <SelectItem value="Emballage détérioré / Avec réserves">Emballage détérioré / Avec réserves</SelectItem>
-                            <SelectItem value="Fuite constatée / Reconditionné">Fuite constatée / Reconditionné</SelectItem>
+                            {PACKAGING_CONDITIONS.map((pc) => (
+                              <SelectItem key={pc} value={pc} className="text-xs">
+                                {pc}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    {/* Motif du Dépôt (avec Issus de saisies et Rappel de lot) */}
+                    <FormField control={form.control} name={`waste_items.${index}.destruction_motive`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold">Motif du Dépôt</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Motif" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {DESTRUCTION_MOTIVES.map((m) => (
+                              <SelectItem key={m} value={m} className="text-xs">
+                                {m}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -902,44 +1178,28 @@ export default function NewWasteReceptionPage() {
                       </FormItem>
                     )} />
 
-                    <FormField control={form.control} name={`waste_items.${index}.destruction_motive`} render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-semibold">Motif du Dépôt</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger className="h-9 text-xs bg-background"><SelectValue placeholder="Motif" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="Péremption">Péremption</SelectItem>
-                            <SelectItem value="Détérioration physique / Casse">Détérioration physique / Casse</SelectItem>
-                            <SelectItem value="Rupture de chaîne de froid">Rupture de chaîne de froid</SelectItem>
-                            <SelectItem value="Rappel de lot fabricant">Rappel de lot fabricant</SelectItem>
-                            <SelectItem value="Non-conformité analytique">Non-conformité analytique</SelectItem>
-                            <SelectItem value="Autre">Autre</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name={`waste_items.${index}.current_location`} render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold">Orientation (MAGASIN DES DECHETS) <span className="text-red-500">*</span></FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-9 text-xs bg-background font-semibold">
-                              <SelectValue placeholder="Choisir la zone du Magasin des Déchets" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {WASTE_ZONES.map((z) => (
-                              <SelectItem key={z.id} value={z.fullLocation} className="text-xs">
-                                {z.fullLocation}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name={`waste_items.${index}.current_location`} render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold">Orientation (MAGASIN DES DECHETS) <span className="text-red-500">*</span></FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-9 text-xs bg-background font-semibold">
+                                <SelectValue placeholder="Choisir la zone du Magasin des Déchets" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {WASTE_ZONES.map((z) => (
+                                <SelectItem key={z.id} value={z.fullLocation} className="text-xs">
+                                  {z.fullLocation}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
 
                   </CardContent>
                 </Card>
@@ -959,14 +1219,223 @@ export default function NewWasteReceptionPage() {
               </Button>
             </div>
 
-            {/* 4. DOCUMENTS & PIÈCES JUSTIFICATIVES APPORTÉS */}
+            {/* SECTION 4 : ANNÉES D'EXERCICE & VALORISATION FINANCIÈRE DES PRODUITS DÉCLARÉS (Image 3) */}
+            <Card className="shadow-sm border border-emerald-500/30 rounded-2xl bg-emerald-500/[0.02]">
+              <CardHeader className="p-4 pb-3 border-b border-border/50 bg-emerald-50/50 dark:bg-emerald-950/20">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <CardTitle className="flex items-center text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
+                    <CircleDollarSign className="mr-2 h-4 w-4 text-emerald-600" />
+                    4. Années d&apos;Exercice & Valorisation Financière des Produits Déclarés
+                  </CardTitle>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                    Redevance ABMed 8%
+                  </Badge>
+                </div>
+                <CardDescription className="text-xs">
+                  Renseignez les années d&apos;exercice concernées et le coût total de cession pour le calcul automatique de la redevance de 8 % au compte de l&apos;ABMed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                
+                {/* 1. Sélection multiple des années d'exercice */}
+                <div className="space-y-2 p-3 bg-background rounded-xl border border-border/70">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-emerald-600" />
+                      Année(s) d&apos;exercice des produits déclarés <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[11px] text-muted-foreground">
+                      Sélection multiple ({watchedYears.length} année{watchedYears.length > 1 ? 's' : ''} retenue{watchedYears.length > 1 ? 's' : ''})
+                    </span>
+                  </div>
+
+                  {/* Badges cliquables des années récentes */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {[2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027].map((yr) => {
+                      const yrStr = yr.toString()
+                      const isSelected = watchedYears.includes(yrStr)
+                      return (
+                        <button
+                          type="button"
+                          key={yr}
+                          onClick={() => handleToggleYear(yrStr)}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                            isSelected
+                              ? "bg-[#1B5C2E] text-white border-[#1B5C2E] shadow-xs"
+                              : "bg-muted/40 text-muted-foreground border-border hover:border-emerald-500/60 hover:text-foreground"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                          {yr}
+                        </button>
+                      )
+                    })}
+
+                    {/* Saisie d'une autre année personnalisée */}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Input
+                        type="text"
+                        maxLength={4}
+                        placeholder="Autre année (ex: 2019)"
+                        value={customYearInput}
+                        onChange={(e) => setCustomYearInput(e.target.value.replace(/\D/g, ''))}
+                        className="h-8 w-32 text-xs bg-background"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleAddCustomYear()
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddCustomYear}
+                        className="h-8 px-2 text-xs font-semibold gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Ajouter
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Récapitulatif des années sélectionnées */}
+                  <div className="flex flex-wrap items-center gap-1 pt-1">
+                    <span className="text-[11px] text-muted-foreground font-semibold mr-1">Années retenues :</span>
+                    {watchedYears.map((yr) => (
+                      <Badge 
+                        key={yr} 
+                        variant="secondary"
+                        className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1 py-0.5"
+                      >
+                        {yr}
+                        {watchedYears.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleYear(yr)}
+                            className="hover:text-red-600 cursor-pointer ml-0.5"
+                            title="Retirer cette année"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Coût de cession et Prix à 8% */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+                  
+                  {/* Mode de coût de cession */}
+                  <div className="md:col-span-4 space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Régime du Coût de Cession <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      value={form.watch("transfer_cost_mode")}
+                      onValueChange={(val: any) => form.setValue("transfer_cost_mode", val, { shouldValidate: true })}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background font-semibold">
+                        <SelectValue placeholder="Choisir le mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="chiffre" className="text-xs font-semibold">
+                          Montant chiffré (FCFA)
+                        </SelectItem>
+                        <SelectItem value="na" className="text-xs font-semibold">
+                          NA (Non Applicable)
+                        </SelectItem>
+                        <SelectItem value="dons" className="text-xs font-semibold">
+                          Dons
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Saisie du coût total si montant chiffré */}
+                  <div className="md:col-span-4 space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Coût Total de Cession {form.watch("transfer_cost_mode") === "chiffre" && <span className="text-red-500">*</span>}
+                    </label>
+                    {form.watch("transfer_cost_mode") === "chiffre" ? (
+                      <FormField
+                        control={form.control}
+                        name="transfer_cost_amount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  placeholder="0"
+                                  {...field}
+                                  className="h-9 text-xs font-bold font-mono pr-14 bg-background"
+                                />
+                                <span className="absolute right-2.5 top-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
+                                  FCFA
+                                </span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ) : (
+                      <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center text-xs font-bold font-mono text-muted-foreground">
+                        {form.watch("transfer_cost_mode") === "na" ? "NA (Non Applicable)" : "Dons"}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Prix à 8% calculé automatiquement */}
+                  <div className="md:col-span-4 space-y-1.5">
+                    <label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center justify-between">
+                      <span>Prix à 8 % (Compte ABMed)</span>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300 font-mono font-bold">
+                        Automatique
+                      </Badge>
+                    </label>
+
+                    <div className="h-9 px-3 rounded-md border-2 border-emerald-500/40 bg-emerald-500/10 flex items-center justify-between">
+                      <span className="text-xs text-emerald-900 dark:text-emerald-200 font-semibold">
+                        À payer :
+                      </span>
+                      <span className="text-xs font-black font-mono text-emerald-700 dark:text-emerald-300">
+                        {form.watch("transfer_cost_mode") === "chiffre" ? (
+                          `${Math.round((Number(form.watch("transfer_cost_amount")) || 0) * 0.08).toLocaleString('fr-FR')} FCFA`
+                        ) : form.watch("transfer_cost_mode") === "dons" ? (
+                          "Exonéré (Dons)"
+                        ) : (
+                          "NA"
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Note explicative réglementaire */}
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200">
+                  <Info className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Le prix de 8 % est calculé automatiquement sur la valeur déclarée des produits à détruire et doit être versé au compte de l&apos;ABMed comme redevance réglementaire de prise en charge.
+                  </span>
+                </div>
+
+              </CardContent>
+            </Card>
+
+            {/* 5. DOCUMENTS & PIÈCES JUSTIFICATIVES APPORTÉS */}
             <Card className="border-border/70 shadow-xs">
               <CardHeader className="p-4 sm:p-5 border-b border-border/60 bg-muted/20">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <div>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Paperclip className="h-4 w-4 text-[#1B5C2E]" />
-                      4. Documents & Pièces Justificatives Apportés (Optionnel)
+                      5. Documents & Pièces Justificatives Apportés (Optionnel)
                     </CardTitle>
                     <CardDescription className="text-xs">
                       Joignez les bordereaux de livraison papier, procès-verbaux, inventaires scannés ou courriers déposés par la structure.
@@ -1232,6 +1701,10 @@ export default function NewWasteReceptionPage() {
                       2. Prise en charge ABMed
                     </p>
                     <p className="pt-1">
+                      <span className="text-slate-500">Magasin de stockage :</span>{" "}
+                      <strong className="text-slate-900">{previewData.warehouse || "Magasin Cotonou"}</strong>
+                    </p>
+                    <p>
                       <span className="text-slate-500">Agent Récepteur :</span>{" "}
                       <strong className="text-slate-900">{previewData.recipient_agent}</strong>
                     </p>
@@ -1250,16 +1723,48 @@ export default function NewWasteReceptionPage() {
                   </div>
                 </div>
 
+                {/* ENCART VALORISATION FINANCIÈRE ET ANNÉES D'EXERCICE */}
+                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs space-y-1">
+                  <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 pb-1">
+                    3. Années d&apos;exercice & Valorisation Financière (Redevance ABMed 8%)
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div>
+                      <span className="text-slate-500">Année(s) d&apos;exercice :</span>{" "}
+                      <strong className="text-slate-900 font-mono">
+                        {Array.isArray(previewData.exercise_years) ? previewData.exercise_years.join(', ') : previewData.exercise_years}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Coût total de cession :</span>{" "}
+                      <strong className="text-slate-900 font-mono">
+                        {previewData.transfer_cost_mode === "chiffre"
+                          ? `${(Number(previewData.transfer_cost_amount) || 0).toLocaleString('fr-FR')} FCFA`
+                          : (previewData.transfer_cost_mode === "na" ? "NA" : "Dons")}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-emerald-800 font-bold">Prix à 8 % (Compte ABMed) :</span>{" "}
+                      <strong className="text-emerald-700 font-mono font-black">
+                        {typeof previewData.abmed_fee_8_percent === 'number'
+                          ? `${previewData.abmed_fee_8_percent.toLocaleString('fr-FR')} FCFA`
+                          : previewData.abmed_fee_8_percent}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    3. Détail des Déchets à Réceptionner ({previewData.items.length} lots)
+                    4. Détail des Déchets à Réceptionner ({previewData.items.length} lots)
                   </p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
                       <thead className="bg-[#1B5C2E] text-white text-[11px]">
                         <tr>
                           <th className="p-2 border-r border-[#1B5C2E]/30 whitespace-nowrap">N° Lot Déchet</th>
-                          <th className="p-2 border-r border-[#1B5C2E]/30">Désignation & Classification</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Catégorie & Nature</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Classification & Spécialité</th>
                           <th className="p-2 border-r border-[#1B5C2E]/30">Conditionnement & Motif</th>
                           <th className="p-2 border-r border-[#1B5C2E]/30">Localisation</th>
                           <th className="p-2 text-right whitespace-nowrap">Poids / Quantité</th>
@@ -1270,6 +1775,14 @@ export default function NewWasteReceptionPage() {
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
                               {item.batch_number}
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <p className="font-semibold text-slate-900 text-[11px]">{item.product_category ? item.product_category.split(':')[0] : "Catégorie"}</p>
+                              {item.product_nature && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 bg-slate-100 text-slate-700 border-slate-300">
+                                  {item.product_nature}
+                                </Badge>
+                              )}
                             </td>
                             <td className="p-2 border-r border-slate-200">
                               <p className="font-semibold text-slate-900">{item.waste_type}</p>
@@ -1294,7 +1807,7 @@ export default function NewWasteReceptionPage() {
                         ))}
                         {previewData.items.length > 1 && (
                           <tr className="bg-slate-100 font-bold">
-                            <td colSpan={4} className="p-2 text-right border-r border-slate-300">
+                            <td colSpan={5} className="p-2 text-right border-r border-slate-300">
                               TOTAL DÉPÔT ({previewData.items.length} lots) :
                             </td>
                             <td className="p-2 text-right font-black text-[#1B5C2E] whitespace-nowrap">
@@ -1457,6 +1970,10 @@ export default function NewWasteReceptionPage() {
                       2. Prise en charge ABMed
                     </p>
                     <p className="pt-1">
+                      <span className="text-slate-500">Magasin de stockage :</span>{" "}
+                      <strong className="text-slate-900">{savedSlipData.warehouse || "Magasin Cotonou"}</strong>
+                    </p>
+                    <p>
                       <span className="text-slate-500">Agent Récepteur :</span>{" "}
                       <strong className="text-slate-900">{savedSlipData.recipient_agent}</strong>
                     </p>
@@ -1480,17 +1997,49 @@ export default function NewWasteReceptionPage() {
 
                 </div>
 
+                {/* ENCART VALORISATION FINANCIÈRE ET ANNÉES D'EXERCICE */}
+                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs space-y-1">
+                  <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 pb-1">
+                    3. Années d&apos;exercice & Valorisation Financière (Redevance ABMed 8%)
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div>
+                      <span className="text-slate-500">Année(s) d&apos;exercice :</span>{" "}
+                      <strong className="text-slate-900 font-mono">
+                        {Array.isArray(savedSlipData.exercise_years) ? savedSlipData.exercise_years.join(', ') : savedSlipData.exercise_years}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Coût total de cession :</span>{" "}
+                      <strong className="text-slate-900 font-mono">
+                        {savedSlipData.transfer_cost_mode === "chiffre"
+                          ? `${(Number(savedSlipData.transfer_cost_amount) || 0).toLocaleString('fr-FR')} FCFA`
+                          : (savedSlipData.transfer_cost_mode === "na" ? "NA" : "Dons")}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-emerald-800 font-bold">Prix à 8 % (Compte ABMed) :</span>{" "}
+                      <strong className="text-emerald-700 font-mono font-black">
+                        {typeof savedSlipData.abmed_fee_8_percent === 'number'
+                          ? `${savedSlipData.abmed_fee_8_percent.toLocaleString('fr-FR')} FCFA`
+                          : savedSlipData.abmed_fee_8_percent}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
                 {/* TABLEAU RÉCAPITULATIF DES DÉCHETS REÇUS */}
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    3. Détail des Déchets Réceptionnés ({savedSlipData.items.length} lots)
+                    4. Détail des Déchets Réceptionnés ({savedSlipData.items.length} lots)
                   </p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border border-slate-300 rounded overflow-hidden">
                       <thead className="bg-[#1B5C2E] text-white text-[11px]">
                         <tr>
                           <th className="p-2 border-r border-[#1B5C2E]/30 whitespace-nowrap">N° Lot Déchet</th>
-                          <th className="p-2 border-r border-[#1B5C2E]/30">Désignation & Classification</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Catégorie & Nature</th>
+                          <th className="p-2 border-r border-[#1B5C2E]/30">Classification & Spécialité</th>
                           <th className="p-2 border-r border-[#1B5C2E]/30">Conditionnement</th>
                           <th className="p-2 text-right whitespace-nowrap">Poids / Quantité</th>
                         </tr>
@@ -1502,9 +2051,20 @@ export default function NewWasteReceptionPage() {
                               {item.batch_number}
                             </td>
                             <td className="p-2 border-r border-slate-200">
+                              <p className="font-semibold text-slate-900 text-[11px]">{item.product_category ? item.product_category.split(':')[0] : "Catégorie"}</p>
+                              {item.product_nature && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 bg-slate-100 text-slate-700 border-slate-300">
+                                  {item.product_nature}
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
                               <p className="font-semibold text-slate-900">{item.waste_type}</p>
                               {item.commercial_name && (
                                 <p className="text-[10px] text-slate-600">{item.commercial_name}</p>
+                              )}
+                              {item.original_batch && (
+                                <p className="text-[10px] text-slate-500">Lot d&apos;origine : {item.original_batch}</p>
                               )}
                             </td>
                             <td className="p-2 border-r border-slate-200 text-slate-700">
@@ -1517,7 +2077,7 @@ export default function NewWasteReceptionPage() {
                         ))}
                         {savedSlipData.items.length > 1 && (
                           <tr className="bg-slate-100 font-bold">
-                            <td colSpan={3} className="p-2 text-right border-r border-slate-300">
+                            <td colSpan={4} className="p-2 text-right border-r border-slate-300">
                               TOTAL DÉPÔT ({savedSlipData.items.length} lots) :
                             </td>
                             <td className="p-2 text-right font-black text-[#1B5C2E] whitespace-nowrap">

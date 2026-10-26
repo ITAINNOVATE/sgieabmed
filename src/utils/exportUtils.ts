@@ -301,6 +301,11 @@ export function exportWasteReceptionSlipPDF(slipData: {
   reception_number: string
   reception_date: string
   reception_time?: string
+  warehouse?: string
+  exercise_years?: string[] | string
+  transfer_cost_mode?: string
+  transfer_cost_amount?: number
+  abmed_fee_8_percent?: number | string
   delivery_slip_ref?: string
   recipient_agent?: string
   source_structure: string
@@ -313,6 +318,8 @@ export function exportWasteReceptionSlipPDF(slipData: {
   items: Array<{
     batch_number: string
     waste_type: string
+    product_nature?: string
+    product_category?: string
     commercial_name?: string
     original_batch?: string
     quantity: number
@@ -336,11 +343,11 @@ export function exportWasteReceptionSlipPDF(slipData: {
   doc.setTextColor(255, 255, 255)
   doc.text("RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ", 14, 10)
   
-  doc.setFontSize(15)
+  doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
   doc.text("ATTESTATION DE RÉCEPTION DE DÉCHETS PHARMACEUTIQUES", 14, 20)
   
-  doc.setFontSize(9)
+  doc.setFontSize(8.5)
   doc.setFont("helvetica", "normal")
   doc.text("AGENCE BÉNINOISE DU MÉDICAMENT (ABMed) — GESTION DES DÉCHETS (PSQIF)", 14, 28)
 
@@ -348,78 +355,115 @@ export function exportWasteReceptionSlipPDF(slipData: {
   doc.setFontSize(10)
   doc.setTextColor(27, 92, 46)
   doc.setFont("helvetica", "bold")
-  doc.text(`RÉCÉPISSÉ N° : ${slipData.reception_number || 'REC-DECH-2026-0001'}`, 14, 46)
+  doc.text(`RÉCÉPISSÉ N° : ${slipData.reception_number || 'REC-DECH-2026-0001'}`, 14, 45)
 
-  doc.setFontSize(9)
+  doc.setFontSize(8.5)
   doc.setTextColor(100, 116, 139)
   doc.setFont("helvetica", "normal")
-  doc.text(`Date & heure : ${slipData.reception_date || new Date().toLocaleDateString('fr-FR')} ${slipData.reception_time || ''}`, 130, 46)
+  doc.text(`Date & heure : ${slipData.reception_date || new Date().toLocaleDateString('fr-FR')} ${slipData.reception_time || ''}`, 125, 45)
 
   // Section 1 : Structure Apportrice (Cadre gauche)
   doc.setDrawColor(203, 213, 225)
   doc.setFillColor(248, 250, 252)
-  doc.roundedRect(14, 52, 88, 48, 2, 2, "FD")
-
-  doc.setFontSize(9)
-  doc.setTextColor(15, 23, 42)
-  doc.setFont("helvetica", "bold")
-  doc.text("1. STRUCTURE / ÉTABLISSEMENT DÉPOSANT", 18, 59)
-  doc.line(18, 61, 98, 61)
+  doc.roundedRect(14, 50, 88, 48, 2, 2, "FD")
 
   doc.setFontSize(8.5)
+  doc.setTextColor(15, 23, 42)
+  doc.setFont("helvetica", "bold")
+  doc.text("1. STRUCTURE / ÉTABLISSEMENT DÉPOSANT", 18, 56)
+  doc.line(18, 58, 98, 58)
+
+  doc.setFontSize(7.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Établissement : ${slipData.source_structure || 'Non précisé'}`, 18, 68)
-  doc.text(`Type : ${slipData.source_type || 'Officine / Établissement'}`, 18, 74)
-  doc.text(`Localité : ${slipData.city || 'Cotonou / Bénin'}`, 18, 80)
-  doc.text(`Déposant : ${slipData.depositor_name || 'Non précisé'}`, 18, 86)
-  doc.text(`Contact : ${slipData.depositor_phone || 'N/A'} (ID: ${slipData.depositor_id_card || 'N/A'})`, 18, 92)
+  doc.text(`Établissement : ${slipData.source_structure || 'Non précisé'}`, 18, 64)
+  doc.text(`Type : ${slipData.source_type || 'Officine / Établissement'}`, 18, 70)
+  doc.text(`Localité : ${slipData.city || 'Cotonou / Bénin'}`, 18, 76)
+  doc.text(`Déposant : ${slipData.depositor_name || 'Non précisé'}`, 18, 82)
+  doc.text(`Contact : ${slipData.depositor_phone || 'N/A'} (ID: ${slipData.depositor_id_card || 'N/A'})`, 18, 88)
 
   // Section 2 : Réception ABMed & Transport (Cadre droit)
   doc.setDrawColor(203, 213, 225)
   doc.setFillColor(248, 250, 252)
-  doc.roundedRect(108, 52, 88, 48, 2, 2, "FD")
-
-  doc.setFontSize(9)
-  doc.setTextColor(15, 23, 42)
-  doc.setFont("helvetica", "bold")
-  doc.text("2. PRISE EN CHARGE ABMed", 112, 59)
-  doc.line(112, 61, 192, 61)
+  doc.roundedRect(108, 50, 88, 48, 2, 2, "FD")
 
   doc.setFontSize(8.5)
+  doc.setTextColor(15, 23, 42)
+  doc.setFont("helvetica", "bold")
+  doc.text("2. PRISE EN CHARGE ABMed", 112, 56)
+  doc.line(112, 58, 192, 58)
+
+  doc.setFontSize(7.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Agent récepteur : ${slipData.recipient_agent || 'Admin EGED'}`, 112, 68)
-  doc.text(`Service : Direction de la Gestion des Déchets`, 112, 74)
-  doc.text(`Bordereau apport : ${slipData.delivery_slip_ref || 'Remise directe sur site'}`, 112, 80)
-  doc.text(`Statut initial : Déclaré / En attente de destruction`, 112, 86)
-  doc.text(`Nombre de lots reçus : ${slipData.items?.length || 1} lot(s)`, 112, 92)
+  doc.text(`Magasin de dépôt : ${slipData.warehouse || 'Magasin Cotonou'}`, 112, 64)
+  doc.text(`Agent récepteur : ${slipData.recipient_agent || 'Admin EGED'}`, 112, 70)
+  doc.text(`Service : Surveillance Marché & PSQIF`, 112, 76)
+  doc.text(`Bordereau apport : ${slipData.delivery_slip_ref || 'Remise directe sur site'}`, 112, 82)
+  doc.text(`Nombre de lots reçus : ${slipData.items?.length || 1} lot(s)`, 112, 88)
+
+  // Section 3 : Valorisation & Années d'exercice
+  const exerciseYearsText = Array.isArray(slipData.exercise_years) 
+    ? slipData.exercise_years.join(', ') 
+    : (slipData.exercise_years || 'Non renseignée')
+
+  let costText = "Non renseigné"
+  let feeText = "NA"
+  if (slipData.transfer_cost_mode === "chiffre") {
+    const amt = Number(slipData.transfer_cost_amount) || 0
+    costText = `${amt.toLocaleString('fr-FR')} FCFA`
+    feeText = `${Math.round(amt * 0.08).toLocaleString('fr-FR')} FCFA`
+  } else if (slipData.transfer_cost_mode === "na") {
+    costText = "NA (Non Applicable)"
+    feeText = "NA"
+  } else if (slipData.transfer_cost_mode === "dons") {
+    costText = "Dons"
+    feeText = "Exonéré (Dons)"
+  }
+
+  doc.setFillColor(240, 253, 244)
+  doc.setDrawColor(187, 247, 208)
+  doc.roundedRect(14, 101, 182, 14, 2, 2, "FD")
+  doc.setFontSize(7.5)
+  doc.setTextColor(22, 101, 52)
+  doc.setFont("helvetica", "bold")
+  doc.text(`Année(s) d'exercice des produits : ${exerciseYearsText}`, 18, 106)
+  doc.text(`Coût total de cession : ${costText}   |   Prix à payer au compte ABMed (8%) : ${feeText}`, 18, 111)
 
   // Tableau des Déchets Réceptionnés
-  doc.setFontSize(10)
+  doc.setFontSize(9.5)
   doc.setFont("helvetica", "bold")
   doc.setTextColor(15, 23, 42)
-  doc.text("3. INVENTAIRE DES PRODUITS & DÉCHETS REÇUS", 14, 110)
+  doc.text("4. INVENTAIRE DES PRODUITS & DÉCHETS REÇUS", 14, 122)
 
   const headers = [
     "N° Lot Déchet",
-    "Classification / Désignation",
+    "Catégorie & Nature",
+    "Classification / Détail",
     "Conditionnement",
     "Quantité / Poids",
     "Zone Stockage"
   ]
 
-  const rows = (slipData.items || []).map((item) => [
-    item.batch_number || 'N/A',
-    `${item.waste_type || 'Déchets pharmaceutiques'}${item.commercial_name ? `\n(${item.commercial_name})` : ''}`,
-    item.packaging || 'Fûts / Cartons fermés',
-    `${item.quantity} ${item.unit || 'Kg'}`,
-    item.location || 'Zone Quarantaine'
-  ])
+  const rows = (slipData.items || []).map((item) => {
+    const catShort = item.product_category ? item.product_category.split(':')[0] : 'Cat. standard'
+    const nature = item.product_nature ? `[${item.product_nature}]` : ''
+    const designation = item.commercial_name || item.waste_type || 'Déchets'
+
+    return [
+      item.batch_number || 'N/A',
+      `${catShort}\n${nature}`,
+      `${designation}${item.original_batch ? `\n(Lot orig: ${item.original_batch})` : ''}`,
+      item.packaging || 'Cartons fermés',
+      `${item.quantity} ${item.unit || 'Kg'}`,
+      item.location || 'Magasin Déchets'
+    ]
+  })
 
   if (slipData.items && slipData.items.length > 1) {
     const totalQty = slipData.items.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)
     rows.push([
       "TOTAL DÉPÔT",
-      `${slipData.items.length} lots de déchets apportés`,
+      `${slipData.items.length} lots`,
+      "-",
       "-",
       `${totalQty.toFixed(2)} (Total)`,
       "-"
@@ -427,18 +471,19 @@ export function exportWasteReceptionSlipPDF(slipData: {
   }
 
   autoTable(doc, {
-    startY: 114,
+    startY: 125,
     head: [headers],
     body: rows,
     theme: "striped",
     headStyles: { fillColor: [27, 92, 46], textColor: [255, 255, 255], fontSize: 8.5 },
     styles: { fontSize: 8, cellPadding: 2.5 },
     columnStyles: {
-      0: { cellWidth: 35, fontStyle: 'bold' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 35 },
-      3: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
-      4: { cellWidth: 24 }
+      0: { cellWidth: 30, fontStyle: 'bold' },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 25, halign: 'right', fontStyle: 'bold' },
+      5: { cellWidth: 22 }
     },
     margin: { left: 14, right: 14 }
   })
