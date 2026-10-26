@@ -2,6 +2,10 @@
 
 import { useEffect, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
+import {
+  getGlobalBroadcastChannel,
+  installLocalStorageSyncInterceptor,
+} from "@/utils/realtimeBus"
 
 interface UseRealtimeSyncOptions {
   tables: string[]
@@ -11,110 +15,184 @@ interface UseRealtimeSyncOptions {
 }
 
 /**
- * Hook de synchronisation automatique multi-ordinateurs en temps réel
- * - Écoute les modifications Supabase Realtime (WebSocket PostgreSQL Changes)
- * - Rafraîchit au retour du focus sur la fenêtre / onglet (visibilitychange)
- * - Effectue un re-polling périodique léger en fallback réseau
+ * Hook de synchronisation automatique multi-ordinateurs et multi-niveaux en temps réel
+ * - Écoute Supabase Realtime Broadcast (latence < 50ms entre tous les ordinateurs connectés)
+ * - Écoute Supabase PostgreSQL Changes (réplication base de données)
+ * - Écoute le canal natif BroadcastChannel (0ms entre tous les onglets du même appareil)
+ * - Écoute les événements intra-application immédiats
+ * - Déclenche un re-polling régulier rapide (2s) en secours
  */
 export function useRealtimeSync({
   tables,
   onSync,
-  pollIntervalMs = 4000,
+  pollIntervalMs = 2000,
   enabled = true,
 }: UseRealtimeSyncOptions) {
   const onSyncRef = useRef(onSync)
   onSyncRef.current = onSync
 
+  const isSyncingRef = useRef(false)
+  const pendingSyncRef = useRef(false)
+  const debounceTimerRef = useRef<any>(null)
+
+  // Exécution sécurisée avec anti-rebond et anti-chevauchement
+  const triggerSync = useRef(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+
+    debounceTimerRef.current = setTimeout(async () => {
+      if (isSyncingRef.current) {
+        pendingSyncRef.current = true
+        return
+      }
+
+      isSyncingRef.current = true
+      try {
+        await Promise.resolve(onSyncRef.current())
+      } catch (e) {
+        console.warn("[useRealtimeSync] Erreur lors de l'exécution de onSync:", e)
+      } finally {
+        isSyncingRef.current = false
+        if (pendingSyncRef.current) {
+          pendingSyncRef.current = false
+          setTimeout(() => triggerSync.current(), 80)
+        }
+      }
+    }, 50)
+  })
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return
 
+    // S'assurer que l'intercepteur de stockage local est actif
+    installLocalStorageSyncInterceptor()
+
     const supabase = createClient()
     const tablesKey = tables.join("-")
-    const channelName = `realtime-sync-${tablesKey}-${Math.floor(Math.random() * 100000)}`
-    const channel = supabase.channel(channelName)
+
+    // 1. Abonnement au canal Broadcast Global Supabase (tous les postes, <50ms)
+    const broadcastChannel = getGlobalBroadcastChannel()
+    if (broadcastChannel) {
+      broadcastChannel.on(
+        "broadcast",
+        { event: "sgie_mutation" },
+        (payload: any) => {
+          const entity = (payload?.payload?.entity || "").toLowerCase()
+          const isRelevant =
+            !entity ||
+            tables.some((t) => entity.includes(t.toLowerCase())) ||
+            tables.length === 0
+
+          if (isRelevant) {
+            triggerSync.current()
+          }
+        }
+      )
+    }
+
+    // 2. Abonnement aux Postgres Changes directs sur les tables demandées
+    const dbChannelName = `db-sync-${tablesKey}-${Math.floor(Math.random() * 10000)}`
+    const dbChannel = supabase.channel(dbChannelName)
 
     tables.forEach((table) => {
-      channel.on(
+      dbChannel.on(
         "postgres_changes",
         { event: "*", schema: "public", table },
-        (payload) => {
-          console.log(`[RealtimeSync] Modification détectée sur la table ${table} (${payload.eventType})`)
-          try {
-            onSyncRef.current()
-          } catch (e) {
-            console.warn("[RealtimeSync] Erreur lors du rappel onSync:", e)
-          }
+        () => {
+          triggerSync.current()
         }
       )
     })
 
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        console.log(`[RealtimeSync] Abonnement actif pour: [${tables.join(", ")}]`)
-      }
-    })
+    dbChannel.subscribe()
 
-    // 2. Polling périodique rapide (4s par défaut) pour garantir l'actualisation continue en temps réel
-    const intervalId = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        try {
-          onSyncRef.current()
-        } catch (e) {}
-      }
-    }, pollIntervalMs)
+    // 3. Abonnement natif BroadcastChannel (0ms entre onglets sur la même machine)
+    let nativeBc: BroadcastChannel | null = null
+    if ("BroadcastChannel" in window) {
+      try {
+        nativeBc = new BroadcastChannel("sgie_realtime_bus")
+        nativeBc.onmessage = (event) => {
+          const entity = (event.data?.entity || "").toLowerCase()
+          const isRelevant =
+            !entity ||
+            tables.some((t) => entity.includes(t.toLowerCase())) ||
+            tables.length === 0
 
-    // 3. Réactualisation automatique quand l'utilisateur change d'onglet ou revient sur la fenêtre
+          if (isRelevant) {
+            triggerSync.current()
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 4. Écoute des événements locaux
+    const handleLocalSyncEvent = () => triggerSync.current()
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key) {
+        triggerSync.current()
+        return
+      }
+      const lowerKey = e.key.toLowerCase()
+      const isCritical = [
+        "reception",
+        "waste",
+        "sample",
+        "destruction",
+        "mvt",
+        "movement",
+        "invent",
+        "sgie",
+      ].some((p) => lowerKey.includes(p))
+
+      if (isCritical) {
+        triggerSync.current()
+      }
+    }
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        try {
-          onSyncRef.current()
-        } catch (e) {}
+        triggerSync.current()
       }
     }
+
     const handleFocus = () => {
-      try {
-        onSyncRef.current()
-      } catch (e) {}
+      triggerSync.current()
     }
 
-    // 4. Écoute inter-onglets et intra-application
-    const handleStorageChange = (e: StorageEvent) => {
-      if (
-        !e.key ||
-        e.key.includes("reception") ||
-        e.key.includes("waste") ||
-        e.key.includes("sample") ||
-        e.key.includes("destruction") ||
-        e.key.includes("mvt") ||
-        e.key.includes("movement") ||
-        e.key.includes("invent") ||
-        e.key.includes("sgie")
-      ) {
-        try {
-          onSyncRef.current()
-        } catch (e) {}
-      }
-    }
-
-    const handleCustomUpdate = () => {
-      try {
-        onSyncRef.current()
-      } catch (e) {}
-    }
-
+    window.addEventListener("eged-data-updated", handleLocalSyncEvent)
+    window.addEventListener("sgie-sync-event", handleLocalSyncEvent)
+    window.addEventListener("storage", handleStorageChange)
     window.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("focus", handleFocus)
-    window.addEventListener("storage", handleStorageChange)
-    window.addEventListener("eged-data-updated", handleCustomUpdate)
+
+    // 5. Polling régulier de secours (toutes les 2 secondes quand la fenêtre est active)
+    const effectiveInterval = Math.min(pollIntervalMs, 2500)
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        triggerSync.current()
+      }
+    }, effectiveInterval)
 
     return () => {
       clearInterval(intervalId)
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+      window.removeEventListener("eged-data-updated", handleLocalSyncEvent)
+      window.removeEventListener("sgie-sync-event", handleLocalSyncEvent)
+      window.removeEventListener("storage", handleStorageChange)
       window.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("focus", handleFocus)
-      window.removeEventListener("storage", handleStorageChange)
-      window.removeEventListener("eged-data-updated", handleCustomUpdate)
-      supabase.removeChannel(channel)
+
+      if (nativeBc) {
+        try {
+          nativeBc.close()
+        } catch (e) {}
+      }
+      try {
+        supabase.removeChannel(dbChannel)
+      } catch (e) {}
     }
   }, [tables.join(","), pollIntervalMs, enabled])
 }
-

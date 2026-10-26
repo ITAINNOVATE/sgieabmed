@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 
 import { ArrowLeft, Save, ArrowRightLeft, Search, AlertCircle, CheckCircle2, ChevronDown, Upload, Paperclip, FileText, Eye, ShieldCheck, RotateCcw, TrendingDown, TrendingUp, MapPin, ClipboardList, UserCheck, Users, User as UserIcon } from "lucide-react"
 
@@ -579,6 +580,12 @@ export default function NewMovementPage() {
             }).eq('sample_number', selectedSample.sample_number)
           : Promise.resolve(),
       ]).catch((e) => console.warn("Supabase sync warning:", e))
+
+      broadcastDataMutation({
+        entity: "movements,samples",
+        action: values.movement_type,
+        id: mvtData.mvt_number,
+      })
 
       toast.success(`Mouvement "${values.movement_type}" validé et stock mis à jour avec succès !`)
       router.push("/dashboard/movements")

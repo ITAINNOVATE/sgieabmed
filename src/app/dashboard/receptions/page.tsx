@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 
 function ReceptionsContent() {
   const router = useRouter()
@@ -99,6 +100,12 @@ function ReceptionsContent() {
       supabase.from('samples').delete().eq('reception_ref', rec.rec_number),
       supabase.from('movements').delete().eq('reference_document', rec.rec_number),
     ]).catch(err => console.error("Erreur suppression Cloud:", err))
+
+    broadcastDataMutation({
+      entity: "receptions,samples,movements",
+      action: "delete",
+      id: rec.rec_number,
+    })
   }
 
   const handleValidateReception = async (rec: any) => {
@@ -163,6 +170,12 @@ function ReceptionsContent() {
       supabase.from('samples').update({ status: 'Disponible' }).eq('reception_ref', rec.rec_number),
       supabase.from('movements').update({ status: 'Validé' }).eq('reference_document', rec.rec_number),
     ]).catch(err => console.error("Erreur validation Cloud:", err))
+
+    broadcastDataMutation({
+      entity: "receptions,samples,movements",
+      action: "validate",
+      id: rec.rec_number,
+    })
   }
 
   const handleFilterClick = (filter: string) => {

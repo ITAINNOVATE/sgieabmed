@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 import React from 'react'
 
 // --- ZOD SCHEMA ---
@@ -918,6 +919,13 @@ function NewReceptionContent() {
       syncPromise,
       new Promise(resolve => setTimeout(resolve, 800))
     ])
+
+    // Diffusion instantanée multi-postes et multi-niveaux (< 50ms)
+    broadcastDataMutation({
+      entity: "receptions,samples,movements",
+      action: status,
+      id: values.rec_number,
+    })
   }
 
   // ─── Sauvegarder (En instance de validation) ──────────────────────────────

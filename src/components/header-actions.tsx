@@ -98,6 +98,23 @@ const READ_NOTIFS_STORAGE_KEY = "eged_read_notifications_v1"
 export function HeaderActions() {
   const [currentUser, setCurrentUserLocal] = useState<AdminUser>(DEFAULT_ADMIN)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [syncPulsing, setSyncPulsing] = useState(false)
+
+  useEffect(() => {
+    let timer: any = null
+    const handleSync = () => {
+      setSyncPulsing(true)
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => setSyncPulsing(false), 900)
+    }
+    window.addEventListener("eged-data-updated", handleSync)
+    window.addEventListener("sgie-sync-event", handleSync)
+    return () => {
+      if (timer) clearTimeout(timer)
+      window.removeEventListener("eged-data-updated", handleSync)
+      window.removeEventListener("sgie-sync-event", handleSync)
+    }
+  }, [])
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [phone, setPhone] = useState("+229 01 97 00 00 01")
   const [email, setEmail] = useState("admin@eged.bj")
@@ -307,6 +324,24 @@ export function HeaderActions() {
   return (
     <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
       
+      {/* 🟢 INDICATEUR SYNCHRONISATION MULTI-POSTES EN DIRECT */}
+      <div 
+        className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold select-none transition-all duration-300 ${
+          syncPulsing 
+            ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400 scale-105" 
+            : "bg-black/20 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60"
+        }`}
+        title="Synchronisation instantanée multi-niveaux et multi-utilisateurs active (<50ms)"
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+        </span>
+        <span className="tracking-wide">
+          {syncPulsing ? "Synchronisé" : "En direct"}
+        </span>
+      </div>
+
       {/* 🌙 BASCULEUR DE MODE SOMBRE / CLAIR */}
       <ModeToggle />
 

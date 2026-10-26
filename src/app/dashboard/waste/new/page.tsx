@@ -25,6 +25,7 @@ import {
 
 import { createClient } from "@/utils/supabase/client"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
 
@@ -658,6 +659,12 @@ export default function NewWasteReceptionPage() {
         supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" }),
       ]).catch((remoteErr) => {
         console.warn("Échec synchronisation Supabase waste_batches:", remoteErr)
+      })
+
+      broadcastDataMutation({
+        entity: "waste_batches,waste_movements",
+        action: "create",
+        id: values.reception_number,
       })
 
       setSavedSlipData(previewData)
