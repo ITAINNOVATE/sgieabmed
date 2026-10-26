@@ -16,9 +16,124 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
 
-import { ArrowLeft, Save, ArrowRightLeft, Search, AlertCircle, CheckCircle2, ChevronDown, Upload, Paperclip, FileText, Eye, ShieldCheck, RotateCcw, TrendingDown, TrendingUp, MapPin, ClipboardList } from "lucide-react"
+import { ArrowLeft, Save, ArrowRightLeft, Search, AlertCircle, CheckCircle2, ChevronDown, Upload, Paperclip, FileText, Eye, ShieldCheck, RotateCcw, TrendingDown, TrendingUp, MapPin, ClipboardList, UserCheck, Users, User as UserIcon } from "lucide-react"
+
+// --- COMPOSANT RECHERCHABLE POUR PERSONNEL (EXPRESSION DE BESOIN) ---
+function SearchablePersonnelSelect({
+  users,
+  value,
+  onChange
+}: {
+  users: User[],
+  value: string,
+  onChange: (user: User | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+
+  const selectedUser = users.find(u => u.id === value || `${u.first_name} ${u.last_name}` === value)
+
+  const filtered = users.filter(u => {
+    if (!query) return true
+    const q = query.toLowerCase()
+    const fullName = `${u.first_name} ${u.last_name}`.toLowerCase()
+    const matricule = (u.matricule || '').toLowerCase()
+    const role = (u.role || '').toLowerCase()
+    const email = (u.email || '').toLowerCase()
+    const dept = (u.fonction || '').toLowerCase()
+    return fullName.includes(q) || matricule.includes(q) || role.includes(q) || email.includes(q) || dept.includes(q)
+  })
+
+  return (
+    <div className="relative w-full">
+      <div className="relative">
+        <Users className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+        <Input
+          type="text"
+          placeholder="Rechercher par nom, matricule, service ou rôle du personnel..."
+          value={open ? query : (selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name} — ${selectedUser.role || selectedUser.fonction}` : query)}
+          onFocus={() => {
+            setOpen(true)
+            setQuery("")
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          className="pl-9 pr-10 h-11 text-xs bg-background border-border/80 shadow-2xs font-medium cursor-text"
+        />
+        {selectedUser ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onChange(null)
+              setQuery("")
+              setOpen(false)
+            }}
+            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground text-xs font-bold"
+          >
+            ✕
+          </button>
+        ) : (
+          <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+        )}
+      </div>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute z-40 w-full mt-1 bg-card border border-border/80 rounded-lg shadow-lg max-h-64 overflow-y-auto p-1.5 space-y-1">
+            {filtered.length === 0 ? (
+              <div className="p-3 text-center text-xs text-muted-foreground font-medium">
+                Aucun compte de personnel trouvé pour &quot;{query}&quot;
+              </div>
+            ) : (
+              filtered.map((u) => {
+                const isSelected = selectedUser?.id === u.id
+                return (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      onChange(u)
+                      setOpen(false)
+                    }}
+                    data-personnel-option="true"
+                    className={`p-2.5 rounded-md text-xs cursor-pointer hover:bg-muted/80 flex items-center justify-between gap-2 transition-colors border ${
+                      isSelected ? "bg-[#1B5C2E]/10 border-[#1B5C2E]/30 font-bold" : "border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                        {u.first_name?.[0] || ''}{u.last_name?.[0] || ''}
+                      </div>
+                      <div className="truncate">
+                        <p className="font-bold text-foreground">
+                          {u.first_name} {u.last_name}
+                          {u.matricule && <span className="ml-2 font-mono text-[10px] text-muted-foreground font-normal">[{u.matricule}]</span>}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {u.role || u.fonction || 'Personnel'} • {u.email}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300">
+                      Compte actif
+                    </Badge>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 // --- COMPOSANT RECHERCHABLE POUR ÉCHANTILLON ---
 function SearchableSampleSelect({
@@ -96,6 +211,7 @@ function SearchableSampleSelect({
                     onChange(s.id)
                     setOpen(false)
                   }}
+                  data-sample-option="true"
                   className={`p-2.5 rounded-md text-xs cursor-pointer hover:bg-muted/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 transition-colors border border-transparent ${
                     value === s.id ? "bg-[#1B5C2E]/10 border-[#1B5C2E]/30 font-bold" : ""
                   }`}
@@ -124,6 +240,9 @@ const formSchema = z.object({
   movement_type: z.string().min(1, "Type de mouvement requis"),
   quantity: z.coerce.number().min(1, "La quantité doit être d'au moins 1").optional(),
   destination_location: z.string().optional(),
+  beneficiary_id: z.string().optional(),
+  beneficiary_name: z.string().optional(),
+  beneficiary_role: z.string().optional(),
   reason: z.string().min(1, "Le motif est requis"),
   observations: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -132,6 +251,13 @@ const formSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "La destination est requise pour un déplacement.",
       path: ["destination_location"]
+    });
+  }
+  if (data.movement_type === "Expression de besoin" && (!data.beneficiary_name || data.beneficiary_name.trim() === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Veuillez sélectionner le membre du personnel demandeur.",
+      path: ["beneficiary_name"]
     });
   }
   if (data.movement_type === "Correction d'inventaire" && data.reason.trim().length < 5) {
@@ -174,6 +300,7 @@ export default function NewMovementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [samples, setSamples] = useState<any[]>([]);
   const [selectedSample, setSelectedSample] = useState<any>(null);
+  const [usersList, setUsersList] = useState<User[]>([]);
   const [proofFile, setProofFile] = useState<{ name: string, size?: string, url?: string } | null>(null);
   // step: 'form' | 'preview'
   const [step, setStep] = useState<'form' | 'preview'>('form');
@@ -181,6 +308,18 @@ export default function NewMovementPage() {
 
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const u = await getUsers();
+        setUsersList(u.filter(user => user.status !== "Désactivé"));
+      } catch (e) {
+        console.warn("Erreur chargement personnel:", e);
+      }
+    }
+    loadUsers();
+  }, []);
 
   useEffect(() => {
     async function fetchSamples() {
@@ -296,6 +435,9 @@ export default function NewMovementPage() {
       movement_type: "",
       quantity: 1,
       destination_location: "",
+      beneficiary_id: "",
+      beneficiary_name: "",
+      beneficiary_role: "",
       reason: "",
       observations: "",
     },
@@ -314,11 +456,17 @@ export default function NewMovementPage() {
     }
   }, [currentSampleId, samples]);
 
+  const currentBeneficiaryName = form.watch("beneficiary_name");
+  const currentBeneficiaryId = form.watch("beneficiary_id");
+  const selectedBeneficiary = usersList.find(
+    u => u.id === currentBeneficiaryId || `${u.first_name} ${u.last_name}` === currentBeneficiaryName
+  );
+
   // ÉTAPE 1 : Valider le formulaire et passer à l'aperçu
   const handleSaveAndPreview = async (values: z.infer<typeof formSchema>) => {
     if (!selectedSample) { toast.error("Veuillez sélectionner un échantillon valide."); return; }
-    if (values.movement_type === "Expression de besoin" && !proofFile) {
-      toast.error("Veuillez joindre la fiche d'expression de besoin comme preuve de l'opération.");
+    if (values.movement_type === "Expression de besoin" && !values.beneficiary_name) {
+      toast.error("Veuillez sélectionner le membre du personnel demandeur.");
       return;
     }
     const mvtQty = values.quantity || 0;
@@ -342,6 +490,19 @@ export default function NewMovementPage() {
       const mvtQty = values.quantity || 0;
       const isQtyModifying = ["Sortie", "Expression de besoin", "Contrôle qualité", "Retour d'analyse", "Transfert vers Magasin des déchets", "Destruction", "Correction d'inventaire"].includes(values.movement_type);
 
+      let operatorName = "Admin EGED";
+      try {
+        const storedUser = localStorage.getItem("eged_current_user_v1");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.name) operatorName = parsed.name;
+        }
+      } catch (e) {}
+
+      const destLocation = values.movement_type === "Expression de besoin"
+        ? `Personnel : ${values.beneficiary_name || 'Demande personnel'}`
+        : (["Déplacer vers autre localisation", "Transfert"].includes(values.movement_type) ? values.destination_location : null);
+
       const mvtData: any = {
         id: `mvt-${Date.now()}`,
         mvt_number: `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -352,12 +513,15 @@ export default function NewMovementPage() {
         movement_type: values.movement_type,
         quantity: isQtyModifying ? mvtQty : selectedSample.quantity,
         source_location: selectedSample.current_location,
-        destination_location: ["Déplacer vers autre localisation", "Transfert"].includes(values.movement_type) ? values.destination_location : null,
+        destination_location: destLocation,
+        beneficiary_id: values.beneficiary_id || null,
+        beneficiary_name: values.beneficiary_name || null,
+        beneficiary_role: values.beneficiary_role || null,
         reason: values.reason,
         observations: values.observations || "",
         proof_file_name: proofFile ? proofFile.name : null,
         movement_date: new Date().toISOString(),
-        operator: "MARIE ADANDE",
+        operator: operatorName,
         status: "Validé",
         new_quantity: newQuantity,
         new_status: newStatus,
@@ -515,6 +679,22 @@ export default function NewMovementPage() {
                     <MapPin className="h-3.5 w-3.5 text-[#1B5C2E]" />
                     {pendingValues.destination_location}
                   </p>
+                </div>
+              )}
+              {pendingValues.beneficiary_name && (
+                <div className="space-y-1 sm:col-span-2 p-3.5 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+                  <p className="text-[11px] font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <UserCheck className="h-4 w-4 text-purple-700 dark:text-purple-400" />
+                    Personnel Bénéficiaire (Destinataire du transfert)
+                  </p>
+                  <p className="font-bold text-sm text-foreground">
+                    {pendingValues.beneficiary_name}
+                  </p>
+                  {pendingValues.beneficiary_role && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Rôle / Fonction : {pendingValues.beneficiary_role}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="space-y-1">
@@ -769,48 +949,133 @@ export default function NewMovementPage() {
                 )} />
               )}
 
-              {/* FICHE EXPRESSION DE BESOIN */}
+              {/* SECTION SPÉCIFIQUE : EXPRESSION DE BESOIN / TRANSFERT VERS PERSONNEL */}
               {mvtType === "Expression de besoin" && (
-                <div className="sm:col-span-2 space-y-2 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-300/60 dark:border-emerald-800/60">
-                  <div className="flex items-center justify-between">
-                    <FormLabel className="font-bold text-xs flex items-center gap-2 text-[#1B5C2E]">
-                      <Paperclip className="h-4 w-4 text-[#1B5C2E]" />
-                      Fiche d'Expression de besoin (Preuve requise) <span className="text-destructive">*</span>
-                    </FormLabel>
-                    <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG ou DOC (max 10 Mo)</span>
-                  </div>
-                  {proofFile ? (
-                    <div className="flex items-center justify-between p-3 bg-card rounded-md border border-border text-xs shadow-2xs">
-                      <div className="flex items-center gap-2.5 truncate">
-                        <FileText className="h-4 w-4 text-[#1B5C2E] shrink-0" />
-                        <span className="font-bold text-foreground truncate">{proofFile.name}</span>
-                        {proofFile.size && <span className="text-[10px] text-muted-foreground font-mono">({proofFile.size})</span>}
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setProofFile(null)} className="h-7 text-xs text-destructive hover:bg-destructive/10 font-medium">
-                        Supprimer la fiche
-                      </Button>
+                <div className="sm:col-span-2 space-y-4 p-4.5 bg-gradient-to-br from-purple-50/70 via-background to-emerald-50/40 dark:from-purple-950/20 dark:to-emerald-950/10 rounded-xl border border-purple-200 dark:border-purple-800/60 shadow-2xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60 dark:border-purple-800/40">
+                    <div className="flex items-center gap-2 text-purple-900 dark:text-purple-300">
+                      <UserCheck className="h-5 w-5 text-purple-700 dark:text-purple-400" />
+                      <span className="font-bold text-sm">Transfert &amp; Expression de besoin du personnel</span>
                     </div>
-                  ) : (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                      <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-xs font-bold ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#1B5C2E] hover:bg-[#154824] text-white h-9 px-4 py-2 shadow-2xs">
-                        <Upload className="mr-2 h-4 w-4" /> Joindre la fiche d'expression de besoin
-                        <input
-                          type="file"
-                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
-                              setProofFile({ name: file.name, size: sizeStr, url: URL.createObjectURL(file) });
-                              toast.success(`Fiche "${file.name}" jointe avec succès !`);
-                            }
-                          }}
-                        />
-                      </label>
-                      <span className="text-xs text-muted-foreground italic">Demande d'échantillon formalisée par le personnel</span>
+                    <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-300 text-[10px]">
+                      Personnel ABMed
+                    </Badge>
+                  </div>
+
+                  {/* SÉLECTION DU MEMBRE DU PERSONNEL */}
+                  <FormField
+                    control={form.control}
+                    name="beneficiary_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-bold text-xs flex items-center justify-between">
+                          <span>
+                            Personnel bénéficiaire ayant un compte sur la plateforme <span className="text-destructive">*</span>
+                          </span>
+                          <span className="text-muted-foreground font-normal text-[11px]">
+                            {usersList.length} comptes disponibles
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <SearchablePersonnelSelect
+                            users={usersList}
+                            value={field.value || ""}
+                            onChange={(user) => {
+                              if (user) {
+                                field.onChange(`${user.first_name} ${user.last_name}`)
+                                form.setValue("beneficiary_id", user.id)
+                                form.setValue("beneficiary_role", user.role || user.fonction || "Personnel ABMed")
+                                form.setValue("destination_location", `Personnel : ${user.first_name} ${user.last_name} (${user.role || user.fonction || "ABMed"})`)
+                              } else {
+                                field.onChange("")
+                                form.setValue("beneficiary_id", "")
+                                form.setValue("beneficiary_role", "")
+                                form.setValue("destination_location", "")
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* CARTE RÉCAPITULATIVE DU PERSONNEL SÉLECTIONNÉ */}
+                  {selectedBeneficiary && (
+                    <div className="p-3.5 bg-background rounded-xl border border-purple-200 dark:border-purple-800/80 flex items-center justify-between gap-3 shadow-2xs animate-in fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-sm shrink-0">
+                          {selectedBeneficiary.first_name?.[0] || ''}{selectedBeneficiary.last_name?.[0] || ''}
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-sm text-foreground">
+                            {selectedBeneficiary.first_name} {selectedBeneficiary.last_name}
+                            {selectedBeneficiary.matricule && (
+                              <span className="ml-2 font-mono text-[11px] text-muted-foreground font-normal">
+                                [{selectedBeneficiary.matricule}]
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Rôle : <strong className="text-purple-700 dark:text-purple-400">{selectedBeneficiary.role}</strong>
+                            {selectedBeneficiary.fonction && ` • ${selectedBeneficiary.fonction}`}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Email : {selectedBeneficiary.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="hidden sm:flex flex-col items-end gap-1">
+                        <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Compte actif
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">Attribution prête</span>
+                      </div>
                     </div>
                   )}
+
+                  {/* FICHE JUSTIFICATIVE */}
+                  <div className="space-y-2 pt-1 border-t border-purple-200/50 dark:border-purple-800/30">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-bold text-xs flex items-center gap-2 text-foreground">
+                        <Paperclip className="h-4 w-4 text-[#1B5C2E]" />
+                        Fiche d&apos;Expression de besoin jointe (Preuve de décharge)
+                      </Label>
+                      <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG ou DOC (max 10 Mo)</span>
+                    </div>
+                    {proofFile ? (
+                      <div className="flex items-center justify-between p-3 bg-card rounded-md border border-border text-xs shadow-2xs">
+                        <div className="flex items-center gap-2.5 truncate">
+                          <FileText className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                          <span className="font-bold text-foreground truncate">{proofFile.name}</span>
+                          {proofFile.size && <span className="text-[10px] text-muted-foreground font-mono">({proofFile.size})</span>}
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setProofFile(null)} className="h-7 text-xs text-destructive hover:bg-destructive/10 font-medium">
+                          Supprimer la fiche
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-xs font-bold ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#1B5C2E] hover:bg-[#154824] text-white h-9 px-4 py-2 shadow-2xs">
+                          <Upload className="mr-2 h-4 w-4" /> Joindre la fiche d&apos;expression de besoin
+                          <input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+                                setProofFile({ name: file.name, size: sizeStr, url: URL.createObjectURL(file) });
+                                toast.success(`Fiche "${file.name}" jointe avec succès !`);
+                              }
+                            }}
+                          />
+                        </label>
+                        <span className="text-xs text-muted-foreground italic">Fiche de demande formalisée et signée par le personnel</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

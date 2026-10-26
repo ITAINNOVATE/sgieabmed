@@ -97,7 +97,7 @@ export default function MovementsPage() {
               reason: `Réception d'échantillons - Réf: ${rec.rec_number}`,
               observations: `Réception enregistrée par ${rec.inspector || 'Admin EGED'}`,
               movement_date: rec.date_reception ? new Date(rec.date_reception).toISOString() : new Date().toISOString(),
-              operator: rec.inspector || "MARIE ADANDE",
+              operator: rec.inspector || "Admin EGED",
               status: isFinalized ? "Validé" : "En attente de validation",
               new_quantity: Number(sample.qty || sample.quantity) || 1,
               new_status: isFinalized ? "Disponible" : "À localiser",
@@ -144,9 +144,37 @@ export default function MovementsPage() {
 
     try {
       const mvtMap = new Map<string, any>()
-      localMovements.forEach((m: any) => mvtMap.set(m.mvt_number || m.id, m))
-      remoteMovements.forEach((m: any) => mvtMap.set(m.mvt_number || m.id, m))
-      const all = Array.from(mvtMap.values())
+      remoteMovements.forEach((m: any) => {
+        let bName = m.beneficiary_name
+        if (!bName && m.destination_location && typeof m.destination_location === 'string' && m.destination_location.startsWith("Personnel :")) {
+          bName = m.destination_location.replace("Personnel :", "").split("(")[0].trim()
+        }
+        mvtMap.set(m.mvt_number || m.id, {
+          ...m,
+          beneficiary_name: bName
+        })
+      })
+
+      localMovements.forEach((m: any) => {
+        const key = m.mvt_number || m.id
+        const existing = mvtMap.get(key) || {}
+        let bName = m.beneficiary_name || existing.beneficiary_name
+        if (!bName && (m.destination_location || existing.destination_location)?.startsWith("Personnel :")) {
+          const loc = m.destination_location || existing.destination_location
+          bName = loc.replace("Personnel :", "").split("(")[0].trim()
+        }
+        mvtMap.set(key, {
+          ...existing,
+          ...m,
+          beneficiary_name: bName
+        })
+      })
+
+      const all = Array.from(mvtMap.values()).sort((a, b) => {
+        const da = new Date(a.movement_date || 0).getTime()
+        const db = new Date(b.movement_date || 0).getTime()
+        return db - da
+      })
       hasLoadedOnceRef.current = true
       setMovements(all.length > 0 ? all : (isWiped ? [] : MOCK_MOVEMENTS))
     } catch (e) {
@@ -290,7 +318,14 @@ export default function MovementsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="py-2 font-semibold text-foreground uppercase">
-                        {mvt.commercial_name || 'Échantillon'} <span className="text-muted-foreground text-[11px] font-normal">(Lot: {mvt.batch_number || 'N/A'})</span>
+                        <div>
+                          {mvt.commercial_name || 'Échantillon'} <span className="text-muted-foreground text-[11px] font-normal">(Lot: {mvt.batch_number || 'N/A'})</span>
+                        </div>
+                        {mvt.beneficiary_name && (
+                          <div className="text-[11px] font-medium text-purple-700 dark:text-purple-300 normal-case flex items-center gap-1 mt-0.5">
+                            <span className="font-semibold text-muted-foreground text-[10px]">Destinataire :</span> {mvt.beneficiary_name}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="py-2 text-right font-bold tabular-nums">{mvt.quantity}</TableCell>
                       <TableCell className="py-2 text-right pr-4 text-muted-foreground">{mvt.operator || 'Opérateur'}</TableCell>
@@ -345,6 +380,15 @@ export default function MovementsPage() {
                   <span className="text-muted-foreground block text-[10px] uppercase font-bold">Quantité mouvementée</span>
                   <span className="font-bold text-foreground text-sm">{selectedMovement.quantity} unités</span>
                 </div>
+                {selectedMovement.beneficiary_name && (
+                  <div className="col-span-2 p-2 bg-purple-50/60 dark:bg-purple-950/30 rounded border border-purple-200 dark:border-purple-800">
+                    <span className="text-purple-900 dark:text-purple-300 block text-[10px] uppercase font-bold">Personnel Bénéficiaire (Demandeur)</span>
+                    <span className="font-bold text-foreground text-sm">{selectedMovement.beneficiary_name}</span>
+                    {selectedMovement.beneficiary_role && (
+                      <span className="text-muted-foreground block text-[11px]">{selectedMovement.beneficiary_role}</span>
+                    )}
+                  </div>
+                )}
                 <div>
                   <span className="text-muted-foreground block text-[10px] uppercase font-bold">Date & Heure</span>
                   <span className="text-foreground">{new Date(selectedMovement.movement_date || Date.now()).toLocaleString("fr-FR")}</span>
