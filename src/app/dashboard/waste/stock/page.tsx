@@ -39,7 +39,7 @@ import { WasteGroupingDialog, GroupedWastePackage } from "@/components/waste-gro
 import { WastePackageDetailDialog } from "@/components/waste-package-detail-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
-import { syncLocalAndCloudPackages, deleteGroupedPackageFromCloud } from "@/utils/waste-packages-sync"
+import { syncLocalAndCloudPackages, deleteGroupedPackageFromCloud, getLocalDissolvedPackageNumbers } from "@/utils/waste-packages-sync"
 
 export type WasteStockItem = {
   id: string
@@ -129,6 +129,10 @@ export default function WasteStockPage() {
       console.warn("Erreur syncLocalAndCloudPackages:", e)
     }
 
+    // Filtrer formellement avec les colis dissous (tombstones)
+    const dissolved = getLocalDissolvedPackageNumbers()
+    finalPackages = finalPackages.filter(p => !dissolved.has(p.package_number) && (!p.id || !dissolved.has(p.id)))
+
     setPackages((prev) => {
       if (prev.length === finalPackages.length && JSON.stringify(prev) === JSON.stringify(finalPackages)) {
         return prev
@@ -171,14 +175,23 @@ export default function WasteStockPage() {
 
     // S'assurer que les lots inclus dans les packages portent bien l'identifiant du package et l'emplacement normalisé
     const finalBatches = Array.from(batchMap.values()).map(batch => {
+      // Nettoyer toute observation qui pointerait vers un colis dissous
+      let cleanObs = batch.observations || ""
+      dissolved.forEach(dNum => {
+        if (cleanObs.includes(dNum)) {
+          cleanObs = cleanObs.replace(new RegExp(`\\[COLIS:\\s*${dNum}\\]`, "g"), "").trim()
+        }
+      })
+
       const parentPkg = finalPackages.find(p => 
         (p.item_ids && p.item_ids.includes(batch.id)) ||
         (p.items && p.items.some(it => it.id === batch.id || it.batch_number === batch.batch_number)) ||
-        (batch.observations && batch.observations.includes(`[COLIS: ${p.package_number}]`))
+        (cleanObs && cleanObs.includes(`[COLIS: ${p.package_number}]`))
       )
       if (parentPkg) {
         return {
           ...batch,
+          observations: cleanObs,
           grouped_package_id: parentPkg.id,
           package_number: parentPkg.package_number,
           current_location: parentPkg.current_location,
@@ -186,6 +199,9 @@ export default function WasteStockPage() {
       }
       return {
         ...batch,
+        observations: cleanObs,
+        grouped_package_id: undefined,
+        package_number: undefined,
         current_location: batch.current_location && !/localiser|non d[ée]fini/i.test(batch.current_location)
           ? normalizeWasteLocation(batch.current_location, batch.waste_type)
           : batch.current_location,
@@ -339,18 +355,23 @@ export default function WasteStockPage() {
       return
     }
 
-    // Suppression Cloud (Supabase + localStorage + diffusion temps réel multi-postes)
-    await deleteGroupedPackageFromCloud(pkg)
-
+    // 1. Mise à jour optimiste immédiate de l'interface et fermeture du dialogue
     setPackages(prev => prev.filter(p => p.id !== pkg.id && p.package_number !== pkg.package_number))
 
     setData(prev => {
       const updated = prev.map(item => {
-        if (pkg.item_ids?.includes(item.id) || item.grouped_package_id === pkg.id || item.package_number === pkg.package_number) {
+        if (
+          pkg.item_ids?.includes(item.id) ||
+          (pkg.items && pkg.items.some(it => it.batch_number === item.batch_number || it.id === item.id)) ||
+          item.grouped_package_id === pkg.id ||
+          item.package_number === pkg.package_number ||
+          (item.observations && item.observations.includes(pkg.package_number))
+        ) {
           return {
             ...item,
             grouped_package_id: undefined,
             package_number: undefined,
+            observations: (item.observations || "").replace(new RegExp(`\\[COLIS:\\s*${pkg.package_number}\\]`, "g"), "").trim(),
           }
         }
         return item
@@ -360,7 +381,15 @@ export default function WasteStockPage() {
 
     setSelectedPackage(null)
     setIsPackageDetailOpen(false)
-    toast.success(`Le colis ${pkg.package_number} a été dissous. Les ${pkg.items?.length || 0} lots sont retournés dans les stocks en détail.`)
+
+    // 2. Suppression Cloud complète (Supabase + localStorage + tombstone + diffusion temps réel)
+    try {
+      await deleteGroupedPackageFromCloud(pkg)
+      toast.success(`Le colis ${pkg.package_number} a été dissous avec succès. Les lots sont retournés dans les stocks en détail.`)
+    } catch (err) {
+      console.error("Erreur dissolution colis:", err)
+      toast.error("Erreur lors de la synchronisation cloud de la dissolution.")
+    }
   }
 
   // IMPRESSION A4 PLACARD D'UN COLIS GROUPÉ

@@ -6,8 +6,71 @@ import { normalizeWasteLocation } from "@/utils/waste-locations"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
 
 /**
- * Récupère tous les colis groupés enregistrés dans Supabase Cloud
- * (stockés sous forme de mouvements officiels de type "Regroupement en colis").
+ * Récupère l'ensemble des numéros et identifiants de colis dissous (tombstones)
+ * stockés localement dans le navigateur.
+ */
+export function getLocalDissolvedPackageNumbers(): Set<string> {
+  if (typeof window === "undefined" || !window.localStorage) return new Set()
+  try {
+    const raw = localStorage.getItem("waste_packages_deleted_ids")
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    return new Set(Array.isArray(arr) ? arr : [])
+  } catch {
+    return new Set()
+  }
+}
+
+/**
+ * Enregistre un colis comme dissous localement et purge immédiatement le stockage local
+ */
+export function recordLocalDissolvedPackage(packageNumber: string, id?: string) {
+  if (typeof window === "undefined" || !window.localStorage) return
+  try {
+    const set = getLocalDissolvedPackageNumbers()
+    if (packageNumber) set.add(packageNumber)
+    if (id) set.add(id)
+    localStorage.setItem("waste_packages_deleted_ids", JSON.stringify(Array.from(set)))
+
+    // 1. Retirer immédiatement du localStorage waste_grouped_packages_v1
+    const storedPkgsStr = localStorage.getItem("waste_grouped_packages_v1")
+    if (storedPkgsStr) {
+      const storedPkgs: GroupedWastePackage[] = JSON.parse(storedPkgsStr)
+      const filtered = storedPkgs.filter(
+        p => !set.has(p.package_number) && (!p.id || !set.has(p.id))
+      )
+      localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(filtered))
+    }
+
+    // 2. Libérer immédiatement les lots dans waste_batches_custom_v1
+    const storedBatchesStr = localStorage.getItem("waste_batches_custom_v1")
+    if (storedBatchesStr) {
+      const storedBatches: WasteStockItem[] = JSON.parse(storedBatchesStr)
+      const updatedBatches = storedBatches.map(b => {
+        if (
+          (packageNumber && b.package_number === packageNumber) ||
+          (id && b.grouped_package_id === id) ||
+          (b.observations && packageNumber && b.observations.includes(packageNumber))
+        ) {
+          return {
+            ...b,
+            grouped_package_id: undefined,
+            package_number: undefined,
+            observations: (b.observations || "").replace(new RegExp(`\\[COLIS:\\s*${packageNumber}\\]`, "g"), "").trim(),
+          }
+        }
+        return b
+      })
+      localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedBatches))
+    }
+  } catch (e) {
+    console.warn("[waste-packages-sync] Erreur recordLocalDissolvedPackage:", e)
+  }
+}
+
+/**
+ * Récupère tous les colis groupés actifs enregistrés dans Supabase Cloud,
+ * en ignorant formellement tout colis dissous (tombstone).
  */
 export async function fetchCloudGroupedPackages(): Promise<GroupedWastePackage[]> {
   try {
@@ -15,18 +78,51 @@ export async function fetchCloudGroupedPackages(): Promise<GroupedWastePackage[]
     const { data, error } = await supabase
       .from("waste_movements")
       .select("*")
-      .eq("type", "Regroupement en colis")
+      .in("type", ["Regroupement en colis", "Colis dissous"])
       .order("created_at", { ascending: false })
 
     if (error || !data || data.length === 0) {
       return []
     }
 
-    const packages: GroupedWastePackage[] = []
+    // Récupérer et consolider tous les colis dissous (Cloud + Local)
+    const dissolvedSet = getLocalDissolvedPackageNumbers()
     data.forEach((mvt: any) => {
+      if (mvt.type === "Colis dissous") {
+        if (mvt.batch) dissolvedSet.add(mvt.batch)
+        try {
+          const obs = JSON.parse(mvt.observations || "{}")
+          if (obs.package_number) dissolvedSet.add(obs.package_number)
+          if (obs.id) dissolvedSet.add(obs.id)
+        } catch {}
+      }
+    })
+
+    // Mettre à jour le tombstone local
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem("waste_packages_deleted_ids", JSON.stringify(Array.from(dissolvedSet)))
+      } catch {}
+    }
+
+    const packages: GroupedWastePackage[] = []
+    const staleMovementIdsToDelete: string[] = []
+
+    data.forEach((mvt: any) => {
+      if (mvt.type !== "Regroupement en colis") return
+
       try {
         if (!mvt.observations) return
         const parsed = JSON.parse(mvt.observations)
+        const pkgNum = parsed?.package_number || mvt.batch
+        const pkgId = parsed?.id || mvt.id
+
+        // Si le colis a été dissous, ne JAMAIS le restaurer
+        if (dissolvedSet.has(pkgNum) || dissolvedSet.has(pkgId)) {
+          staleMovementIdsToDelete.push(mvt.id)
+          return
+        }
+
         if (parsed && (parsed.package_number || mvt.batch)) {
           const pkg: GroupedWastePackage = {
             id: parsed.id || mvt.id,
@@ -50,6 +146,11 @@ export async function fetchCloudGroupedPackages(): Promise<GroupedWastePackage[]
       }
     })
 
+    // Purge en arrière-plan de toute ligne "Regroupement en colis" fantôme qui subsisterait
+    if (staleMovementIdsToDelete.length > 0) {
+      supabase.from("waste_movements").delete().in("id", staleMovementIdsToDelete).then()
+    }
+
     return packages
   } catch (err) {
     console.error("[waste-packages-sync] Erreur fetchCloudGroupedPackages:", err)
@@ -67,7 +168,26 @@ export async function saveGroupedPackageToCloud(
 ): Promise<boolean> {
   const supabase = createClient()
 
-  // 1. Déterminer l'opérateur connecté (ex: Maëlle DOSSOU-YOVO)
+  // 1. Si ce colis avait été marqué dissous précédemment, le réhabiliter
+  const dissolvedSet = getLocalDissolvedPackageNumbers()
+  if (dissolvedSet.has(pkg.package_number) || dissolvedSet.has(pkg.id)) {
+    dissolvedSet.delete(pkg.package_number)
+    dissolvedSet.delete(pkg.id)
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem("waste_packages_deleted_ids", JSON.stringify(Array.from(dissolvedSet)))
+      } catch {}
+    }
+    // Nettoyer le tombstone cloud éventuel
+    try {
+      await supabase
+        .from("waste_movements")
+        .delete()
+        .eq("mvt_number", `DISSOLVED-${pkg.package_number}`)
+    } catch {}
+  }
+
+  // 2. Déterminer l'opérateur connecté (ex: Maëlle DOSSOU-YOVO)
   let operatorName = pkg.created_by
   if (!operatorName || operatorName.includes("Responsable Déchets ABMed") || operatorName.includes("Admin EGED")) {
     try {
@@ -86,7 +206,7 @@ export async function saveGroupedPackageToCloud(
     created_by: operatorName,
   }
 
-  // 2. Sauvegarde locale immédiate (optimiste)
+  // 3. Sauvegarde locale immédiate (optimiste)
   if (typeof window !== "undefined" && window.localStorage) {
     try {
       const storedPkgsStr = localStorage.getItem("waste_grouped_packages_v1")
@@ -121,7 +241,7 @@ export async function saveGroupedPackageToCloud(
     }
   }
 
-  // 3. Sauvegarde Cloud dans waste_movements
+  // 4. Sauvegarde Cloud dans waste_movements
   const mvtPayload = {
     mvt_number: `PKG-${pkg.package_number}`,
     date: pkg.created_at || new Date().toISOString(),
@@ -145,7 +265,7 @@ export async function saveGroupedPackageToCloud(
       console.warn("[waste-packages-sync] Erreur upsert movement colis:", mvtError)
     }
 
-    // 4. Mettre à jour les lots individuels dans waste_batches Cloud
+    // 5. Mettre à jour les lots individuels dans waste_batches Cloud
     const batchNumbers = (pkg.items || []).map(i => i.batch_number).filter(Boolean)
     if (batchNumbers.length > 0) {
       await supabase
@@ -157,7 +277,7 @@ export async function saveGroupedPackageToCloud(
         .in("batch_number", batchNumbers)
     }
 
-    // 5. Diffusion temps réel instantanée multi-postes
+    // 6. Diffusion temps réel instantanée multi-postes
     broadcastDataMutation({
       entity: "waste_batches,waste_movements,grouped_packages",
       action: "package_save",
@@ -173,49 +293,65 @@ export async function saveGroupedPackageToCloud(
 }
 
 /**
- * Dissout / supprime un colis groupé dans Supabase Cloud et libère ses lots
+ * Dissout / supprime un colis groupé dans Supabase Cloud et libère tous ses lots
+ * de manière définitive et permanente (avec pose de tombstone).
  */
 export async function deleteGroupedPackageFromCloud(pkg: GroupedWastePackage): Promise<boolean> {
   const supabase = createClient()
 
-  // 1. Mise à jour locale immédiate
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      const storedPkgsStr = localStorage.getItem("waste_grouped_packages_v1")
-      if (storedPkgsStr) {
-        const storedPkgs: GroupedWastePackage[] = JSON.parse(storedPkgsStr)
-        const filtered = storedPkgs.filter(p => p.id !== pkg.id && p.package_number !== pkg.package_number)
-        localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(filtered))
-      }
+  // 1. Enregistrement local immédiat du colis comme dissous et purge du cache local
+  recordLocalDissolvedPackage(pkg.package_number, pkg.id)
 
-      const storedBatchesStr = localStorage.getItem("waste_batches_custom_v1")
-      if (storedBatchesStr) {
-        const storedBatches: WasteStockItem[] = JSON.parse(storedBatchesStr)
-        const updatedBatches = storedBatches.map(b => {
-          if (pkg.item_ids.includes(b.id) || b.grouped_package_id === pkg.id || b.package_number === pkg.package_number) {
-            return {
-              ...b,
-              grouped_package_id: undefined,
-              package_number: undefined,
-            }
-          }
-          return b
-        })
-        localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedBatches))
-      }
-    } catch (localErr) {
-      console.warn("[waste-packages-sync] Erreur suppression locale colis:", localErr)
-    }
-  }
-
-  // 2. Suppression dans waste_movements Cloud
+  // 2. Déterminer l'opérateur
+  let operatorName = "Agent Déchets ABMed"
   try {
+    const u = getCurrentUser()
+    if (u && u.first_name) {
+      operatorName = `${u.first_name} ${u.last_name} (${u.role || u.fonction || "Agent ABMed"})`
+    }
+  } catch {}
+
+  try {
+    // 3. Supprimer tout mouvement actif de type "Regroupement en colis"
     await supabase
       .from("waste_movements")
       .delete()
-      .eq("mvt_number", `PKG-${pkg.package_number}`)
+      .or(`mvt_number.eq.PKG-${pkg.package_number},batch.eq.${pkg.package_number},mvt_number.eq.${pkg.package_number}`)
 
-    // 3. Libérer les lots individuels dans waste_batches Cloud
+    // 4. Poser un tombstone indélébile dans waste_movements Cloud
+    // Cela garantit que TOUS les autres clients, postes ou scripts de rattrapage
+    // sauront que ce colis a été volontairement dissous et ne le ressusciteront JAMAIS.
+    await supabase
+      .from("waste_movements")
+      .upsert([
+        {
+          mvt_number: `DISSOLVED-${pkg.package_number}`,
+          date: new Date().toISOString(),
+          type: "Colis dissous",
+          batch: pkg.package_number,
+          waste_type: pkg.package_type || "Colis groupé",
+          commercial_name: `Colis ${pkg.package_number} (Dissous)`,
+          quantity: "0 Kg",
+          operator: operatorName,
+          observations: JSON.stringify({
+            dissolved_at: new Date().toISOString(),
+            package_number: pkg.package_number,
+            id: pkg.id,
+            dissolved_by: operatorName,
+          }),
+        }
+      ], { onConflict: "mvt_number" })
+
+    // 5. Libérer tous les lots individuels dans waste_batches Cloud
+    // A) Par balayage textuel de l'étiquette [COLIS: ...] (infaillible même si pkg.items est vide ou incomplet)
+    await supabase
+      .from("waste_batches")
+      .update({
+        observations: "",
+      })
+      .ilike("observations", `%${pkg.package_number}%`)
+
+    // B) Par liste explicite des numéros de lots si disponibles
     const batchNumbers = (pkg.items || []).map(i => i.batch_number).filter(Boolean)
     if (batchNumbers.length > 0) {
       await supabase
@@ -226,11 +362,12 @@ export async function deleteGroupedPackageFromCloud(pkg: GroupedWastePackage): P
         .in("batch_number", batchNumbers)
     }
 
-    // 4. Diffusion temps réel instantanée multi-postes
+    // 6. Diffusion temps réel instantanée multi-postes
     broadcastDataMutation({
       entity: "waste_batches,waste_movements,grouped_packages",
       action: "package_delete",
       id: pkg.package_number,
+      user: operatorName,
     })
 
     return true
@@ -241,45 +378,60 @@ export async function deleteGroupedPackageFromCloud(pkg: GroupedWastePackage): P
 }
 
 /**
- * Fusionne intelligemment les colis locaux et distants et synchronise les manquants
+ * Fusionne intelligemment les colis locaux et distants et synchronise les manquants,
+ * en filtrant rigoureusement tout colis dissous.
  */
 export async function syncLocalAndCloudPackages(
   localPkgs: GroupedWastePackage[]
 ): Promise<GroupedWastePackage[]> {
+  const dissolvedSet = getLocalDissolvedPackageNumbers()
   const remotePkgs = await fetchCloudGroupedPackages()
 
   const pkgMap = new Map<string, GroupedWastePackage>()
 
-  // A. Commencer par les colis distants (source de vérité Cloud)
+  // A. Commencer par les colis distants valides (source de vérité Cloud)
   remotePkgs.forEach((rp) => {
     const key = rp.package_number || rp.id
-    if (key) pkgMap.set(key, rp)
+    if (key && !dissolvedSet.has(rp.package_number) && (!rp.id || !dissolvedSet.has(rp.id))) {
+      pkgMap.set(key, rp)
+    }
   })
 
-  // B. Fusionner les colis locaux non encore envoyés
+  // B. Fusionner les colis locaux non encore envoyés qui NE SONT PAS dissous
   const unsyncedLocals: GroupedWastePackage[] = []
   localPkgs.forEach((lp) => {
     const key = lp.package_number || lp.id
-    if (key && !pkgMap.has(key)) {
-      pkgMap.set(key, lp)
-      unsyncedLocals.push(lp)
+    if (
+      key &&
+      !dissolvedSet.has(lp.package_number) &&
+      (!lp.id || !dissolvedSet.has(lp.id))
+    ) {
+      if (!pkgMap.has(key)) {
+        pkgMap.set(key, lp)
+        unsyncedLocals.push(lp)
+      }
     }
   })
 
   const merged = Array.from(pkgMap.values())
 
-  // C. Sauvegarder dans le localStorage local
+  // C. Sauvegarder dans le localStorage local la liste propre
   if (typeof window !== "undefined" && window.localStorage) {
     try {
       localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(merged))
     } catch (e) {}
   }
 
-  // D. Envoyer en tâche de fond les locaux manquants vers le Cloud
+  // D. Envoyer en tâche de fond uniquement les locaux réels qui ne sont pas dissous
   if (unsyncedLocals.length > 0) {
-    Promise.allSettled(unsyncedLocals.map(lp => saveGroupedPackageToCloud(lp))).then(() => {
-      console.log(`[waste-packages-sync] ${unsyncedLocals.length} colis locaux synchronisés avec succès vers Supabase Cloud.`)
-    })
+    const safeLocals = unsyncedLocals.filter(
+      lp => !dissolvedSet.has(lp.package_number) && (!lp.id || !dissolvedSet.has(lp.id))
+    )
+    if (safeLocals.length > 0) {
+      Promise.allSettled(safeLocals.map(lp => saveGroupedPackageToCloud(lp))).then(() => {
+        console.log(`[waste-packages-sync] ${safeLocals.length} colis locaux synchronisés vers Supabase Cloud.`)
+      })
+    }
   }
 
   return merged

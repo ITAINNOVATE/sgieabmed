@@ -246,12 +246,55 @@ export async function syncPendingLocalDataToCloud() {
     if (localPackagesStr) {
       const localPkgs = JSON.parse(localPackagesStr)
       if (Array.isArray(localPkgs) && localPkgs.length > 0) {
+        // A. Récupérer l'ensemble des colis dissous (Cloud + Local)
+        const dissolvedSet = new Set<string>()
+        try {
+          const rawDel = localStorage.getItem("waste_packages_deleted_ids")
+          if (rawDel) {
+            const arr = JSON.parse(rawDel)
+            if (Array.isArray(arr)) arr.forEach((x: string) => dissolvedSet.add(x))
+          }
+        } catch {}
+
+        const { data: dissolvedMvts } = await supabase
+          .from("waste_movements")
+          .select("batch, observations")
+          .eq("type", "Colis dissous")
+
+        if (dissolvedMvts) {
+          dissolvedMvts.forEach((m: any) => {
+            if (m.batch) dissolvedSet.add(m.batch)
+            try {
+              const obs = JSON.parse(m.observations || "{}")
+              if (obs.package_number) dissolvedSet.add(obs.package_number)
+              if (obs.id) dissolvedSet.add(obs.id)
+            } catch {}
+          })
+        }
+
+        // B. Purger le localStorage de tout colis dissous
+        const cleanLocalPkgs = localPkgs.filter(
+          (p: any) => !dissolvedSet.has(p.package_number) && (!p.id || !dissolvedSet.has(p.id))
+        )
+        if (cleanLocalPkgs.length !== localPkgs.length) {
+          localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(cleanLocalPkgs))
+        }
+
+        // C. Vérifier les colis existants dans le Cloud
         const { data: remoteMvts } = await supabase
           .from("waste_movements")
           .select("batch")
           .eq("type", "Regroupement en colis")
         const remoteSet = new Set((remoteMvts || []).map((m: any) => m.batch))
-        const unsyncedPkgs = localPkgs.filter((p: any) => p.package_number && !remoteSet.has(p.package_number))
+
+        // D. Ne synchroniser vers le Cloud QUE les colis légitimes NON dissous
+        const unsyncedPkgs = cleanLocalPkgs.filter(
+          (p: any) =>
+            p.package_number &&
+            !remoteSet.has(p.package_number) &&
+            !dissolvedSet.has(p.package_number) &&
+            (!p.id || !dissolvedSet.has(p.id))
+        )
 
         if (unsyncedPkgs.length > 0) {
           const mvtsPayload = unsyncedPkgs.map((pkg: any) => ({
