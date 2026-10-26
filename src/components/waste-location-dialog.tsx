@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, CheckCircle2, Loader2, Building2 } from "lucide-react"
 import { WASTE_STORE_NAME, WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { saveGroupedPackageToCloud } from "@/utils/waste-packages-sync"
 
 export interface WasteLocationDialogProps {
   open: boolean
@@ -71,6 +73,7 @@ export function WasteLocationDialog({ open, onOpenChange, batch, onSuccess }: Wa
                 }))
               }
               localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(pkgList))
+              saveGroupedPackageToCloud(pkgList[pkgIdx]).catch(() => {})
             }
           }
 
@@ -122,6 +125,12 @@ export function WasteLocationDialog({ open, onOpenChange, batch, onSuccess }: Wa
       } catch (cloudErr) {
         console.warn("Erreur cloud update location déchet:", cloudErr)
       }
+
+      broadcastDataMutation({
+        entity: "waste_batches,waste_movements,grouped_packages",
+        action: "location_update",
+        id: batch.batch_number,
+      })
 
       toast.success(`Emplacement mis à jour : ${finalLocation}`)
       onSuccess?.(finalLocation)

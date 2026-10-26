@@ -240,6 +240,45 @@ export async function syncPendingLocalDataToCloud() {
         }
       }
     }
+
+    // 3. Rattrapage des colis groupés de déchets (waste_grouped_packages_v1)
+    const localPackagesStr = localStorage.getItem("waste_grouped_packages_v1")
+    if (localPackagesStr) {
+      const localPkgs = JSON.parse(localPackagesStr)
+      if (Array.isArray(localPkgs) && localPkgs.length > 0) {
+        const { data: remoteMvts } = await supabase
+          .from("waste_movements")
+          .select("batch")
+          .eq("type", "Regroupement en colis")
+        const remoteSet = new Set((remoteMvts || []).map((m: any) => m.batch))
+        const unsyncedPkgs = localPkgs.filter((p: any) => p.package_number && !remoteSet.has(p.package_number))
+
+        if (unsyncedPkgs.length > 0) {
+          const mvtsPayload = unsyncedPkgs.map((pkg: any) => ({
+            mvt_number: `PKG-${pkg.package_number}`,
+            date: pkg.created_at || new Date().toISOString(),
+            type: "Regroupement en colis",
+            batch: pkg.package_number,
+            waste_type: pkg.package_type || "Colis groupé",
+            commercial_name: pkg.package_name || pkg.package_number,
+            quantity: `${pkg.total_weight} ${pkg.unit || "Kg"}`,
+            operator: pkg.created_by || "Maëlle DOSSOU-YOVO (Agent Déchets)",
+            origin: (pkg.items || []).map((i: any) => i.batch_number).filter(Boolean).join(", ") || null,
+            destination: pkg.current_location || "Magasin Déchets",
+            observations: JSON.stringify(pkg),
+          }))
+
+          const { error } = await supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" })
+          if (!error) {
+            broadcastDataMutation({
+              entity: "waste_movements,grouped_packages",
+              action: "catchup_sync",
+              id: `count-${unsyncedPkgs.length}`,
+            })
+          }
+        }
+      }
+    }
   } catch (err) {
     console.warn("[RealtimeBus] Erreur rattrapage automatique Cloud:", err)
   }

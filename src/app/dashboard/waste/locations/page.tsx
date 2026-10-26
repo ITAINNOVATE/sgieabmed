@@ -11,6 +11,7 @@ import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { WasteLocationDialog } from "@/components/waste-location-dialog"
 import { WASTE_STORE_NAME, WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
+import { syncLocalAndCloudPackages } from "@/utils/waste-packages-sync"
 
 type LocatedItem = {
   id: string
@@ -38,11 +39,17 @@ export default function WasteLocationsPage() {
   const [isLocationOpen, setIsLocationOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
-    // Colis groupés
+    // Colis groupés (Synchronisation temps réel Cloud + Local)
     let packages: any[] = []
     try {
       packages = JSON.parse(localStorage.getItem("waste_grouped_packages_v1") || "[]")
     } catch {}
+
+    try {
+      packages = await syncLocalAndCloudPackages(packages)
+    } catch (e) {
+      console.warn("Erreur syncLocalAndCloudPackages locations:", e)
+    }
 
     // Lots en détail (local + cloud)
     let localBatches: any[] = []
@@ -107,7 +114,7 @@ export default function WasteLocationsPage() {
   useRealtimeSync({
     tables: ["waste_batches", "waste_movements"],
     onSync: fetchData,
-    pollIntervalMs: 6000,
+    pollIntervalMs: 3000,
   })
 
   const totalStoreWeightKg = useMemo(

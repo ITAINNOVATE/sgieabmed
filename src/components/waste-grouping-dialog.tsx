@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner"
 import { WasteStockItem } from "@/app/dashboard/waste/stock/page"
 import { WASTE_LOCATION_OPTIONS, normalizeWasteLocation } from "@/utils/waste-locations"
+import { saveGroupedPackageToCloud } from "@/utils/waste-packages-sync"
+import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
 
 export interface GroupedWastePackage {
   id: string
@@ -145,32 +147,8 @@ export function WasteGroupingDialog({
           items: mergedItems,
         }
 
-        if (typeof window !== "undefined" && window.localStorage) {
-          const storedPackagesStr = localStorage.getItem("waste_grouped_packages_v1")
-          const storedPackages: GroupedWastePackage[] = storedPackagesStr ? JSON.parse(storedPackagesStr) : []
-          const existsInStorage = storedPackages.some(p => p.id === updatedPackage.id)
-          const updatedPackagesList = existsInStorage
-            ? storedPackages.map(p => p.id === updatedPackage.id ? updatedPackage : p)
-            : [updatedPackage, ...storedPackages]
-          localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(updatedPackagesList))
-
-          const storedBatchesStr = localStorage.getItem("waste_batches_custom_v1")
-          if (storedBatchesStr) {
-            const storedBatches: WasteStockItem[] = JSON.parse(storedBatchesStr)
-            const updatedBatches = storedBatches.map(b => {
-              if (mergedItemIds.includes(b.id)) {
-                return {
-                  ...b,
-                  grouped_package_id: updatedPackage.id,
-                  package_number: updatedPackage.package_number,
-                  current_location: updatedPackage.current_location,
-                }
-              }
-              return b
-            })
-            localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedBatches))
-          }
-        }
+        // Sauvegarde Cloud (Supabase + localStorage + diffusion temps réel multi-postes)
+        await saveGroupedPackageToCloud(updatedPackage)
 
         toast.success(`${itemsToGroup.length} lot(s) ajouté(s) au colis ${updatedPackage.package_number} ! Poids total : ${updatedPackage.total_weight} Kg`)
         onSuccess(updatedPackage, true)
@@ -180,6 +158,14 @@ export function WasteGroupingDialog({
 
       // CAS 2 : CRÉER UN NOUVEAU COLIS (Uniquement Référence / Numéro de colis)
       const finalPkgNumber = customPackageNumber.trim() || `COLIS-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`
+
+      let currentOperator = "Maëlle DOSSOU-YOVO (Agent Déchets)"
+      try {
+        const u = getCurrentUser()
+        if (u && u.first_name) {
+          currentOperator = `${u.first_name} ${u.last_name} (${u.role || u.fonction || "Agent ABMed"})`
+        }
+      } catch (e) {}
 
       const newPackage: GroupedWastePackage = {
         id: `pkg-${Date.now()}`,
@@ -191,37 +177,16 @@ export function WasteGroupingDialog({
         current_location: location.trim(),
         status: "Groupé (En stock)",
         created_at: new Date().toISOString(),
-        created_by: "Responsable Déchets ABMed",
+        created_by: currentOperator,
         observations: observations.trim() || undefined,
         item_ids: itemsToGroup.map(it => it.id),
         items: itemsToGroup,
       }
 
-      if (typeof window !== "undefined" && window.localStorage) {
-        const storedPackagesStr = localStorage.getItem("waste_grouped_packages_v1")
-        const storedPackages: GroupedWastePackage[] = storedPackagesStr ? JSON.parse(storedPackagesStr) : []
-        storedPackages.unshift(newPackage)
-        localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(storedPackages))
+      // Sauvegarde Cloud (Supabase + localStorage + diffusion temps réel multi-postes)
+      await saveGroupedPackageToCloud(newPackage)
 
-        const storedBatchesStr = localStorage.getItem("waste_batches_custom_v1")
-        if (storedBatchesStr) {
-          const storedBatches: WasteStockItem[] = JSON.parse(storedBatchesStr)
-          const updatedBatches = storedBatches.map(b => {
-            if (newPackage.item_ids.includes(b.id)) {
-              return {
-                ...b,
-                grouped_package_id: newPackage.id,
-                package_number: newPackage.package_number,
-                current_location: newPackage.current_location,
-              }
-            }
-            return b
-          })
-          localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedBatches))
-        }
-      }
-
-      toast.success(`Colis ${newPackage.package_number} créé avec succès ! (${itemsToGroup.length} lots, ${newPackage.total_weight} Kg)`)
+      toast.success(`Colis ${newPackage.package_number} créé et synchronisé avec succès ! (${itemsToGroup.length} lots, ${newPackage.total_weight} Kg)`)
       onSuccess(newPackage, false)
       onOpenChange(false)
     } catch (e) {

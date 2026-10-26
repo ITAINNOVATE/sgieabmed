@@ -39,6 +39,7 @@ import { WasteGroupingDialog, GroupedWastePackage } from "@/components/waste-gro
 import { WastePackageDetailDialog } from "@/components/waste-package-detail-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
+import { syncLocalAndCloudPackages, deleteGroupedPackageFromCloud } from "@/utils/waste-packages-sync"
 
 export type WasteStockItem = {
   id: string
@@ -108,27 +109,31 @@ export default function WasteStockPage() {
 
   const hasLoadedOnceRef = useRef(false)
 
-  // 1. Chargement des données (Batches & Packages)
+  // 1. Chargement des données (Batches & Packages synchronisés Cloud + Local)
   const fetchData = useCallback(async () => {
-    // A. Packages groupés
+    // A. Packages groupés (Synchronisation temps réel Cloud + Local)
     let localPackages: GroupedWastePackage[] = []
     try {
       const storedPkgs = localStorage.getItem("waste_grouped_packages_v1")
       if (storedPkgs) {
-        const parsed = JSON.parse(storedPkgs)
-        localPackages = parsed.map((p: GroupedWastePackage) => ({
-          ...p,
-          current_location: normalizeWasteLocation(p.current_location, p.package_type),
-        }))
+        localPackages = JSON.parse(storedPkgs)
       }
     } catch (e) {
       localPackages = []
     }
+
+    let finalPackages: GroupedWastePackage[] = localPackages
+    try {
+      finalPackages = await syncLocalAndCloudPackages(localPackages)
+    } catch (e) {
+      console.warn("Erreur syncLocalAndCloudPackages:", e)
+    }
+
     setPackages((prev) => {
-      if (prev.length === localPackages.length && JSON.stringify(prev) === JSON.stringify(localPackages)) {
+      if (prev.length === finalPackages.length && JSON.stringify(prev) === JSON.stringify(finalPackages)) {
         return prev
       }
-      return localPackages
+      return finalPackages
     })
 
     // B. Batches de déchets
@@ -164,9 +169,13 @@ export default function WasteStockPage() {
       if (key) batchMap.set(key, b)
     })
 
-    // S'assurer que les lots inclus dans les packages initiaux portent bien l'identifiant du package et l'emplacement normalisé
+    // S'assurer que les lots inclus dans les packages portent bien l'identifiant du package et l'emplacement normalisé
     const finalBatches = Array.from(batchMap.values()).map(batch => {
-      const parentPkg = localPackages.find(p => p.item_ids && p.item_ids.includes(batch.id))
+      const parentPkg = finalPackages.find(p => 
+        (p.item_ids && p.item_ids.includes(batch.id)) ||
+        (p.items && p.items.some(it => it.id === batch.id || it.batch_number === batch.batch_number)) ||
+        (batch.observations && batch.observations.includes(`[COLIS: ${p.package_number}]`))
+      )
       if (parentPkg) {
         return {
           ...batch,
@@ -197,11 +206,11 @@ export default function WasteStockPage() {
     fetchData()
   }, [fetchData])
 
-  // Synchronisation temps réel
+  // Synchronisation temps réel (3 secondes pour une réactivité instantanée)
   useRealtimeSync({
     tables: ["waste_batches", "waste_movements", "destruction_plans"],
     onSync: fetchData,
-    pollIntervalMs: 6000,
+    pollIntervalMs: 3000,
   })
 
   // 2. Filtrage pour Stocks en détail
@@ -325,31 +334,27 @@ export default function WasteStockPage() {
   }
 
   // DISSOUDRE / DÉGROUPER UN COLIS
-  const handleUngroupPackage = (pkg: GroupedWastePackage) => {
+  const handleUngroupPackage = async (pkg: GroupedWastePackage) => {
     if (!window.confirm(`Êtes-vous sûr de vouloir dissoudre le colis ${pkg.package_number} ?\nTous les lots de déchets redeviendront des lots en détail autonomes.`)) {
       return
     }
 
-    const updatedPackages = packages.filter(p => p.id !== pkg.id)
-    setPackages(updatedPackages)
-    try {
-      localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(updatedPackages))
-    } catch (e) {}
+    // Suppression Cloud (Supabase + localStorage + diffusion temps réel multi-postes)
+    await deleteGroupedPackageFromCloud(pkg)
+
+    setPackages(prev => prev.filter(p => p.id !== pkg.id && p.package_number !== pkg.package_number))
 
     setData(prev => {
       const updated = prev.map(item => {
-        if (pkg.item_ids.includes(item.id) || item.grouped_package_id === pkg.id) {
+        if (pkg.item_ids?.includes(item.id) || item.grouped_package_id === pkg.id || item.package_number === pkg.package_number) {
           return {
             ...item,
-            grouped_package_id: null,
-            package_number: null,
+            grouped_package_id: undefined,
+            package_number: undefined,
           }
         }
         return item
       })
-      try {
-        localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updated))
-      } catch (e) {}
       return updated
     })
 
