@@ -54,28 +54,42 @@ export default function PublicWasteVerifyPage({
     async function loadWasteData() {
       setLoading(true)
       let found: any = null
+      const cleanId = rawId.trim().replace(/\/$/, "")
 
-      // 1. Recherche prioritaire dans Supabase (par id UUID ou par batch_number)
+      // 1. Recherche prioritaire dans Supabase (par id UUID ou par batch_number insensible à la casse)
       try {
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId)
         
-        let query = supabase
-          .from("waste_batches")
-          .select(`
-            *,
-            sample:samples(commercial_name, batch_number, dci, dosage, presentation, expiry_date),
-            creator:users!created_by(first_name, last_name)
-          `)
+        let query = supabase.from("waste_batches").select("*")
 
         if (isUuid) {
-          query = query.or(`id.eq.${rawId},batch_number.eq.${rawId}`)
+          query = query.or(`id.eq.${cleanId},batch_number.ilike.${cleanId}`)
         } else {
-          query = query.eq("batch_number", rawId)
+          query = query.ilike("batch_number", cleanId)
         }
 
         const { data, error } = await query.maybeSingle()
         if (data && !error) {
           found = data
+          // Si relié à un échantillon, tenter de charger l'échantillon sans bloquer
+          if (data.sample_id) {
+            try {
+              const { data: sData } = await supabase.from("samples").select("*").eq("id", data.sample_id).maybeSingle()
+              if (sData) found.sample = sData
+            } catch (e) {}
+          }
+        } else {
+          // Essai avec recherche partielle si jamais le numéro contient des tirets ou espaces différents
+          const { data: partialData } = await supabase
+            .from("waste_batches")
+            .select("*")
+            .ilike("batch_number", `%${cleanId}%`)
+            .limit(1)
+            .maybeSingle()
+          
+          if (partialData) {
+            found = partialData
+          }
         }
       } catch (err) {
         console.warn("Échec requête distante Supabase:", err)
@@ -87,7 +101,10 @@ export default function PublicWasteVerifyPage({
           const stored = localStorage.getItem("waste_batches_custom_v1")
           if (stored) {
             const list = JSON.parse(stored)
-            found = list.find((b: any) => b.id === rawId || b.batch_number === rawId)
+            found = list.find((b: any) => 
+              (b.id && b.id.toLowerCase() === cleanId.toLowerCase()) || 
+              (b.batch_number && b.batch_number.toLowerCase() === cleanId.toLowerCase())
+            )
           }
         } catch (e) {}
       }

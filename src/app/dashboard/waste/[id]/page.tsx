@@ -48,16 +48,14 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
 
       // 2. Synchronisation avec Supabase en arrière-plan
       try {
-        const { data } = await supabase
-          .from('waste_batches')
-          .select(`
-            *,
-            sample:samples(commercial_name, batch_number),
-            creator:users!created_by(first_name, last_name)
-          `)
-          .eq('id', resolvedParams.id)
-          .single()
-        
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedParams.id)
+        let query = supabase.from('waste_batches').select('*')
+        if (isUuid) {
+          query = query.or(`id.eq.${resolvedParams.id},batch_number.eq.${resolvedParams.id}`)
+        } else {
+          query = query.eq('batch_number', resolvedParams.id)
+        }
+        const { data } = await query.maybeSingle()
         if (data) {
           setWasteBatch(data)
         }

@@ -50,22 +50,31 @@ export default function PublicSampleVerifyPage({
     async function loadSampleData() {
       setLoading(true)
       let found: any = null
+      const cleanId = rawId.trim().replace(/\/$/, "")
 
       // 1. Recherche prioritaire dans Supabase (par UUID ou par sample_number)
       try {
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId)
         
         let query = supabase.from("samples").select("*")
 
         if (isUuid) {
-          query = query.or(`id.eq.${rawId},sample_number.eq.${rawId}`)
+          query = query.or(`id.eq.${cleanId},sample_number.ilike.${cleanId}`)
         } else {
-          query = query.eq("sample_number", rawId)
+          query = query.ilike("sample_number", cleanId)
         }
 
         const { data, error } = await query.maybeSingle()
         if (data && !error) {
           found = data
+        } else {
+          const { data: partialData } = await supabase
+            .from("samples")
+            .select("*")
+            .ilike("sample_number", `%${cleanId}%`)
+            .limit(1)
+            .maybeSingle()
+          if (partialData) found = partialData
         }
       } catch (err) {
         console.warn("Échec requête distante Supabase:", err)
