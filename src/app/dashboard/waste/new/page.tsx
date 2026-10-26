@@ -314,10 +314,11 @@ export default function NewWasteReceptionPage() {
     fetchSamples()
   }, [supabase, form])
 
-  // Ajout d'une nouvelle ligne de déchet avec N° de lot incrémenté
+  // Ajout d'une nouvelle ligne de déchet avec N° de lot incrémenté et séquentiel garanti
   const handleAddWasteItem = () => {
-    const nextIndex = fields.length + 1
     const prefix = baseLotPrefix || `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
+    const currentItems = form.getValues("waste_items") || []
+    const nextIndex = currentItems.length + 1
     append({
       batch_number: `${prefix}-${nextIndex}`,
       product_nature: "médicaments",
@@ -336,6 +337,18 @@ export default function NewWasteReceptionPage() {
       observations: "",
     })
     toast.success(`Nouveau déchet (#${nextIndex}) ajouté au bordereau`)
+  }
+
+  // Suppression d'un déchet avec ré-indexation séquentielle immédiate pour éviter tout doublon
+  const handleRemoveWasteItem = (indexToRemove: number) => {
+    remove(indexToRemove)
+    setTimeout(() => {
+      const currentItems = form.getValues("waste_items") || []
+      const prefix = baseLotPrefix || (currentItems[0]?.batch_number ? currentItems[0].batch_number.split('-').slice(0, 3).join('-') : `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`)
+      currentItems.forEach((_, i) => {
+        form.setValue(`waste_items.${i}.batch_number`, `${prefix}-${i + 1}`)
+      })
+    }, 50)
   }
 
   // Calcul du poids/quantité totale
@@ -426,6 +439,15 @@ export default function NewWasteReceptionPage() {
     }
 
     const values = form.getValues()
+    const prefix = baseLotPrefix || (values.waste_items[0]?.batch_number ? values.waste_items[0].batch_number.split('-').slice(0, 3).join('-') : `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`)
+
+    // Ré-alignement séquentiel garanti pour que chaque lot ait un numéro unique 1, 2, 3...
+    values.waste_items.forEach((item, idx) => {
+      const seqNumber = `${prefix}-${idx + 1}`
+      item.batch_number = seqNumber
+      form.setValue(`waste_items.${idx}.batch_number`, seqNumber)
+    })
+
     const warehouseChosen = values.warehouse === "Autres" && values.warehouse_other ? values.warehouse_other : values.warehouse
     const fee8 = values.transfer_cost_mode === "chiffre"
       ? Math.round((Number(values.transfer_cost_amount) || 0) * 0.08)
@@ -450,11 +472,11 @@ export default function NewWasteReceptionPage() {
       depositor_id_card: values.depositor_id_card,
       attachedDocs: attachedDocs,
       general_observations: `Dépôt de ${values.waste_items.length} lot(s) de déchets pour un total de ${totalQuantity.toFixed(2)} ${values.waste_items[0]?.unit || 'Kg'}`,
-      items: values.waste_items.map((item) => {
+      items: values.waste_items.map((item, idx) => {
         const s = samples.find((x) => x.id === item.sample_id)
         const finalNature = item.product_nature === "autres (à préciser)" && item.product_nature_other ? item.product_nature_other : item.product_nature
         return {
-          batch_number: item.batch_number,
+          batch_number: `${prefix}-${idx + 1}`,
           product_nature: finalNature,
           product_category: item.product_category,
           waste_type: item.waste_type,
@@ -483,17 +505,19 @@ export default function NewWasteReceptionPage() {
     try {
       const values = form.getValues()
       const timestamp = Date.now()
+      const prefix = baseLotPrefix || (values.waste_items[0]?.batch_number ? values.waste_items[0].batch_number.split('-').slice(0, 3).join('-') : `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`)
       const warehouseChosen = values.warehouse === "Autres" && values.warehouse_other ? values.warehouse_other : values.warehouse
       const fee8 = values.transfer_cost_mode === "chiffre"
         ? Math.round((Number(values.transfer_cost_amount) || 0) * 0.08)
         : (values.transfer_cost_mode === "dons" ? "Exonéré (Dons)" : "NA")
 
       const newBatches = values.waste_items.map((item, idx) => {
+        const uniqueBatchNumber = `${prefix}-${idx + 1}`
         const selectedSample = samples.find((s) => s.id === item.sample_id)
         const finalNature = item.product_nature === "autres (à préciser)" && item.product_nature_other ? item.product_nature_other : item.product_nature
         return {
           id: `batch-${timestamp}-${idx}`,
-          batch_number: item.batch_number,
+          batch_number: uniqueBatchNumber,
           reception_number: values.reception_number,
           reception_date: values.reception_date,
           reception_time: values.reception_time,
@@ -991,7 +1015,7 @@ export default function NewWasteReceptionPage() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => remove(index)}
+                        onClick={() => handleRemoveWasteItem(index)}
                         className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 gap-1 px-2"
                       >
                         <Trash2 className="h-3.5 w-3.5" /> Supprimer ce déchet
