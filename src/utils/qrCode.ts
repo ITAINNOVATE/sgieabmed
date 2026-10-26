@@ -41,9 +41,36 @@ export interface WasteQRData {
 }
 
 /**
- * Formate le texte récapitulatif complet d'un échantillon pour encodage dans le QR Code.
+ * Retourne l'URL publique et sécurisée de vérification d'un échantillon.
+ * Cette URL est accessible à tous sans connexion et n'expose aucun accès au compte ni à la plateforme.
+ */
+export function getSampleVerificationUrl(sample: { id: string; sample_number?: string }, origin = 'https://eged-abmed.gov.bj'): string {
+  const identifier = sample.sample_number || sample.id
+  return `${origin}/verify/sample/${encodeURIComponent(identifier)}`
+}
+
+/**
+ * Retourne l'URL publique et sécurisée de vérification d'un lot de déchet.
+ * Cette URL est accessible à tous sans connexion et n'expose aucun accès au compte ni à la plateforme.
+ */
+export function getWasteVerificationUrl(waste: { id: string; batch_number?: string }, origin = 'https://eged-abmed.gov.bj'): string {
+  const identifier = waste.batch_number || waste.id
+  return `${origin}/verify/waste/${encodeURIComponent(identifier)}`
+}
+
+/**
+ * Formate le texte pour encodage dans le QR Code d'un échantillon.
+ * Par défaut, encode l'URL de vérification publique pour ouverture directe sur smartphone sans accès au compte.
  */
 export function formatSampleQRText(sample: Partial<SampleQRData> & { id: string }, origin = 'https://eged-abmed.gov.bj'): string {
+  // Encodage prioritaire de l'URL publique de vérification
+  return getSampleVerificationUrl(sample, origin)
+}
+
+/**
+ * Formate le texte récapitulatif complet d'un échantillon (pour exportation textuelle ou impression).
+ */
+export function formatSampleSummaryText(sample: Partial<SampleQRData> & { id: string }, origin = 'https://eged-abmed.gov.bj'): string {
   const lines = [
     'RÉPUBLIQUE DU BÉNIN — ABMed',
     'eGED-SGIE | ÉCHANTILLON PHARMACEUTIQUE',
@@ -62,16 +89,26 @@ export function formatSampleQRText(sample: Partial<SampleQRData> & { id: string 
     sample.current_location ? `Emplacement    : ${sample.current_location}` : null,
     sample.status ? `Statut         : ${sample.status}` : null,
     '----------------------------------------',
-    `Fiche : ${origin}/dashboard/samples/${sample.id}`
+    `Vérification : ${getSampleVerificationUrl(sample, origin)}`
   ].filter(Boolean)
 
   return lines.join('\n')
 }
 
 /**
- * Formate le texte récapitulatif complet d'un déchet pharmaceutique pour encodage dans le QR Code.
+ * Formate le texte pour encodage dans le QR Code d'un déchet pharmaceutique.
+ * Encode l'URL de vérification publique pour que tout scan sur smartphone affiche UNIQUEMENT
+ * la fiche produit sans ouvrir la plateforme ni connecter un compte.
  */
 export function formatWasteQRText(waste: Partial<WasteQRData> & { id: string }, origin = 'https://eged-abmed.gov.bj'): string {
+  // Encodage prioritaire de l'URL publique de vérification
+  return getWasteVerificationUrl(waste, origin)
+}
+
+/**
+ * Formate le texte récapitulatif complet d'un déchet (pour exportation textuelle).
+ */
+export function formatWasteSummaryText(waste: Partial<WasteQRData> & { id: string }, origin = 'https://eged-abmed.gov.bj'): string {
   const lines = [
     'RÉPUBLIQUE DU BÉNIN — ABMed',
     'eGED-SGIE | DÉCHET PHARMACEUTIQUE',
@@ -91,7 +128,7 @@ export function formatWasteQRText(waste: Partial<WasteQRData> & { id: string }, 
     waste.status ? `Statut         : ${waste.status}` : null,
     waste.destruction_plan_ref ? `Plan Destr.    : ${waste.destruction_plan_ref}` : null,
     '----------------------------------------',
-    `Fiche : ${origin}/dashboard/waste/${waste.id}`
+    `Vérification : ${getWasteVerificationUrl(waste, origin)}`
   ].filter(Boolean)
 
   return lines.join('\n')
@@ -135,7 +172,7 @@ export function formatGroupedPackageQRText(pkg: GroupedPackageQRData, origin = '
     ...pkg.itemsSummary.slice(0, 6).map(s => `• ${s}`),
     pkg.itemsSummary.length > 6 ? `• ... et ${pkg.itemsSummary.length - 6} autre(s) lot(s)` : null,
     '----------------------------------------',
-    `Vérification : ${origin}/dashboard/waste/stock?colis=${pkg.package_number}`
+    `Vérification : ${origin}/verify/waste/${encodeURIComponent(pkg.package_number)}`
   ].filter(Boolean)
 
   return lines.join('\n')
