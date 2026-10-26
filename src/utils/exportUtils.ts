@@ -945,5 +945,181 @@ export function exportWasteInventoryReportPDF(inventoryData: {
   doc.save(`${inventoryData.inv_number || "inventaire-dechets"}.pdf`)
 }
 
+// 8. Export Official Report PDF (Rapport Officiel Périodique et Statistique ABMed)
+export function exportOfficialReportPDF(params: {
+  title: string
+  subtitle?: string
+  periodLabel: string
+  warehouseLabel?: string
+  kpis?: Array<{ label: string; value: string }>
+  headers: string[]
+  rows: any[][]
+  filename: string
+  orientation?: "p" | "l"
+}) {
+  const isLandscape = params.orientation === "l"
+  const doc = new jsPDF(isLandscape ? "l" : "p", "mm", "a4")
+  const pageWidth = isLandscape ? 297 : 210
+  const pageHeight = isLandscape ? 210 : 297
+  const margin = 14
+
+  // Bannière En-tête Officiel Vert ABMed (#1B5C2E)
+  doc.setFillColor(27, 92, 46)
+  doc.rect(0, 0, pageWidth, 32, "F")
+
+  // République du Bénin / Ministère
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(255, 255, 255)
+  doc.text("RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ", margin, 9)
+
+  // Titre principal
+  doc.setFontSize(13)
+  doc.text(params.title.toUpperCase(), margin, 18)
+
+  // Sous-titre ou description
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(220, 252, 231)
+  doc.text(
+    params.subtitle || "AUTORITÉ BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed) — SGIE",
+    margin,
+    25
+  )
+
+  // Badge Période et Magasin à droite
+  const badgeWidth = isLandscape ? 85 : 75
+  const badgeX = pageWidth - margin - badgeWidth
+  doc.setFillColor(255, 255, 255)
+  doc.roundedRect(badgeX, 6, badgeWidth, 20, 2, 2, "F")
+
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(27, 92, 46)
+  doc.text(`PÉRIODE : ${params.periodLabel}`, badgeX + badgeWidth / 2, 13, { align: "center" })
+
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(71, 85, 105)
+  doc.text(
+    `Site : ${params.warehouseLabel || "Tous les magasins"} | Date : ${new Date().toLocaleDateString("fr-FR")}`,
+    badgeX + badgeWidth / 2,
+    21,
+    { align: "center" }
+  )
+
+  let startY = 38
+
+  // Boîtes KPI si fournies (jusqu'à 4 ou 5)
+  if (params.kpis && params.kpis.length > 0) {
+    const kpiCount = Math.min(params.kpis.length, 5)
+    const totalAvailableWidth = pageWidth - margin * 2
+    const gap = 3
+    const cardWidth = (totalAvailableWidth - (kpiCount - 1) * gap) / kpiCount
+    const cardHeight = 15
+
+    params.kpis.slice(0, kpiCount).forEach((kpi, idx) => {
+      const x = margin + idx * (cardWidth + gap)
+      doc.setFillColor(248, 250, 252)
+      doc.setDrawColor(203, 213, 225)
+      doc.setLineWidth(0.3)
+      doc.roundedRect(x, startY, cardWidth, cardHeight, 1.5, 1.5, "FD")
+
+      doc.setFontSize(6.5)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(100, 116, 139)
+      doc.text(kpi.label.toUpperCase(), x + cardWidth / 2, startY + 5, { align: "center" })
+
+      doc.setFontSize(9.5)
+      doc.setTextColor(27, 92, 46)
+      doc.text(kpi.value, x + cardWidth / 2, startY + 11.5, { align: "center" })
+    })
+
+    startY += cardHeight + 5
+  }
+
+  // Tableau des données avec autoTable
+  autoTable(doc, {
+    startY,
+    head: [params.headers],
+    body: params.rows,
+    theme: "striped",
+    headStyles: {
+      fillColor: [27, 92, 46],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+      fontSize: 7.5,
+      cellPadding: 2,
+    },
+    styles: {
+      fontSize: 7,
+      cellPadding: 2,
+      textColor: [15, 23, 42],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.1,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    margin: { left: margin, right: margin, bottom: 25 },
+    didDrawPage: (data) => {
+      // Pied de page numéroté
+      doc.setFontSize(6.5)
+      doc.setTextColor(148, 163, 184)
+      doc.text(
+        `Système de Gestion Intégrée des Échantillons & Déchets (SGIE - ABMed) — Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`,
+        margin,
+        pageHeight - 8
+      )
+      const pageStr = `Page ${data.pageNumber}`
+      doc.text(pageStr, pageWidth - margin, pageHeight - 8, { align: "right" })
+    },
+  })
+
+  let finalY = (doc as any).lastAutoTable?.finalY || startY + 40
+
+  // Si on est trop bas pour les signatures, ajouter une nouvelle page
+  if (finalY > pageHeight - 45) {
+    doc.addPage()
+    finalY = 20
+  } else {
+    finalY += 8
+  }
+
+  // Blocs de signatures officiels ABMed
+  const sigBoxWidth = (pageWidth - margin * 2 - 10) / 2
+  const sigBoxHeight = 28
+  doc.setDrawColor(203, 213, 225)
+  doc.setFillColor(255, 255, 255)
+
+  // Bloc 1: Responsable SGIE / Échantillothèque & Déchets
+  doc.roundedRect(margin, finalY, sigBoxWidth, sigBoxHeight, 2, 2, "D")
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("LE RESPONSABLE ÉCHANTILLOTHÈQUE & DÉCHETS", margin + 4, finalY + 6)
+  doc.setFontSize(6.5)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(100, 116, 139)
+  doc.text("Nom & Signature :", margin + 4, finalY + 12)
+  doc.text("Mention : « Relevé exact & certifié conforme »", margin + 4, finalY + 18)
+
+  // Bloc 2: Directeur Général ABMed / Visa
+  const sig2X = margin + sigBoxWidth + 10
+  doc.roundedRect(sig2X, finalY, sigBoxWidth, sigBoxHeight, 2, 2, "D")
+  doc.setFontSize(7.5)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(15, 23, 42)
+  doc.text("POUR LE DIRECTEUR GÉNÉRAL DE L'ABMed", sig2X + 4, finalY + 6)
+  doc.setFontSize(6.5)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(100, 116, 139)
+  doc.text("Visa, Sceau & Signature :", sig2X + 4, finalY + 12)
+  doc.text("Fait à Cotonou, le " + new Date().toLocaleDateString("fr-FR"), sig2X + 4, finalY + 18)
+
+  doc.save(`${params.filename}.pdf`)
+}
+
+
 
 
