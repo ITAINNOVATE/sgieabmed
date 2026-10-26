@@ -118,115 +118,117 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
           })
           setEnrichedData(parsed)
         } else {
-          // Type Waste
-          const { data, error } = await supabase
-            .from('waste_batches')
-            .select(`
-              *,
-              sample:samples(
-                id,
-                sample_number,
-                commercial_name,
-                dci,
-                dosage,
-                presentation,
-                batch_number,
-                expiry_date
-              ),
-              destruction_items(
-                plan:destruction_plans(
-                  plan_number
-                )
-              )
-            `)
-            .in('id', ids)
+          // Type Waste : Enrichissement direct et infaillible sans jointures relationnelles manquantes
+          const batchNumbers = items.map(it => it.batch_number || it.itemNumber).filter(Boolean)
+          const cloudMap = new Map<string, any>()
 
-          if (error) throw error
+          try {
+            if (batchNumbers.length > 0) {
+              const { data: bData } = await supabase
+                .from('waste_batches')
+                .select('*')
+                .in('batch_number', batchNumbers)
+              if (bData && bData.length > 0) {
+                bData.forEach(b => {
+                  if (b.batch_number) cloudMap.set(b.batch_number, b)
+                  if (b.id) cloudMap.set(b.id, b)
+                })
+              }
+            }
+          } catch (fetchErr) {
+            console.warn("[LabelPrintDialog] Notice fetch waste_batches:", fetchErr)
+          }
 
-          const parsed = (data || []).map(row => {
-            const sample = row.sample as any
-            const plan = row.destruction_items?.[0]?.plan as any
+          const parsed = items.map(it => {
+            const row = { ...(cloudMap.get(it.batch_number) || cloudMap.get(it.id) || {}), ...it }
 
-            // Tenter de parser la localisation brute si présente
-            let salle = 'Déch. A'
-            let zone = 'Zone R'
-            let armoire = 'Bac 1'
+            const locRaw = row.current_location || 'Magasin Déchets'
+            let salle = locRaw
+            let zone = locRaw
+            let armoire = row.packaging || 'Fût / Carton'
             let etagere = 'N/A'
             let position = 'N/A'
 
-            if (row.current_location) {
+            if (row.current_location && row.current_location.includes(',')) {
               const parts = row.current_location.split(',')
               if (parts[0]) salle = parts[0].trim()
               if (parts[1]) zone = parts[1].trim()
               if (parts[2]) armoire = parts[2].trim()
             }
 
+            const itemNum = row.batch_number || row.package_number || row.itemNumber || row.id
+            const prodName = row.commercial_name || row.package_name || row.waste_type || 'Déchet Pharmaceutique'
+            const origBatch = row.original_batch || (row.items ? `${row.items.length} lots inclus` : (row.item_ids ? `${row.item_ids.length} lots inclus` : '—'))
+
             return {
-              id: row.id,
-              itemNumber: row.batch_number,
-              productName: sample ? sample.commercial_name : (row.commercial_name || row.waste_type),
-              batchNumber: sample ? sample.batch_number : (row.original_batch || 'N/A'),
-              status: row.status,
+              id: it.id || itemNum,
+              itemNumber: itemNum,
+              productName: prodName,
+              batchNumber: origBatch,
+              status: row.status || 'En stock',
               location: {
                 salle,
                 zone,
                 armoire,
                 etagere,
-                position
+                position,
+                raw: locRaw
               },
               extraData: {
-                category: row.waste_type,
-                weight: `${row.quantity} ${row.unit || 'Kg'}`,
-                declarationDate: row.created_at ? new Date(row.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
-                destructionPlan: plan?.plan_number || row.destruction_plan_ref || 'Aucun',
-                receptionNumber: row.reception_number,
-                sourceStructure: row.source_structure,
-                sourceType: row.source_type,
-                depositorName: row.depositor_name,
-                depositorPhone: row.depositor_phone,
-                packaging: row.packaging,
-                packagingCondition: row.packaging_condition,
-                motive: row.destruction_motive || row.rejection_reason,
-                originalBatch: sample ? sample.batch_number : (row.original_batch || 'N/A'),
-                recipientAgent: row.recipient_agent || 'ABMed Direction Déchets'
+                category: row.waste_type || row.package_type || 'Déchets pharmaceutiques',
+                weight: `${row.quantity || row.total_weight || 1} ${row.unit || 'Kg'}`,
+                declarationDate: row.created_at ? new Date(row.created_at).toLocaleDateString('fr-FR') : (row.reception_date ? new Date(row.reception_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')),
+                destructionPlan: row.destruction_plan_ref || 'Aucun',
+                receptionNumber: row.reception_number || '—',
+                sourceStructure: row.source_structure || 'Structure Déposante',
+                sourceType: row.source_type || 'Officine / Hôpital',
+                depositorName: row.depositor_name || row.created_by || 'Agent ABMed',
+                depositorPhone: row.depositor_phone || '',
+                packaging: row.packaging || row.package_type || 'Fût étanche / Carton scellé',
+                packagingCondition: row.packaging_condition || 'Conforme',
+                motive: row.destruction_motive || 'Péremption / Rebut',
+                originalBatch: origBatch,
+                recipientAgent: row.recipient_agent || row.created_by || 'Direction Déchets ABMed'
               }
             } as LabelData
           })
+
           setEnrichedData(parsed)
         }
       } catch (err) {
         console.error("Erreur de chargement des métadonnées d'étiquette:", err)
-        toast.error("Impossible de récupérer les localisations réelles.")
-        // Fallback avec les données reçues
+        // Fallback avec les données déjà présentes
         const fallback = items.map(it => {
+          const locRaw = it.current_location || 'Magasin Déchets'
           if (type === 'waste') {
             return {
               id: it.id,
-              itemNumber: it.batch_number || it.id,
+              itemNumber: it.batch_number || it.package_number || it.id,
               productName: it.commercial_name || it.waste_type || 'Déchet Pharmaceutique',
-              batchNumber: it.original_batch || it.sample?.batch_number || 'N/A',
-              status: it.status || 'Déclaré',
+              batchNumber: it.original_batch || '—',
+              status: it.status || 'En stock',
               location: {
-                salle: 'Déch. A',
-                zone: 'Zone R',
-                armoire: 'Bac 1',
+                salle: locRaw,
+                zone: locRaw,
+                armoire: it.packaging || 'Fût / Carton',
                 etagere: 'N/A',
-                position: 'N/A'
+                position: 'N/A',
+                raw: locRaw
               },
               extraData: {
-                category: it.waste_type || 'Déchets médicamenteux',
-                weight: `${it.quantity || 1} ${it.unit || 'Kg'}`,
+                category: it.waste_type || 'Déchets pharmaceutiques',
+                weight: `${it.quantity || it.total_weight || 1} ${it.unit || 'Kg'}`,
                 declarationDate: it.created_at ? new Date(it.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
                 destructionPlan: it.destruction_plan_ref || 'Aucun',
-                receptionNumber: it.reception_number,
-                sourceStructure: it.source_structure || 'Structure Sanitaire',
-                sourceType: it.source_type || 'Secteur Pharmaceutique',
+                receptionNumber: it.reception_number || '—',
+                sourceStructure: it.source_structure || 'Structure Déposante',
+                sourceType: it.source_type || 'Pharmacie',
                 depositorName: it.depositor_name || 'Non spécifié',
-                depositorPhone: it.depositor_phone,
+                depositorPhone: it.depositor_phone || '',
                 packaging: it.packaging || 'Fût étanche / Carton scellé',
-                packagingCondition: it.packaging_condition || 'Intègre / Bon',
-                motive: it.destruction_motive || it.rejection_reason || 'Périmé / Rebut',
-                originalBatch: it.original_batch || 'N/A',
+                packagingCondition: it.packaging_condition || 'Conforme',
+                motive: it.destruction_motive || 'Péremption / Rebut',
+                originalBatch: it.original_batch || '—',
                 recipientAgent: it.recipient_agent || 'Direction Déchets ABMed'
               }
             } as LabelData
@@ -307,7 +309,10 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
             }, origin)
 
         const qrUrl = await generateQRCodeDataUrl(qrText)
-        qrs[item.id] = qrUrl
+        if (item.id) qrs[item.id] = qrUrl
+        if (item.batch_number) qrs[item.batch_number] = qrUrl
+        if (item.package_number) qrs[item.package_number] = qrUrl
+        if (item.itemNumber) qrs[item.itemNumber] = qrUrl
       }
       setQrCodes(qrs)
     }
@@ -332,7 +337,7 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
   const handleDownloadPNG = () => {
     const currentItem = enrichedData[currentIndex]
     if (!currentItem) return
-    const qrUrl = qrCodes[currentItem.id]
+    const qrUrl = qrCodes[currentItem.id] || qrCodes[currentItem.itemNumber] || qrCodes[currentItem.batchNumber]
     if (!qrUrl) return
 
     const a = document.createElement('a')

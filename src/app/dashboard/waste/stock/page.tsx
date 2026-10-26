@@ -697,7 +697,7 @@ export default function WasteStockPage() {
                     setIsPrintDialogOpen(true)
                   }}
                 >
-                  <Printer className="mr-2 h-3.5 w-3.5 text-slate-700" /> Imprimer fiche A4 déchet
+                  <Printer className="mr-2 h-3.5 w-3.5 text-slate-700" /> Imprimer étiquette / Fiche A4
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer text-xs">
                   <Link href="/dashboard/waste/movements">
@@ -941,7 +941,7 @@ export default function WasteStockPage() {
                   className="h-8 text-xs font-semibold gap-1.5 cursor-pointer"
                 >
                   <Printer className="h-3.5 w-3.5 text-slate-700" />
-                  Imprimer Fiches A4
+                  Imprimer Étiquettes / Fiches A4
                 </Button>
 
                 <Button
@@ -1248,10 +1248,10 @@ export default function WasteStockPage() {
                                 size="sm"
                                 onClick={() => handlePrintPackageLabel(pkg)}
                                 className="h-7 text-xs px-2.5 font-bold bg-red-600 hover:bg-red-700 text-white gap-1 cursor-pointer shadow-2xs"
-                                title="Imprimer la fiche A4 placard du colis"
+                                title="Imprimer la fiche A4 placard ou l'étiquette du colis"
                               >
                                 <Printer className="h-3.5 w-3.5" />
-                                Fiche A4
+                                Imprimer
                               </Button>
 
                               <DropdownMenu>
@@ -1274,7 +1274,7 @@ export default function WasteStockPage() {
                                     className="cursor-pointer text-xs"
                                     onClick={() => handlePrintPackageLabel(pkg)}
                                   >
-                                    <Printer className="mr-2 h-3.5 w-3.5 text-red-600" /> Imprimer Fiche A4
+                                    <Printer className="mr-2 h-3.5 w-3.5 text-red-600" /> Imprimer Étiquette / Fiche A4
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 

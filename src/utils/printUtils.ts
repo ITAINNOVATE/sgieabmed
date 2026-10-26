@@ -506,7 +506,7 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
       // Pour les DÉCHETS en A4 : chaque lot génère une pleine page A4 placard grand format
       bodyContent = items.map(item => `
         <div style="page-break-after: always; width: 100%; min-height: 268mm; max-height: 275mm; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid;">
-          ${renderWasteA4Html(item, qrCodes[item.id] || '', dateStr)}
+          ${renderWasteA4Html(item, qrCodes[item.id] || qrCodes[item.itemNumber] || qrCodes[item.batchNumber] || '', dateStr)}
         </div>
       `).join('');
     } else {
@@ -519,7 +519,7 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
         bodyContent += `
           <div class="a4-page" style="width: 198mm; height: 280mm; box-sizing: border-box; page-break-after: always; display: flex; flex-direction: column;">
             <div class="a4-grid">
-              ${pageItems.map(item => renderLabelHtml(item, type, qrCodes[item.id] || '', dateStr)).join('')}
+              ${pageItems.map(item => renderLabelHtml(item, type, qrCodes[item.id] || qrCodes[item.itemNumber] || qrCodes[item.batchNumber] || '', dateStr)).join('')}
             </div>
           </div>
         `;
@@ -529,7 +529,7 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
     // Format rouleau thermique
     bodyContent = items.map(item => `
       <div style="page-break-after: always; width: 100%; height: 100%;">
-        ${renderLabelHtml(item, type, qrCodes[item.id] || '', dateStr)}
+        ${renderLabelHtml(item, type, qrCodes[item.id] || qrCodes[item.itemNumber] || qrCodes[item.batchNumber] || '', dateStr)}
       </div>
     `).join('');
   }
@@ -559,23 +559,29 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
       <body>
         ${bodyContent}
         <script>
-          window.onload = function() {
-            setTimeout(function() {
+          function autoPrint() {
+            try {
               window.focus();
               window.print();
-            }, 400);
-
-            // Ne supprimer l'iframe QUE lorsque la boîte de dialogue d'impression a terminé
-            window.onafterprint = function() {
-              setTimeout(function() {
-                try {
-                  if (window.frameElement) {
-                    window.frameElement.remove();
-                  }
-                } catch(e) {}
-              }, 1000);
-            };
+            } catch(e) {}
           }
+          if (document.readyState === 'complete') {
+            setTimeout(autoPrint, 250);
+          } else {
+            window.addEventListener('load', function() { setTimeout(autoPrint, 250); });
+            setTimeout(autoPrint, 700);
+          }
+
+          // Nettoyer l'iframe une fois la boîte de dialogue refermée
+          window.onafterprint = function() {
+            setTimeout(function() {
+              try {
+                if (window.frameElement) {
+                  window.frameElement.remove();
+                }
+              } catch(e) {}
+            }, 1000);
+          };
         </script>
       </body>
     </html>
@@ -584,6 +590,32 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
   doc.open();
   doc.write(htmlContent);
   doc.close();
+
+  // Déclenchement garanti de l'impression depuis le contexte parent
+  const printWin = iframe.contentWindow;
+  if (printWin) {
+    const doPrint = () => {
+      try {
+        printWin.focus();
+        printWin.print();
+      } catch (err) {
+        console.warn("[printLabels] Erreur print iframe, tentative popup:", err);
+        try {
+          const popup = window.open('', '_blank');
+          if (popup) {
+            popup.document.write(htmlContent);
+            popup.document.close();
+            popup.focus();
+            setTimeout(() => popup.print(), 350);
+          }
+        } catch (popupErr) {
+          console.error("[printLabels] Échec popup:", popupErr);
+        }
+      }
+    };
+
+    setTimeout(doPrint, 400);
+  }
 }
 
 /**
@@ -833,7 +865,7 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
       if (index > 0) {
         doc.addPage('a4', 'portrait');
       }
-      drawWasteA4PagePDF(doc, item, qrCodes[item.id] || '', dateStr);
+      drawWasteA4PagePDF(doc, item, qrCodes[item.id] || qrCodes[item.itemNumber] || qrCodes[item.batchNumber] || '', dateStr);
     });
   } else if (format === 'A4') {
     // FORMAT A4 POUR ÉCHANTILLONS : Planche 3x8 d'étiquettes adhésives
@@ -857,7 +889,7 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
       const x = marginX + col * (labelW + gapX);
       const y = marginY + row * (labelH + gapY);
 
-      drawStandardThermalOrGridLabelPDF(doc, item, x, y, labelW, labelH, 0.95, qrCodes[item.id], dateStr, isWaste);
+      drawStandardThermalOrGridLabelPDF(doc, item, x, y, labelW, labelH, 0.95, qrCodes[item.id] || qrCodes[item.itemNumber] || qrCodes[item.batchNumber] || '', dateStr, isWaste);
 
       col++;
       if (col >= cols) {
@@ -880,7 +912,7 @@ export function downloadLabelsPDF(items: LabelData[], type: 'sample' | 'waste', 
       if (index > 0) {
         doc.addPage([dims.w, dims.h], 'landscape');
       }
-      drawStandardThermalOrGridLabelPDF(doc, item, 0, 0, dims.w, dims.h, dims.scale, qrCodes[item.id], dateStr, isWaste);
+      drawStandardThermalOrGridLabelPDF(doc, item, 0, 0, dims.w, dims.h, dims.scale, qrCodes[item.id] || qrCodes[item.itemNumber] || qrCodes[item.batchNumber] || '', dateStr, isWaste);
     });
   }
 
