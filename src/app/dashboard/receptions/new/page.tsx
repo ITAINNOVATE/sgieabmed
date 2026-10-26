@@ -914,11 +914,15 @@ function NewReceptionContent() {
       })()
     ])
 
-    // Attendre au maximum 800ms pour une navigation quasi-instantanée tout en laissant la requête aboutir
-    await Promise.race([
-      syncPromise,
-      new Promise(resolve => setTimeout(resolve, 800))
-    ])
+    // Attendre la synchronisation Supabase (jusqu'à 4s max) pour garantir la persistance Cloud
+    try {
+      await Promise.race([
+        syncPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+      ])
+    } catch (e) {
+      console.warn("Synchronisation Cloud finalisée ou poursuivie en tâche de fond:", e)
+    }
 
     // Diffusion instantanée multi-postes et multi-niveaux (< 50ms)
     broadcastDataMutation({

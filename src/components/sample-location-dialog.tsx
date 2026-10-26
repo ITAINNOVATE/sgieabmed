@@ -21,7 +21,7 @@ import {
 interface SampleLocationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  sample: { id: string; sample_number: string; commercial_name: string; batch_number?: string } | null
+  sample: { id: string; sample_number: string; commercial_name: string; batch_number?: string; current_location?: string; [key: string]: any } | null
   onSuccess?: () => void
 }
 
@@ -175,19 +175,29 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
     const mvtNumber = `MVT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
 
     try {
-      // 1. Tenter la mise à jour Supabase avec timeout court
+      // 1. Tenter la mise à jour Supabase
       try {
         await Promise.race([
-          supabase
-            .from('samples')
-            .update({
-              shelf_id: selectedShelf,
-              position_details: positionDetail || null,
-              status: 'Disponible',
-              current_location: locationPath,
-            })
-            .eq('id', sample.id),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000))
+          sample.sample_number
+            ? supabase
+                .from('samples')
+                .update({
+                  shelf_id: selectedShelf,
+                  position_details: positionDetail || null,
+                  status: 'Disponible',
+                  current_location: locationPath,
+                })
+                .eq('sample_number', sample.sample_number)
+            : supabase
+                .from('samples')
+                .update({
+                  shelf_id: selectedShelf,
+                  position_details: positionDetail || null,
+                  status: 'Disponible',
+                  current_location: locationPath,
+                })
+                .eq('id', sample.id),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500))
         ])
       } catch {}
 
@@ -203,11 +213,15 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
       try {
         await supabase.from('movements').insert({
           mvt_number: mvtNumber,
-          sample_id: sample.id,
+          sample_id: String(sample.id || ''),
+          sample_number: sample.sample_number || null,
+          commercial_name: sample.commercial_name || 'Échantillon',
+          batch_number: sample.batch_number || 'LOT-SANS',
           movement_type: 'Transfert',
           quantity: 1,
           reason: 'Localisation initiale',
-          destination: locationPath,
+          source_location: sample.current_location || 'Zone de Réception / Quarantaine',
+          destination_location: locationPath,
           observations: `Emplacement assigné : ${locationPath}${positionDetail ? ` — Position : ${positionDetail}` : ''}`,
         })
       } catch {}

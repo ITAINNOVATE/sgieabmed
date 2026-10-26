@@ -344,7 +344,7 @@ function ReceptionsContent() {
         const remoteItem = remoteData.find((r: any) => r.rec_number === item.rec_number)
         const raw = typeof window !== 'undefined' ? localStorage.getItem('reception_draft_details_' + item.rec_number) : null
 
-        if (!deletedIds.includes(item.rec_number) && !remoteItem && !syncedIds.includes(item.rec_number)) {
+        if (!deletedIds.includes(item.rec_number) && !remoteItem) {
           try {
             let fd: any = {}
             let validSamples: any[] = []

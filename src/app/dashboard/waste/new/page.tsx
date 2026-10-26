@@ -654,12 +654,17 @@ export default function NewWasteReceptionPage() {
         signature_hash: mvt.signature_hash,
       }))
 
-      Promise.all([
-        supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" }),
-        supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" }),
-      ]).catch((remoteErr) => {
-        console.warn("Échec synchronisation Supabase waste_batches:", remoteErr)
-      })
+      try {
+        await Promise.race([
+          Promise.all([
+            supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" }),
+            supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" }),
+          ]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+        ])
+      } catch (remoteErr) {
+        console.warn("Synchronisation Cloud waste_batches:", remoteErr)
+      }
 
       broadcastDataMutation({
         entity: "waste_batches,waste_movements",
