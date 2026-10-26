@@ -43,6 +43,8 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import { logout } from "@/app/actions/auth"
 import { getCurrentUser, setCurrentUser, User as AdminUser, recordLoginLog, recordAuditLog } from "@/app/dashboard/admin/adminMockData"
+import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const QRCodeScannerDialog = dynamic(
   () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
@@ -132,8 +134,8 @@ export function HeaderActions() {
   const [msgContent, setMsgContent] = useState("")
   const [isSendingMsg, setIsSendingMsg] = useState(false)
 
-  // Lecture des alertes & réceptions réelles du système
-  const refreshRealData = useCallback(() => {
+  // Lecture des alertes & réceptions réelles du système (local + Supabase Cloud)
+  const refreshRealData = useCallback(async () => {
     if (typeof window === "undefined") return
 
     // 1. Profil utilisateur actif
@@ -155,12 +157,10 @@ export function HeaderActions() {
       readNotifIds = JSON.parse(localStorage.getItem(READ_NOTIFS_STORAGE_KEY) || "[]")
     } catch (e) {}
 
-    const realNotifs: RealNotification[] = []
-
-    if (!isWiped) {
-      // 1.1 Réceptions réelles en attente
-      try {
-        const receptions = JSON.parse(localStorage.getItem("reception_history_records") || "[]")
+    const buildNotifs = (receptions: any[], destPlans: any[]) => {
+      const realNotifs: RealNotification[] = []
+      if (!isWiped) {
+        // 1.1 Réceptions réelles en attente de tous les agents
         const pendingRecs = receptions.filter((r: any) => 
           r.status && r.status !== "Validée" && r.status !== "Finalisé" && r.status !== "Refusé"
         )
@@ -177,7 +177,6 @@ export function HeaderActions() {
         })
 
         // 1.2 Déchets & plans de destruction réels en attente
-        const destPlans = JSON.parse(localStorage.getItem("destruction_plans_custom_v1") || "[]")
         const pendingPlans = destPlans.filter((p: any) => p.status === "En attente" || p.status === "Brouillon")
         pendingPlans.forEach((p: any) => {
           realNotifs.push({
@@ -190,12 +189,58 @@ export function HeaderActions() {
             read: readNotifIds.includes(`notif-plan-${p.plan_number || p.id}`),
           })
         })
-      } catch (e) {}
+      }
+
+      setNotifications(realNotifs)
+      const unreadNotifs = realNotifs.filter(n => !n.read).length
+      setUnreadNotifsCount(unreadNotifs)
     }
 
-    setNotifications(realNotifs)
-    const unreadNotifs = realNotifs.filter(n => !n.read).length
-    setUnreadNotifsCount(unreadNotifs)
+    // A. Affichage instantané depuis le cache local (0ms)
+    let localRecs: any[] = []
+    let localPlans: any[] = []
+    try {
+      localRecs = JSON.parse(localStorage.getItem("reception_history_records") || "[]")
+      localPlans = JSON.parse(localStorage.getItem("destruction_plans_custom_v1") || "[]")
+    } catch (e) {}
+    buildNotifs(localRecs, localPlans)
+
+    // B. Re-synchronisation Cloud pour les réceptions faites par tous les agents
+    try {
+      const supabase = createClient()
+      const [rRes, pRes] = await Promise.all([
+        supabase.from("receptions").select("id, rec_number, supplier, status, date_reception"),
+        supabase.from("destruction_plans").select("id, plan_number, status, total_weight, scheduled_date")
+      ])
+
+      const recMap = new Map<string, any>()
+      localRecs.forEach((r: any) => {
+        const k = r.rec_number || r.id
+        if (k) recMap.set(k, r)
+      })
+      if (rRes.data && rRes.data.length > 0) {
+        rRes.data.forEach((r: any) => {
+          const k = r.rec_number || r.id
+          if (k) recMap.set(k, { ...recMap.get(k), ...r })
+        })
+      }
+
+      const planMap = new Map<string, any>()
+      localPlans.forEach((p: any) => {
+        const k = p.plan_number || p.id
+        if (k) planMap.set(k, p)
+      })
+      if (pRes.data && pRes.data.length > 0) {
+        pRes.data.forEach((p: any) => {
+          const k = p.plan_number || p.id
+          if (k) planMap.set(k, { ...planMap.get(k), ...p })
+        })
+      }
+
+      buildNotifs(Array.from(recMap.values()), Array.from(planMap.values()))
+    } catch (cloudErr) {
+      // mode hors-ligne silencieux
+    }
 
     // 1.3 Messages réels
     try {
@@ -214,6 +259,13 @@ export function HeaderActions() {
     setMessages([])
     setUnreadMsgCount(0)
   }, [])
+
+  // Synchronisation globale multi-postes pour la cloche et les notifications
+  useRealtimeSync({
+    tables: ["receptions", "destruction_plans", "waste_batches"],
+    onSync: refreshRealData,
+    pollIntervalMs: 5000,
+  })
 
   useEffect(() => {
     refreshRealData()

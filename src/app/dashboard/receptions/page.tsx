@@ -338,6 +338,10 @@ function ReceptionsContent() {
     setReceptions(mergedList)
     setLoading(false)
 
+    try {
+      localStorage.setItem('reception_history_records', JSON.stringify(mergedList))
+    } catch (e) {}
+
     // Synchronisation montante non-bloquante en arrière-plan (uniquement pour les réceptions pas encore dans Supabase)
     ;(async () => {
       for (const item of localData) {

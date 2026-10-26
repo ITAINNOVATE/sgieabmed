@@ -304,14 +304,56 @@ export default function SamplesDataTable() {
       hasLoadedOnceRef.current = true
     }
 
-    // 2. Chargement Supabase Cloud
+    // 2. Chargement Supabase Cloud (échantillons individuels + échantillons embarqués dans les réceptions)
     let remoteSamples: Sample[] = []
     try {
       const supabase = createClient()
-      const { data: sData } = await supabase.from('samples').select('*').order('created_at', { ascending: false })
-      if (sData && sData.length > 0) {
-        remoteSamples = sData
+      const [sRes, rRes] = await Promise.all([
+        supabase.from('samples').select('*').order('created_at', { ascending: false }),
+        supabase.from('receptions').select('*')
+      ])
+
+      const sMap = new Map<string, Sample>()
+
+      if (sRes.data && sRes.data.length > 0) {
+        sRes.data.forEach((s: any) => {
+          const key = s.sample_number || s.id
+          if (key) sMap.set(key, s)
+        })
       }
+
+      // Extraire également les échantillons des réceptions distantes pour une parité absolue
+      if (rRes.data && rRes.data.length > 0) {
+        rRes.data.forEach((r: any) => {
+          const rKey = r.rec_number || r.id
+          if (Array.isArray(r.samples_data)) {
+            r.samples_data.forEach((s: any, idx: number) => {
+              if (!s.commercial_name) return
+              const sid = s.sample_number || s.id || `ECH-${String(rKey).replace('REC-', '')}-${idx + 1}`
+              if (!sMap.has(sid)) {
+                const dciStr = Array.isArray(s.dci_list)
+                  ? s.dci_list.map((d: any) => `${d.dci} ${d.dosage || ''}`).join(', ')
+                  : (s.dci || '')
+
+                sMap.set(sid, {
+                  id: sid,
+                  sample_number: sid,
+                  reception_ref: rKey,
+                  commercial_name: (s.commercial_name || '').toUpperCase(),
+                  dci: (dciStr || s.commercial_name).toUpperCase(),
+                  batch_number: (s.batch || s.batch_number || 'LOT-TEMP').toUpperCase(),
+                  quantity: Number(s.qty ?? s.quantity) || 1,
+                  status: r.status === 'Finalisé' || r.status === 'Validée' ? 'Disponible' : (r.status || 'Disponible'),
+                  expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
+                  current_location: s.location || 'Magasin Central (Zone A)',
+                })
+              }
+            })
+          }
+        })
+      }
+
+      remoteSamples = Array.from(sMap.values())
     } catch (e) {
       console.warn("Supabase fetch samples warning:", e)
     }
