@@ -109,13 +109,60 @@ export default function WasteAnalyticsPage() {
   const totalAllWasteWeight = Math.round(batches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) * 100) / 100
   const plannedDestructionsCount = plans.filter(p => p.status !== 'Exécuté' && p.status !== 'execute').length
   const completedDestructionsCount = plans.filter(p => p.status === 'Exécuté' || p.status === 'execute').length
-  const capacityPct = totalWasteWeight > 0 ? Math.min(Math.round((totalWasteWeight / 1000) * 100), 100) : 0
+  
+  // Capacité totale réglementaire du magasin de déchets : 45 Tonnes (45 000 Kg)
+  const WAREHOUSE_MAX_CAPACITY_KG = 45000
+  const capacityRawPct = (totalWasteWeight / WAREHOUSE_MAX_CAPACITY_KG) * 100
+  const capacityPctStr = totalWasteWeight > 0 
+    ? (capacityRawPct < 0.01 ? "< 0.01" : (capacityRawPct < 1 ? capacityRawPct.toFixed(2) : capacityRawPct.toFixed(1)))
+    : "0"
 
   const KPIData = [
-    { title: "DÉCHETS EN STOCK", value: `${totalWasteWeight} kg (${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''})`, trend: "Temps réel", isUp: true, icon: Trash2, color: "text-[#E53935]", bg: "bg-[#E53935]/10", sparkline: [totalWasteWeight, totalWasteWeight] },
-    { title: "DESTRUCTIONS PLANIFIÉES", value: `${plannedDestructionsCount} Plan(s)`, trend: plannedDestructionsCount > 0 ? "En cours" : "Aucun", isUp: plannedDestructionsCount === 0, icon: Clock, color: "text-[#FB8C00]", bg: "bg-[#FB8C00]/10", sparkline: [plannedDestructionsCount, plannedDestructionsCount] },
-    { title: "DESTRUCTIONS RÉALISÉES", value: `${completedDestructionsCount} Réalisée(s)`, trend: "Temps réel", isUp: true, icon: Flame, color: "text-[#43A047]", bg: "bg-[#43A047]/10", sparkline: [completedDestructionsCount, completedDestructionsCount] },
-    { title: "CAPACITÉ STOCKAGE DÉCHETS", value: `${capacityPct}%`, trend: capacityPct < 80 ? "Normal" : "Élevé", isUp: capacityPct < 80, icon: ShieldAlert, color: "text-[#1E88E5]", bg: "bg-[#1E88E5]/10", sparkline: [capacityPct, capacityPct] },
+    { 
+      title: "DÉCHETS EN STOCK", 
+      value: `${totalWasteWeight.toLocaleString('fr-FR')} kg`, 
+      subtitle: `${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''} (${(totalWasteWeight / 1000).toFixed(2)} T)`, 
+      trend: "Temps réel", 
+      isUp: true, 
+      icon: Trash2, 
+      color: "text-[#E53935]", 
+      bg: "bg-[#E53935]/10", 
+      sparkline: [totalWasteWeight, totalWasteWeight] 
+    },
+    { 
+      title: "DESTRUCTIONS PLANIFIÉES", 
+      value: `${plannedDestructionsCount} Plan(s)`, 
+      subtitle: plannedDestructionsCount > 0 ? "Prises en charge" : "Aucun plan en cours",
+      trend: plannedDestructionsCount > 0 ? "En cours" : "Aucun", 
+      isUp: plannedDestructionsCount === 0, 
+      icon: Clock, 
+      color: "text-[#FB8C00]", 
+      bg: "bg-[#FB8C00]/10", 
+      sparkline: [plannedDestructionsCount, plannedDestructionsCount] 
+    },
+    { 
+      title: "DESTRUCTIONS RÉALISÉES", 
+      value: `${completedDestructionsCount} Réalisée(s)`, 
+      subtitle: "Certificats conformes",
+      trend: "Temps réel", 
+      isUp: true, 
+      icon: Flame, 
+      color: "text-[#43A047]", 
+      bg: "bg-[#43A047]/10", 
+      sparkline: [completedDestructionsCount, completedDestructionsCount] 
+    },
+    { 
+      title: "TAUX DE STOCKAGE (CAPACITÉ 45T)", 
+      value: `${capacityPctStr}%`, 
+      subtitle: `${totalWasteWeight.toLocaleString('fr-FR')} kg / 45 000 kg`, 
+      trend: capacityRawPct < 75 ? "Normal" : (capacityRawPct < 90 ? "Attention" : "Critique"), 
+      isUp: capacityRawPct < 75, 
+      icon: ShieldAlert, 
+      color: capacityRawPct >= 85 ? "text-red-600" : (capacityRawPct >= 70 ? "text-amber-600" : "text-[#1E88E5]"), 
+      bg: capacityRawPct >= 85 ? "bg-red-500/10" : (capacityRawPct >= 70 ? "bg-amber-500/10" : "bg-[#1E88E5]/10"), 
+      sparkline: [capacityRawPct, capacityRawPct],
+      progress: capacityRawPct
+    },
   ]
 
   const categoryMap = batches.reduce((acc: Record<string, number>, b) => {
@@ -209,6 +256,17 @@ export default function WasteAnalyticsPage() {
               </div>
               <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider mt-1 mb-0.5">{kpi.title}</p>
               <h2 className="text-lg font-black text-foreground tracking-tight">{kpi.value}</h2>
+              {kpi.subtitle && (
+                <p className="text-[9px] text-muted-foreground font-semibold mt-0.5 truncate">{kpi.subtitle}</p>
+              )}
+              {kpi.progress !== undefined && (
+                <div className="w-full bg-muted/60 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all ${kpi.progress >= 85 ? 'bg-red-600' : (kpi.progress >= 70 ? 'bg-amber-500' : 'bg-[#1E88E5]')}`}
+                    style={{ width: `${Math.min(Math.max(kpi.progress, totalWasteWeight > 0 ? 1 : 0), 100)}%` }}
+                  />
+                </div>
+              )}
             </CardContent>
             <div className="h-3.5 w-full absolute bottom-0 left-0 opacity-60">
               <ResponsiveContainer width="100%" height="100%">

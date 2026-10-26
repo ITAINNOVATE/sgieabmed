@@ -1254,6 +1254,13 @@ export default function ReportsClient({
               "Observation / Conformité": "Enregistré avec bordereaux officiels",
             },
             {
+              "Indicateur Stratégique": "Taux d'Occupation Magasin Déchets (Capacité 45T)",
+              "Valeur Constatée": `${((kpis.totalWasteKg / 45000) * 100).toFixed(2)} % (${kpis.totalWasteKg.toLocaleString('fr-FR')} kg / 45 000 kg)`,
+              "Unité": "Pourcentage (%)",
+              "Périmètre Géographique": "Magasin Déchets Cotonou",
+              "Observation / Conformité": ((kpis.totalWasteKg / 45000) * 100) < 75 ? "Capacité nominale satisfaisante (< 75%)" : "Seuil d'alerte stockage atteint",
+            },
+            {
               "Indicateur Stratégique": "Masse Totale Neutralisée / Détruite",
               "Valeur Constatée": `${kpis.totalDestroyedKg.toLocaleString('fr-FR')} kg`,
               "Unité": "Kg",

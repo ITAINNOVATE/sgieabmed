@@ -110,6 +110,16 @@ export default function WasteLocationsPage() {
     pollIntervalMs: 6000,
   })
 
+  const totalStoreWeightKg = useMemo(
+    () => Math.round(items.reduce((s, i) => s + (Number(i.quantity) || 0), 0) * 100) / 100,
+    [items]
+  )
+  const MAX_STORE_CAPACITY_KG = 45000 // 45 Tonnes
+  const rawOccupancyRate = (totalStoreWeightKg / MAX_STORE_CAPACITY_KG) * 100
+  const occupancyRatePct = totalStoreWeightKg > 0 
+    ? (rawOccupancyRate < 0.01 ? "< 0.01" : (rawOccupancyRate < 1 ? rawOccupancyRate.toFixed(2) : rawOccupancyRate.toFixed(1)))
+    : "0"
+
   const zoneStats = useMemo(
     () =>
       WASTE_ZONES.map((z) => {
@@ -154,17 +164,43 @@ export default function WasteLocationsPage() {
 
       {/* MAGASIN UNIQUE */}
       <Card className="rounded-xl border border-red-200 bg-red-50/40 dark:bg-red-950/20 shadow-2xs">
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-red-600 text-white">
-            <Building2 className="h-5 w-5" />
+        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-red-600 text-white shrink-0">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-red-700">Magasin unique officiel</div>
+              <div className="text-lg font-black text-red-950 dark:text-red-200">{WASTE_STORE_NAME}</div>
+              <div className="text-xs text-muted-foreground">
+                Capacité totale réglementaire : <strong className="text-foreground">45 Tonnes</strong> (45 000 kg)
+              </div>
+            </div>
           </div>
-          <div className="flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-red-700">Magasin unique</div>
-            <div className="text-lg font-black text-red-950 dark:text-red-200">{WASTE_STORE_NAME}</div>
-          </div>
-          <div className="text-right text-xs">
-            <div className="font-black text-foreground text-base">{items.length}</div>
-            <div className="text-muted-foreground">lots / colis en stock</div>
+
+          <div className="flex flex-wrap items-center gap-5 md:gap-8">
+            <div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground">Poids Total Stocké</div>
+              <div className="text-base font-black text-foreground">{totalStoreWeightKg.toLocaleString('fr-FR')} kg</div>
+              <div className="text-[10px] text-muted-foreground font-semibold">{(totalStoreWeightKg / 1000).toFixed(3)} Tonnes</div>
+            </div>
+
+            <div className="min-w-[130px]">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground">Taux de stockage (sur 45T)</div>
+              <div className="text-base font-black text-[#1E88E5]">{occupancyRatePct} %</div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-1 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${rawOccupancyRate >= 85 ? 'bg-red-600' : (rawOccupancyRate >= 70 ? 'bg-amber-500' : 'bg-[#1E88E5]')}`}
+                  style={{ width: `${Math.min(Math.max(rawOccupancyRate, totalStoreWeightKg > 0 ? 1 : 0), 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground">Contenus en stock</div>
+              <div className="font-black text-foreground text-base">{items.length}</div>
+              <div className="text-[10px] text-muted-foreground">lots & colis</div>
+            </div>
           </div>
         </CardContent>
       </Card>

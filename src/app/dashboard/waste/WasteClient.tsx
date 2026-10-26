@@ -207,10 +207,14 @@ export default function WasteClient({
     { name: 'Détruits', value: batches.filter(b => b.status === 'Détruit').length || 23 },
   ]
 
+  const totalWasteKg = Math.round(batches.filter(b => b.status !== 'Détruit').reduce((s, b) => s + (Number(b.quantity) || 0), 0) * 100) / 100
+  const storageOccupancyPct = (totalWasteKg / 45000) * 100
+  const storageOccupancyStr = totalWasteKg > 0 ? (storageOccupancyPct < 0.01 ? "< 0.01" : storageOccupancyPct.toFixed(2)) : "0"
+
   const wasteAlerts = [
-    { text: "Capacité de stockage des déchets atteinte à 78%", date: "19/05/2025", type: "warning" },
-    { text: "3 lots de déchets dépassent le délai légal de stockage (90j)", date: "19/05/2025", type: "error" },
-    { text: "Destruction planifiée le 26/05/2025 (DES-2025-05-0088)", date: "18/05/2025", type: "warning" },
+    { text: `Taux d'occupation du magasin : ${storageOccupancyStr}% (Capacité autorisée : 45 Tonnes — ${totalWasteKg} kg stockés)`, date: "Temps réel", type: (storageOccupancyPct >= 80 ? "warning" : "info") as "warning" | "info" | "error" },
+    { text: "3 lots de déchets dépassent le délai légal de stockage (90j)", date: "19/05/2025", type: "error" as const },
+    { text: "Destruction planifiée le 26/05/2025 (DES-2025-05-0088)", date: "18/05/2025", type: "warning" as const },
   ]
 
   return (
