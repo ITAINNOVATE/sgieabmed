@@ -102,7 +102,14 @@ function ReceptionsContent() {
   }
 
   const handleValidateReception = async (rec: any) => {
-    const validatorName = "Dr. Kadia BARRY (Responsable Qualité)"
+    let validatorName = "Admin EGED (Administrateur Système)"
+    try {
+      const stored = localStorage.getItem("eged_current_user_v1")
+      if (stored) {
+        const u = JSON.parse(stored)
+        validatorName = `${u.name || (u.first_name + ' ' + u.last_name)} (${u.role || 'Administrateur Système'})`
+      }
+    } catch (e) {}
     const validationDate = new Date().toISOString().split('T')[0]
 
     // 1. Mise à jour optimiste immédiate (0ms d'attente)

@@ -23,6 +23,7 @@ import {
   Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
+import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
 import React from 'react'
 
 // --- ZOD SCHEMA ---
@@ -455,11 +456,13 @@ function DciDosageList({ value, onChange }: { value: {dci: string, dosage: strin
 }
 
 const DEFAULT_VALIDATORS = [
-  { id: 'v1', name: 'Dr. Kadia BARRY (Responsable Qualité)' },
-  { id: 'v2', name: 'Dr. Moussa TRAORÉ (Pharmacien Inspecteur)' },
-  { id: 'v3', name: 'Dr. Chantal HOUENOU (Directeur ABMed)' },
-  { id: 'v4', name: 'Dr. Paul AGOSSA (Responsable Stock)' },
-  { id: 'v5', name: 'Jean DUPONT (Inspecteur Général)' },
+  { id: 'usr-1', name: 'Admin EGED (Administrateur Système)' },
+  { id: 'usr-2', name: 'Jocelyne SATCHIVI (Responsable Échantillothèque)' },
+  { id: 'usr-3', name: 'Hubert ALOFA (Responsable Échantillothèque)' },
+  { id: 'usr-6', name: "Marie-Josée D'ALMEIDA (Auditeur Qualité)" },
+  { id: 'usr-7', name: 'Radihath AROUNA (Agent de Saisie & Laboratoire)' },
+  { id: 'usr-8', name: 'Aimé DASSI (Responsable Déchets Pharmaceutiques)' },
+  { id: 'usr-9', name: 'Iréné GANHOU (Responsable Déchets Pharmaceutiques)' },
 ]
 
 function NewReceptionContent() {
@@ -489,20 +492,19 @@ function NewReceptionContent() {
   React.useEffect(() => {
     async function loadValidators() {
       try {
-        const supabase = createClient()
-        const { data } = await supabase.from('users').select('id, first_name, last_name').eq('is_active', true)
-        if (data && data.length > 0) {
-          const dbUsers = data.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}` }))
-          setValidators(prev => {
-            const combined = [...dbUsers]
-            prev.forEach(p => {
-              if (!combined.some(c => c.name === p.name)) combined.push(p)
-            })
-            return combined
-          })
+        const users = await getUsers()
+        const activeAccounts = users
+          .filter(u => u.status === "Actif" && !u.is_deleted)
+          .map(u => ({
+            id: u.id,
+            name: `${u.first_name} ${u.last_name} (${u.role || u.fonction || 'Responsable'})`,
+          }))
+
+        if (activeAccounts.length > 0) {
+          setValidators(activeAccounts)
         }
       } catch (err) {
-        console.warn("Utilisation des responsables par défaut:", err)
+        console.warn("Utilisation des comptes actifs par défaut:", err)
       }
     }
     loadValidators()
@@ -829,7 +831,7 @@ function NewReceptionContent() {
             reason: `Réception d'échantillons - Réf: ${values.rec_number}`,
             observations: values.global_comments || `Réception enregistrée par ${values.inspector || 'Admin EGED'}`,
             movement_date: values.date_reception ? new Date(values.date_reception).toISOString() : new Date().toISOString(),
-            operator: values.inspector || "MARIE ADANDE",
+            operator: values.inspector || "Admin EGED",
             status: status === "Validée" ? "Validé" : "En attente de validation",
             new_quantity: Number(sample.qty) || 1,
             new_status: status === "Validée" ? "Disponible" : "À localiser",
