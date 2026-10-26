@@ -23,6 +23,7 @@ import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 import "@/utils/waste-locations"
 
 const MOCK_WASTE_BATCHES: any[] = []
@@ -81,7 +82,11 @@ export default function WasteClient({
 
     hasLoadedOnceRef.current = true
     if (batchMap.size > 0) {
-      setBatches(Array.from(batchMap.values()))
+      const mergedList = Array.from(batchMap.values())
+      setBatches(mergedList)
+      try {
+        localStorage.setItem('waste_batches_custom_v1', JSON.stringify(mergedList))
+      } catch (e) {}
     }
 
     // Auto-synchronisation en lot non-bloquante en arrière-plan
@@ -116,7 +121,16 @@ export default function WasteClient({
         status: lb.status || 'Déclaré',
         observations: lb.observations || '',
       }))
-      supabase.from('waste_batches').upsert(payload, { onConflict: 'batch_number' }).then(() => {})
+      supabase.from('waste_batches').upsert(payload, { onConflict: 'batch_number' })
+        .then(({ error }) => {
+          if (!error) {
+            broadcastDataMutation({
+              entity: "waste_batches",
+              action: "catchup_sync",
+              id: `synced-${unsyncedBatches.length}`,
+            })
+          }
+        })
     }
   }
 

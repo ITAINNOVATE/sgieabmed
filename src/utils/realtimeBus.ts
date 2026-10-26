@@ -145,8 +145,111 @@ export function installLocalStorageSyncInterceptor() {
   }
 }
 
+/**
+ * Rapatrie et synchronise immédiatement tout enregistrement local (déchets, réceptions, plans)
+ * qui n'aurait pas encore été répliqué dans Supabase Cloud (rattrapage automatique multi-postes).
+ */
+export async function syncPendingLocalDataToCloud() {
+  if (typeof window === "undefined") return
+  try {
+    const supabase = createClient()
+
+    // 1. Rattrapage des réceptions de déchets (waste_batches)
+    const localWasteStr = localStorage.getItem("waste_batches_custom_v1")
+    if (localWasteStr) {
+      const localBatches = JSON.parse(localWasteStr)
+      if (Array.isArray(localBatches) && localBatches.length > 0) {
+        const { data: remoteBatches } = await supabase.from("waste_batches").select("batch_number")
+        const remoteSet = new Set((remoteBatches || []).map((r: any) => r.batch_number))
+        const unsynced = localBatches.filter((b: any) => b.batch_number && !remoteSet.has(b.batch_number))
+
+        if (unsynced.length > 0) {
+          const payload = unsynced.map((lb: any) => ({
+            batch_number: lb.batch_number,
+            reception_number: lb.reception_number || null,
+            reception_date: lb.reception_date || null,
+            reception_time: lb.reception_time || null,
+            delivery_slip_ref: lb.delivery_slip_ref || null,
+            recipient_agent: lb.recipient_agent || "Admin EGED",
+            source_structure: lb.source_structure || "Structure Déposante",
+            source_type: lb.source_type || "Officine",
+            city: lb.city || "Cotonou",
+            depositor_name: lb.depositor_name || "",
+            depositor_phone: lb.depositor_phone || "",
+            depositor_id_card: lb.depositor_id_card || "",
+            waste_type: lb.waste_type || "Déchets pharmaceutiques",
+            commercial_name: lb.commercial_name || "",
+            original_batch: lb.original_batch || "",
+            sample_id: lb.sample_id || null,
+            quantity: Number(lb.quantity) || 1,
+            unit: lb.unit || "Kg",
+            packaging: lb.packaging || "Carton",
+            packaging_condition: lb.packaging_condition || "Conforme",
+            destruction_motive: lb.destruction_motive || "Péremption",
+            current_location: lb.current_location || "MAGASIN DES DECHETS",
+            status: lb.status || "Déclaré",
+            observations: lb.observations || "",
+          }))
+
+          const { error } = await supabase.from("waste_batches").upsert(payload, { onConflict: "batch_number" })
+          if (!error) {
+            broadcastDataMutation({
+              entity: "waste_batches",
+              action: "catchup_sync",
+              id: `count-${unsynced.length}`,
+            })
+          }
+        }
+      }
+    }
+
+    // 2. Rattrapage des réceptions classiques (receptions)
+    const localRecsStr = localStorage.getItem("reception_history_records")
+    if (localRecsStr) {
+      const localRecs = JSON.parse(localRecsStr)
+      if (Array.isArray(localRecs) && localRecs.length > 0) {
+        const { data: remoteRecs } = await supabase.from("receptions").select("rec_number")
+        const remoteRecSet = new Set((remoteRecs || []).map((r: any) => r.rec_number))
+        const unsyncedRecs = localRecs.filter((r: any) => r.rec_number && !remoteRecSet.has(r.rec_number))
+
+        if (unsyncedRecs.length > 0) {
+          const recsPayload = unsyncedRecs.map((r: any) => ({
+            rec_number: r.rec_number,
+            date_reception: r.date_reception || new Date().toISOString().split("T")[0],
+            time_reception: r.time_reception || "08:00",
+            ref_document: r.ref_document || null,
+            type_reception: r.type_reception || null,
+            inspector: r.inspector || "Admin EGED",
+            status: r.status || "En attente de validation",
+            supplier: r.supplier || "Demandeur",
+            manufacturer: r.manufacturer || null,
+            country: r.country || null,
+            city: r.city || null,
+            contact_person: r.contact_person || null,
+            phone: r.phone || null,
+            samples_data: r.samples_data || [],
+          }))
+          const { error } = await supabase.from("receptions").upsert(recsPayload, { onConflict: "rec_number" })
+          if (!error) {
+            broadcastDataMutation({
+              entity: "receptions",
+              action: "catchup_sync",
+              id: `count-${unsyncedRecs.length}`,
+            })
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[RealtimeBus] Erreur rattrapage automatique Cloud:", err)
+  }
+}
+
 // Installation automatique dès le chargement client
 if (typeof window !== "undefined") {
   installLocalStorageSyncInterceptor()
   getGlobalBroadcastChannel()
+  setTimeout(() => {
+    syncPendingLocalDataToCloud()
+  }, 1000)
 }

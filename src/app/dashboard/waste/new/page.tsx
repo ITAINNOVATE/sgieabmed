@@ -28,6 +28,7 @@ import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
+import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
 
 // --- CONSTANTES OFFICIELLES ABMed ---
 export const WASTE_WAREHOUSES = [
@@ -261,6 +262,13 @@ export default function NewWasteReceptionPage() {
     setBaseLotPrefix(prefix)
     form.setValue("reception_number", recNum)
     form.setValue("waste_items.0.batch_number", `${prefix}-1`)
+
+    try {
+      const u = getCurrentUser()
+      if (u && u.first_name) {
+        form.setValue("recipient_agent", `${u.first_name} ${u.last_name} (${u.role || u.fonction || 'Agent ABMed'})`)
+      }
+    } catch (e) {}
 
     async function fetchSamples() {
       try {
@@ -655,11 +663,11 @@ export default function NewWasteReceptionPage() {
       }))
 
       try {
+        const batchUpsert = supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" })
+        const mvtUpsert = supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" })
+
         await Promise.race([
-          Promise.all([
-            supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" }),
-            supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" }),
-          ]),
+          Promise.allSettled([batchUpsert, mvtUpsert]),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
         ])
       } catch (remoteErr) {

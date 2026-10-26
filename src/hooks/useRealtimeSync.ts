@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import {
   getGlobalBroadcastChannel,
   installLocalStorageSyncInterceptor,
+  syncPendingLocalDataToCloud,
 } from "@/utils/realtimeBus"
 
 interface UseRealtimeSyncOptions {
@@ -67,6 +68,7 @@ export function useRealtimeSync({
 
     // S'assurer que l'intercepteur de stockage local est actif
     installLocalStorageSyncInterceptor()
+    syncPendingLocalDataToCloud()
 
     const supabase = createClient()
     const tablesKey = tables.join("-")
