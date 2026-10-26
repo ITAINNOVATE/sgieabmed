@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   BarChart,
@@ -8,12 +8,11 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from 'recharts'
 import {
   Card,
@@ -41,12 +40,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
-import {
   BarChart3,
   FileText,
   TestTube2,
@@ -62,12 +55,15 @@ import {
   DollarSign,
   AlertTriangle,
   Search,
-  Filter,
   CheckCircle2,
   Flame,
   ArrowRightLeft,
   Clock,
   Layers,
+  Info,
+  ChevronRight,
+  ExternalLink,
+  SlidersHorizontal,
 } from 'lucide-react'
 import {
   exportToCSV,
@@ -165,25 +161,292 @@ interface Props {
 
 const PIE_COLORS = ['#1B5C2E', '#22c55e', '#0ea5e9', '#f59e0b', '#ef4444', '#8b5cf6']
 
+// -------------------------------------------------------------
+// COMPOSANTS DE MINIATURES VISUELLES DE RAPPORTS (STYLE SCREENSHOT)
+// -------------------------------------------------------------
+function ReportThumbnail({ type }: { type: string }) {
+  switch (type) {
+    case 'waste_receptions':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-[#1B5C2E] rounded-xs mb-0.5 flex items-center px-1">
+            <div className="h-1 w-6 bg-white/70 rounded-xs" />
+          </div>
+          <div className="space-y-0.5 flex-1">
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex gap-1 items-center px-0.5">
+              <div className="h-1 w-3 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-6 bg-slate-300 rounded-xs" />
+              <div className="h-1 w-2 bg-emerald-500 rounded-xs ml-auto" />
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex gap-1 items-center px-0.5">
+              <div className="h-1 w-4 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-5 bg-slate-300 rounded-xs" />
+              <div className="h-1 w-2 bg-amber-500 rounded-xs ml-auto" />
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex gap-1 items-center px-0.5">
+              <div className="h-1 w-3 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-7 bg-slate-300 rounded-xs" />
+              <div className="h-1 w-2 bg-emerald-500 rounded-xs ml-auto" />
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200/50 flex justify-between items-center px-0.5">
+            <div className="h-1 w-4 bg-emerald-600 rounded-xs" />
+            <div className="h-1 w-3 bg-[#1B5C2E] rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'waste_financial':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-emerald-700 rounded-xs flex items-center justify-between px-1">
+            <div className="h-1 w-7 bg-white/80 rounded-xs" />
+            <span className="text-[6px] text-white font-bold leading-none">8%</span>
+          </div>
+          <div className="flex gap-1 items-end h-7 pt-1 px-1">
+            <div className="w-2.5 bg-slate-200 dark:bg-slate-700 rounded-xs h-3" />
+            <div className="w-2.5 bg-slate-300 dark:bg-slate-600 rounded-xs h-5" />
+            <div className="w-2.5 bg-emerald-500 rounded-xs h-6" />
+            <div className="w-2.5 bg-[#1B5C2E] rounded-xs h-7" />
+            <div className="w-2.5 bg-amber-500 rounded-xs h-4" />
+          </div>
+          <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex items-center justify-between px-1">
+            <span className="text-[5px] text-slate-500 font-bold">TOTAL FCFA</span>
+            <div className="h-1 w-4 bg-emerald-600 rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'samples_stock':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex items-center justify-between shadow-2xs select-none pointer-events-none">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-600 flex items-center justify-center relative">
+            <div className="w-3 h-3 rounded-full bg-amber-500" />
+          </div>
+          <div className="flex-1 pl-1.5 space-y-1">
+            <div className="space-y-0.5">
+              <div className="flex justify-between text-[5px] text-slate-500">
+                <span>Dispo</span>
+                <span className="font-bold text-emerald-600">82%</span>
+              </div>
+              <div className="h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 w-[82%]" />
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex justify-between text-[5px] text-slate-500">
+                <span>Quar.</span>
+                <span className="font-bold text-amber-500">18%</span>
+              </div>
+              <div className="h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 w-[18%]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+
+    case 'waste_categories':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-1.5 w-10 bg-slate-400 rounded-xs mb-0.5" />
+          <div className="space-y-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <span className="text-[5px] text-slate-400 w-3">C1</span>
+              <div className="h-1.5 bg-red-500 rounded-xs w-12" />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[5px] text-slate-400 w-3">C2</span>
+              <div className="h-1.5 bg-amber-500 rounded-xs w-16" />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[5px] text-slate-400 w-3">C3</span>
+              <div className="h-1.5 bg-emerald-500 rounded-xs w-10" />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[5px] text-slate-400 w-3">C5</span>
+              <div className="h-1.5 bg-purple-500 rounded-xs w-6" />
+            </div>
+          </div>
+          <div className="h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-xs" />
+        </div>
+      )
+
+    case 'samples_receptions':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-blue-700 rounded-xs mb-0.5 flex items-center px-1">
+            <div className="h-1 w-8 bg-white/80 rounded-xs" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex items-center justify-between px-1">
+              <div className="h-1 w-6 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-2 bg-blue-500 rounded-xs" />
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex items-center justify-between px-1">
+              <div className="h-1 w-8 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-2 bg-blue-500 rounded-xs" />
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-xs flex items-center justify-between px-1">
+              <div className="h-1 w-5 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-2 bg-emerald-500 rounded-xs" />
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-blue-50 dark:bg-blue-950/40 rounded-xs flex items-center justify-between px-1">
+            <div className="h-1 w-4 bg-blue-600 rounded-xs" />
+            <div className="h-1 w-3 bg-blue-400 rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'waste_seizures':
+      return (
+        <div className="w-24 h-16 rounded border border-red-200 bg-red-50/40 dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-red-700 rounded-xs mb-0.5 flex items-center justify-between px-1">
+            <div className="h-1 w-8 bg-white/80 rounded-xs" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="h-1.5 w-full bg-red-100/70 dark:bg-red-950/40 rounded-xs flex items-center px-1 gap-1">
+              <div className="w-1 h-1 bg-red-500 rounded-full" />
+              <div className="h-1 w-10 bg-slate-400 rounded-xs" />
+            </div>
+            <div className="h-1.5 w-full bg-red-100/70 dark:bg-red-950/40 rounded-xs flex items-center px-1 gap-1">
+              <div className="w-1 h-1 bg-red-500 rounded-full" />
+              <div className="h-1 w-8 bg-slate-400 rounded-xs" />
+            </div>
+            <div className="h-1.5 w-full bg-red-100/70 dark:bg-red-950/40 rounded-xs flex items-center px-1 gap-1">
+              <div className="w-1 h-1 bg-red-500 rounded-full" />
+              <div className="h-1 w-11 bg-slate-400 rounded-xs" />
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-red-200/50 rounded-xs flex justify-end items-center px-1">
+            <div className="h-1 w-5 bg-red-600 rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'samples_movements':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-purple-700 rounded-xs mb-0.5 flex items-center px-1">
+            <div className="h-1 w-7 bg-white/80 rounded-xs" />
+          </div>
+          <div className="flex items-center justify-around py-1">
+            <div className="w-4 h-4 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 flex items-center justify-center text-[7px] font-bold">
+              IN
+            </div>
+            <div className="h-0.5 w-6 bg-purple-400 relative">
+              <div className="absolute right-0 top-[-2px] w-1 h-1 border-t-2 border-r-2 border-purple-400 rotate-45" />
+            </div>
+            <div className="w-4 h-4 rounded bg-purple-600 text-white flex items-center justify-center text-[7px] font-bold">
+              OUT
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-purple-50 dark:bg-purple-950/30 rounded-xs flex items-center justify-between px-1">
+            <div className="h-1 w-5 bg-purple-500 rounded-xs" />
+            <div className="h-1 w-3 bg-purple-700 rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'waste_destructions':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-amber-600 rounded-xs mb-0.5 flex items-center justify-between px-1">
+            <div className="h-1 w-7 bg-white/80 rounded-xs" />
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+          </div>
+          <div className="flex-1 flex flex-col justify-center items-center py-0.5">
+            <div className="w-5 h-5 rounded-full border border-amber-500/40 flex items-center justify-center">
+              <Flame className="w-3 h-3 text-amber-600" />
+            </div>
+            <span className="text-[5px] text-slate-500 font-bold mt-0.5">PV OFFICIEL</span>
+          </div>
+          <div className="h-1.5 w-full bg-amber-50 dark:bg-amber-950/30 rounded-xs flex justify-between items-center px-1">
+            <div className="h-1 w-6 bg-amber-600 rounded-xs" />
+            <div className="h-1 w-2 bg-amber-500 rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'samples_expirations':
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-orange-600 rounded-xs mb-0.5 flex items-center px-1">
+            <div className="h-1 w-8 bg-white/80 rounded-xs" />
+          </div>
+          <div className="space-y-0.5 py-0.5">
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 bg-emerald-500 rounded-xs w-14" />
+              <span className="text-[4px] text-slate-400">&gt;6m</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 bg-amber-500 rounded-xs w-8" />
+              <span className="text-[4px] text-slate-400">&lt;3m</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 bg-red-500 rounded-xs w-4" />
+              <span className="text-[4px] text-red-500 font-bold">Périmé</span>
+            </div>
+          </div>
+          <div className="h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-xs" />
+        </div>
+      )
+
+    case 'executive_summary':
+      return (
+        <div className="w-24 h-16 rounded border border-emerald-500/40 bg-emerald-50/20 dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-[#1B5C2E] rounded-xs mb-0.5 flex items-center justify-between px-1">
+            <div className="h-1 w-10 bg-white/80 rounded-xs" />
+            <div className="h-1 w-2 bg-emerald-300 rounded-xs" />
+          </div>
+          <div className="grid grid-cols-2 gap-1 py-0.5">
+            <div className="h-3 rounded-xs bg-slate-100 dark:bg-slate-800 p-0.5 flex flex-col justify-center">
+              <div className="h-0.5 w-4 bg-slate-400 rounded-xs mb-0.5" />
+              <div className="h-1 w-3 bg-[#1B5C2E] rounded-xs" />
+            </div>
+            <div className="h-3 rounded-xs bg-slate-100 dark:bg-slate-800 p-0.5 flex flex-col justify-center">
+              <div className="h-0.5 w-4 bg-slate-400 rounded-xs mb-0.5" />
+              <div className="h-1 w-3 bg-amber-500 rounded-xs" />
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-[#1B5C2E]/10 rounded-xs flex items-center justify-between px-1">
+            <span className="text-[5px] text-[#1B5C2E] font-bold">SYNTHÈSE DG</span>
+            <div className="h-1 w-3 bg-[#1B5C2E] rounded-xs" />
+          </div>
+        </div>
+      )
+
+    default:
+      return (
+        <div className="w-24 h-16 rounded border border-border/80 bg-white dark:bg-slate-900 p-1 flex items-center justify-center shadow-2xs">
+          <FileText className="w-5 h-5 text-slate-400" />
+        </div>
+      )
+  }
+}
+
 export default function ReportsClient({
   samples: initialSamples = [],
   movements: initialMovements = [],
   wasteBatches: initialWaste = [],
   destructions: initialDestructions = [],
 }: Props) {
-  // Navigation & Types de Rapports
-  const [reportGroup, setReportGroup] = useState<'waste' | 'samples' | 'executive'>('waste')
+  // Navigation & Rapport actif
   const [reportType, setReportType] = useState('waste_receptions')
+  const [cardCategoryFilter, setCardCategoryFilter] = useState('all')
+  const [cardSearchQuery, setCardSearchQuery] = useState('')
 
-  // Filtres
+  // Filtres périodiques & critères du rapport sélectionné
   const [periodPreset, setPeriodPreset] = useState('year_2026')
   const [customStartDate, setCustomStartDate] = useState('2026-01-01')
   const [customEndDate, setCustomEndDate] = useState('2026-12-31')
   const [selectedWarehouse, setSelectedWarehouse] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [tableSearchQuery, setTableSearchQuery] = useState('')
 
-  // Données
+  // Données locales et synchronisées
   const [samples, setSamples] = useState<Sample[]>(initialSamples)
   const [receptions, setReceptions] = useState<ReceptionRecord[]>([])
   const [movements, setMovements] = useState<Movement[]>(initialMovements)
@@ -191,6 +454,7 @@ export default function ReportsClient({
   const [destructions, setDestructions] = useState<DestructionPlan[]>(initialDestructions)
   const [isSyncing, setIsSyncing] = useState(false)
   const hasLoadedOnceRef = useRef(false)
+  const reportViewerRef = useRef<HTMLDivElement>(null)
 
   // Chargement des données unifiées
   const loadReportsData = useCallback(async (manual = false) => {
@@ -512,20 +776,16 @@ export default function ReportsClient({
 
   // Indicateurs & KPIs dynamiques calculés
   const kpis = useMemo(() => {
-    // 1. Échantillons
     const totalSamplesStock = samples.reduce((acc, s) => acc + (Number(s.quantity) || 1), 0)
     const samplesReceivedInPeriod = filteredSamples.length
 
-    // 2. Déchets Reçus
     const totalWasteKg = filteredWaste.reduce((acc, w) => acc + (Number(w.quantity) || 0), 0)
     const totalWasteTonnes = (totalWasteKg / 1000).toFixed(2)
 
-    // 3. Déchets Détruits
     const totalDestroyedKg = filteredDestructions
       .filter((d) => (d.status || '').toLowerCase().includes('exé') || (d.status || '').toLowerCase().includes('exec') || (d.status || '').toLowerCase().includes('détruit'))
       .reduce((acc, d) => acc + (Number(d.total_weight) || 0), 0)
 
-    // 4. Bilan Financier (Cessions & Redevance 8%)
     const totalTransferCostFCFA = filteredWaste.reduce((acc, w) => {
       return acc + (Number(w.transfer_cost_amount) || 0)
     }, 0)
@@ -537,7 +797,6 @@ export default function ReportsClient({
       return acc + Math.round((Number(w.transfer_cost_amount) || 0) * 0.08)
     }, 0)
 
-    // 5. Mouvements & Conformité
     const mvtCount = filteredMovements.length
     const nonConformSamples = filteredSamples.filter((s) => (s.status || '').toLowerCase().includes('quarantaine')).length
     const conformityRate = filteredSamples.length === 0 ? 100 : Math.round(((filteredSamples.length - nonConformSamples) / filteredSamples.length) * 100)
@@ -576,20 +835,30 @@ export default function ReportsClient({
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
   }, [filteredSamples])
 
-  // Configuration détaillée des rapports disponibles
+  // Définition des 10 Rapports
   const reportDefinitions: Record<
     string,
     {
+      id: string
       title: string
-      group: 'waste' | 'samples' | 'executive'
+      shortTitle: string
+      category: 'waste' | 'samples' | 'financial' | 'executive'
+      categoryLabel: string
+      badgeColor: string
+      infoText: string
       description: string
       getRows: () => { headers: string[]; rows: any[][]; exportData: Record<string, any>[] }
     }
   > = useMemo(() => {
     return {
       waste_receptions: {
-        title: "Registre Chronologique des Réceptions de Déchets",
-        group: "waste",
+        id: 'waste_receptions',
+        title: "Tableau de bord de la réception des déchets pharmaceutiques",
+        shortTitle: "Réceptions de déchets",
+        category: 'waste',
+        categoryLabel: "Déchets",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
+        infoText: "Rend compte des réceptions de déchets pharmaceutiques par structure déposante, nature, poids et valorisation financière de cession.",
         description: "Historique complet des réceptions avec structure déposante, nature, poids et valorisation financière.",
         getRows: () => {
           const headers = [
@@ -624,8 +893,13 @@ export default function ReportsClient({
       },
 
       waste_financial: {
-        title: "Bilan Financier des Cessions & Redevances ABMed (8%)",
-        group: "waste",
+        id: 'waste_financial',
+        title: "Bilan financier des cessions et redevance ABMed (8%)",
+        shortTitle: "Bilan financier & 8%",
+        category: 'financial',
+        categoryLabel: "Finances & 8%",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        infoText: "Détaille la valeur totale de cession déclarée par les établissements et calcule la redevance légale de 8% due à l'ABMed.",
         description: "Valorisation financière des cessions de déchets et calcul de la redevance légale de 8% due à l'ABMed.",
         getRows: () => {
           const headers = [
@@ -657,9 +931,49 @@ export default function ReportsClient({
         },
       },
 
+      samples_stock: {
+        id: 'samples_stock',
+        title: "Disponibilité des stocks d'échantillons au niveau de l'ABMed",
+        shortTitle: "Disponibilité des stocks",
+        category: 'samples',
+        categoryLabel: "Échantillons",
+        badgeColor: "bg-blue-100 text-blue-800 border-blue-300",
+        infoText: "Suivi de l'état des stocks d'échantillons en stock, en analyse ou en quarantaine au niveau central et des sites régionaux.",
+        description: "Inventaire dynamique des échantillons conservés en chambre froide, salle climatisée et armoires sécurisées.",
+        getRows: () => {
+          const headers = [
+            "N° Échantillon",
+            "Nom Commercial / Produit",
+            "Quantité en Stock",
+            "Statut",
+            "Emplacement de Stockage",
+            "Date de Péremption",
+            "Réf. Dossier Réception",
+          ]
+          const exportData: Record<string, any>[] = filteredSamples.map((s) => {
+            return {
+              "N° Échantillon": s.sample_number || s.id,
+              "Nom Commercial / Produit": s.commercial_name || "Échantillon pharmaceutique",
+              "Quantité en Stock": String(s.quantity ?? 1),
+              "Statut": s.status || "Disponible",
+              "Emplacement de Stockage": s.storage_location || "Magasin Central",
+              "Date de Péremption": s.expiry_date || "2027-12-31",
+              "Réf. Dossier Réception": s.reception_ref || "-",
+            }
+          })
+          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
+          return { headers, rows, exportData }
+        },
+      },
+
       waste_categories: {
-        title: "Ventilation des Déchets par Catégories Officielles ABMed (Cat. 1 à 5)",
-        group: "waste",
+        id: 'waste_categories',
+        title: "Ventilation des déchets par Catégories officielles (Cat. 1 à 5)",
+        shortTitle: "Catégories officielles",
+        category: 'waste',
+        categoryLabel: "Déchets",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
+        infoText: "Présente le tonnage et les parts relatives (%) pour les 5 catégories réglementaires de déchets pharmaceutiques.",
         description: "Répartition analytique des masses et valorisations financières selon la nomenclature réglementaire.",
         getRows: () => {
           const headers = [
@@ -705,9 +1019,53 @@ export default function ReportsClient({
         },
       },
 
+      samples_receptions: {
+        id: 'samples_receptions',
+        title: "État des réceptions d'échantillons au niveau national (LNC / AMM)",
+        shortTitle: "Réceptions échantillons",
+        category: 'samples',
+        categoryLabel: "Échantillons",
+        badgeColor: "bg-blue-100 text-blue-800 border-blue-300",
+        infoText: "Recense l'ensemble des dépôts d'échantillons pour enregistrement, AMM ou contrôle de conformité par le LNC.",
+        description: "Dossiers de dépôt d'échantillons pharmaceutiques pour enregistrement, contrôle qualité et analyse LNC.",
+        getRows: () => {
+          const headers = [
+            "N° Réception",
+            "Date",
+            "Demandeur / Fabricant",
+            "Pays d'Origine",
+            "Motif de Dépôt",
+            "Nb Produits",
+            "Conformité Physique",
+            "Statut Dossier",
+          ]
+          const exportData: Record<string, any>[] = filteredReceptions.map((r) => {
+            const dtStr = r.date_reception || r.created_at ? new Date(r.date_reception || r.created_at || '').toLocaleDateString('fr-FR') : '-'
+            const count = Array.isArray(r.samples_data) ? r.samples_data.length : 1
+            return {
+              "N° Réception": r.rec_number || r.reception_number || r.id,
+              "Date": dtStr,
+              "Demandeur / Fabricant": `${r.supplier || 'Demandeur'}${r.manufacturer ? ` (${r.manufacturer})` : ''}`,
+              "Pays d'Origine": r.country || "Bénin",
+              "Motif de Dépôt": r.type_reception || "Contrôle Qualité / AMM",
+              "Nb Produits": String(count),
+              "Conformité Physique": r.check_conform !== false ? "Conforme" : "Réserves",
+              "Statut Dossier": r.status || "Validée",
+            }
+          })
+          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
+          return { headers, rows, exportData }
+        },
+      },
+
       waste_seizures: {
-        title: "Registre des Produits Saisis & Rappels de Lots",
-        group: "waste",
+        id: 'waste_seizures',
+        title: "Registre des produits saisis, contentieux et rappels de lots",
+        shortTitle: "Saisies & rappels",
+        category: 'waste',
+        categoryLabel: "Contrôle & Déchets",
+        badgeColor: "bg-red-100 text-red-800 border-red-300",
+        infoText: "Traçabilité des médicaments et produits de santé saisis, séquestrés ou faisant l'objet d'un rappel officiel.",
         description: "Traçabilité des produits pharmaceutiques séquestrés pour saisie, contentieux ou rappel de lot fabricant.",
         getRows: () => {
           const headers = [
@@ -741,104 +1099,14 @@ export default function ReportsClient({
         },
       },
 
-      waste_destructions: {
-        title: "Opérations de Destruction & PV Délivrés",
-        group: "waste",
-        description: "Bilan des campagnes d'incinération, broyage et neutralisation physique avec PV officiels d'huissier.",
-        getRows: () => {
-          const headers = [
-            "N° Plan Destruction",
-            "Date d'Exécution",
-            "Site de Destruction",
-            "Méthode Employée",
-            "Poids Traité (Kg)",
-            "Statut d'Exécution",
-            "Attestation / PV",
-          ]
-          const exportData: Record<string, any>[] = filteredDestructions.map((d) => {
-            const dtStr = d.execution_date || d.created_at ? new Date(d.execution_date || d.created_at || '').toLocaleDateString('fr-FR') : '-'
-            return {
-              "N° Plan Destruction": d.plan_number || d.id,
-              "Date d'Exécution": dtStr,
-              "Site de Destruction": d.destruction_site || "Incinérateur Spécialisé ABMed",
-              "Méthode Employée": d.destruction_method || "Incinération à haute température",
-              "Poids Traité (Kg)": `${Number(d.total_weight) || 0} kg`,
-              "Statut d'Exécution": d.status || "Exécuté",
-              "Attestation / PV": "Certificat PSQIF délivré",
-            }
-          })
-          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
-          return { headers, rows, exportData }
-        },
-      },
-
-      samples_receptions: {
-        title: "Registre des Réceptions d'Échantillons",
-        group: "samples",
-        description: "Dossiers de dépôt d'échantillons pharmaceutiques pour enregistrement, contrôle qualité et analyse LNC.",
-        getRows: () => {
-          const headers = [
-            "N° Réception",
-            "Date",
-            "Demandeur / Fabricant",
-            "Pays d'Origine",
-            "Motif de Dépôt",
-            "Nb Produits",
-            "Conformité Physique",
-            "Statut Dossier",
-          ]
-          const exportData: Record<string, any>[] = filteredReceptions.map((r) => {
-            const dtStr = r.date_reception || r.created_at ? new Date(r.date_reception || r.created_at || '').toLocaleDateString('fr-FR') : '-'
-            const count = Array.isArray(r.samples_data) ? r.samples_data.length : 1
-            return {
-              "N° Réception": r.rec_number || r.reception_number || r.id,
-              "Date": dtStr,
-              "Demandeur / Fabricant": `${r.supplier || 'Demandeur'}${r.manufacturer ? ` (${r.manufacturer})` : ''}`,
-              "Pays d'Origine": r.country || "Bénin",
-              "Motif de Dépôt": r.type_reception || "Contrôle Qualité / AMM",
-              "Nb Produits": String(count),
-              "Conformité Physique": r.check_conform !== false ? "Conforme" : "Réserves",
-              "Statut Dossier": r.status || "Validée",
-            }
-          })
-          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
-          return { headers, rows, exportData }
-        },
-      },
-
-      samples_stock: {
-        title: "État Détaillé du Stock & Échantillothèque",
-        group: "samples",
-        description: "Inventaire dynamique des échantillons conservés en chambre froide, salle climatisée et armoires sécurisées.",
-        getRows: () => {
-          const headers = [
-            "N° Échantillon",
-            "Nom Commercial / Produit",
-            "Quantité en Stock",
-            "Statut",
-            "Emplacement de Stockage",
-            "Date de Péremption",
-            "Réf. Dossier Réception",
-          ]
-          const exportData: Record<string, any>[] = filteredSamples.map((s) => {
-            return {
-              "N° Échantillon": s.sample_number || s.id,
-              "Nom Commercial / Produit": s.commercial_name || "Échantillon pharmaceutique",
-              "Quantité en Stock": String(s.quantity ?? 1),
-              "Statut": s.status || "Disponible",
-              "Emplacement de Stockage": s.storage_location || "Magasin Central",
-              "Date de Péremption": s.expiry_date || "2027-12-31",
-              "Réf. Dossier Réception": s.reception_ref || "-",
-            }
-          })
-          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
-          return { headers, rows, exportData }
-        },
-      },
-
       samples_movements: {
-        title: "Journal des Mouvements & Sorties (LNC, Dotations Personnel)",
-        group: "samples",
+        id: 'samples_movements',
+        title: "Journal des mouvements, sorties LNC et dotations du personnel",
+        shortTitle: "Journal des mouvements",
+        category: 'samples',
+        categoryLabel: "Échantillons & Flux",
+        badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
+        infoText: "Historique des transferts d'échantillons vers le LNC pour analyse et des expressions de besoin du personnel validées.",
         description: "Traçabilité des sorties pour essais en laboratoire LNC, transferts internes et dotations du personnel.",
         getRows: () => {
           const headers = [
@@ -867,9 +1135,50 @@ export default function ReportsClient({
         },
       },
 
+      waste_destructions: {
+        id: 'waste_destructions',
+        title: "Opérations de destruction exécutées et certificats délivrés",
+        shortTitle: "Destructions & PV",
+        category: 'waste',
+        categoryLabel: "Destruction & PV",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
+        infoText: "Bilan des campagnes de neutralisation physique et d'incinération sur sites agréés avec certificats officiels.",
+        description: "Bilan des campagnes d'incinération, broyage et neutralisation physique avec PV officiels d'huissier.",
+        getRows: () => {
+          const headers = [
+            "N° Plan Destruction",
+            "Date d'Exécution",
+            "Site de Destruction",
+            "Méthode Employée",
+            "Poids Traité (Kg)",
+            "Statut d'Exécution",
+            "Attestation / PV",
+          ]
+          const exportData: Record<string, any>[] = filteredDestructions.map((d) => {
+            const dtStr = d.execution_date || d.created_at ? new Date(d.execution_date || d.created_at || '').toLocaleDateString('fr-FR') : '-'
+            return {
+              "N° Plan Destruction": d.plan_number || d.id,
+              "Date d'Exécution": dtStr,
+              "Site de Destruction": d.destruction_site || "Incinérateur Spécialisé ABMed",
+              "Méthode Employée": d.destruction_method || "Incinération à haute température",
+              "Poids Traité (Kg)": `${Number(d.total_weight) || 0} kg`,
+              "Statut d'Exécution": d.status || "Exécuté",
+              "Attestation / PV": "Certificat PSQIF délivré",
+            }
+          })
+          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
+          return { headers, rows, exportData }
+        },
+      },
+
       samples_expirations: {
-        title: "Veille & Calendrier des Échéances de Péremption",
-        group: "samples",
+        id: 'samples_expirations',
+        title: "Veille des dates de péremption et propositions de déclassement",
+        shortTitle: "Veille des péremptions",
+        category: 'samples',
+        categoryLabel: "Échantillons & Qualité",
+        badgeColor: "bg-orange-100 text-orange-800 border-orange-300",
+        infoText: "Alerte préventive sur les échantillons approchant ou ayant dépassé leur date de péremption pour basculement vers déchets.",
         description: "Contrôle préventif des échantillons approchant de leur date limite d'utilisation.",
         getRows: () => {
           const headers = [
@@ -899,8 +1208,13 @@ export default function ReportsClient({
       },
 
       executive_summary: {
-        title: "Bilan Général Consolidé SGIE (Direction Générale)",
-        group: "executive",
+        id: 'executive_summary',
+        title: "Bilan général consolidé SGIE (Direction Générale ABMed)",
+        shortTitle: "Synthèse Direction Générale",
+        category: 'executive',
+        categoryLabel: "Direction Générale",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        infoText: "Synthèse décisionnelle consolidant les tonnages, valorisations financières (8%) et la traçabilité nationale.",
         description: "Synthèse décisionnelle consolidant les tonnages, valorisations financières et indicateurs de performance.",
         getRows: () => {
           const headers = [
@@ -983,24 +1297,50 @@ export default function ReportsClient({
     selectedWarehouse,
   ])
 
-  // Données actives pour le rapport actuellement sélectionné
-  const currentReportData = useMemo(() => {
-    const def = reportDefinitions[reportType] || reportDefinitions.waste_receptions
-    return def.getRows()
+  // Liste des rapports sous forme de tableau
+  const reportList = useMemo(() => Object.values(reportDefinitions), [reportDefinitions])
+
+  // Filtrage des cartes du catalogue selon catégorie et recherche
+  const filteredReportCards = useMemo(() => {
+    return reportList.filter((rep) => {
+      const matchCat = cardCategoryFilter === 'all' || rep.category === cardCategoryFilter
+      const matchSearch =
+        !cardSearchQuery.trim() ||
+        rep.title.toLowerCase().includes(cardSearchQuery.toLowerCase()) ||
+        rep.shortTitle.toLowerCase().includes(cardSearchQuery.toLowerCase()) ||
+        rep.infoText.toLowerCase().includes(cardSearchQuery.toLowerCase())
+      return matchCat && matchSearch
+    })
+  }, [reportList, cardCategoryFilter, cardSearchQuery])
+
+  // Données du rapport actuellement sélectionné
+  const currentReportDef = useMemo(() => {
+    return reportDefinitions[reportType] || reportDefinitions.waste_receptions
   }, [reportDefinitions, reportType])
 
-  // Données filtrées pour la prévisualisation dans la table (avec recherche textuelle)
+  const currentReportData = useMemo(() => {
+    return currentReportDef.getRows()
+  }, [currentReportDef])
+
+  // Lignes filtrées dans la table de prévisualisation
   const previewRows = useMemo(() => {
-    if (!searchQuery.trim()) return currentReportData.exportData
-    const q = searchQuery.toLowerCase()
+    if (!tableSearchQuery.trim()) return currentReportData.exportData
+    const q = tableSearchQuery.toLowerCase()
     return currentReportData.exportData.filter((row) => {
       return Object.values(row).some((val) => String(val).toLowerCase().includes(q))
     })
-  }, [currentReportData, searchQuery])
+  }, [currentReportData, tableSearchQuery])
 
-  // Gestion des exports
+  // Sélection d'un rapport avec défilement fluide
+  const handleSelectReport = (id: string) => {
+    setReportType(id)
+    if (reportViewerRef.current) {
+      reportViewerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  // Export
   const handleExport = (format: 'PDF' | 'Excel' | 'CSV') => {
-    const def = reportDefinitions[reportType] || reportDefinitions.waste_receptions
     const { headers, exportData, rows } = currentReportData
     const filename = `ABMed_Rapport_${reportType}_${dateRange.label.replace(/[^a-zA-Z0-9]/g, '_')}`
 
@@ -1013,8 +1353,8 @@ export default function ReportsClient({
     } else if (format === 'PDF') {
       const isWide = headers.length > 5
       exportOfficialReportPDF({
-        title: def.title,
-        subtitle: def.description,
+        title: currentReportDef.title,
+        subtitle: currentReportDef.description,
         periodLabel: dateRange.label,
         warehouseLabel: selectedWarehouse === 'all' ? 'Tous les Magasins' : selectedWarehouse,
         kpis: [
@@ -1034,591 +1374,501 @@ export default function ReportsClient({
   }
 
   return (
-    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
-      {/* 1. EN-TÊTE PRINCIPAL ABMED AVEC ACTIONS D'EXPORT */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 pb-1 border-b border-border/60">
-        <div>
+      {/* 1. BANNIÈRE EN-TÊTE JAUNE / OR BÉNIN (INSPIRÉE EXACTEMENT DU MODÈLE DE L'IMAGE) */}
+      <div className="rounded-xl overflow-hidden shadow-xs border border-border/60">
+        {/* Liseré tricolore République du Bénin */}
+        <div className="h-1.5 w-full flex">
+          <div className="h-full w-1/3 bg-[#1B5C2E]" />
+          <div className="h-full w-1/3 bg-[#EAB308]" />
+          <div className="h-full w-1/3 bg-[#DC2626]" />
+        </div>
+
+        {/* Bandeau Jaune / Or avec Titre "Rapports" */}
+        <div className="bg-[#FFCC00] dark:bg-amber-500 text-slate-900 px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E]">
-              <BarChart3 className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-                Rapports & Statistiques Réglementaires
-                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-300">
-                  SGIE ABMed
-                </Badge>
-              </h2>
-              <p className="text-muted-foreground text-xs">
-                Extraction périodique, valorisation financière (8%), traçabilité des destructions et synthèses décisionnelles.
-              </p>
-            </div>
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
+              Rapports
+            </h1>
+            <Badge className="bg-slate-900 text-white text-[10px] font-bold hover:bg-slate-800">
+              SGIE ABMed
+            </Badge>
           </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => loadReportsData(true)}
-            disabled={isSyncing}
-            className="h-8 text-xs font-bold gap-1"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            Actualiser
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('CSV')}
-            className="h-8 text-xs font-bold gap-1 shadow-2xs"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('Excel')}
-            className="h-8 text-xs font-bold gap-1 text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-300 shadow-2xs"
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" /> Excel (.xlsx)
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => handleExport('PDF')}
-            className="h-8 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-sm"
-          >
-            <FileOutput className="h-3.5 w-3.5" />
-            Générer Rapport PDF Officiel
-          </Button>
-        </div>
-      </div>
-
-      {/* 2. BARRE DE FILTRES PÉRIODIQUES & MULTI-CRITÈRES */}
-      <Card className="border border-border/70 rounded-xl bg-card shadow-2xs">
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
-            
-            {/* Période Preset */}
-            <div className="md:col-span-3 space-y-1">
-              <label className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-[#1B5C2E]" />
-                Période d&apos;extraction
-              </label>
-              <Select value={periodPreset} onValueChange={(val) => setPeriodPreset(val || 'year_2026')}>
-                <SelectTrigger className="h-8 text-xs bg-background font-medium">
-                  <SelectValue placeholder="Sélectionner une période" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Aujourd&apos;hui</SelectItem>
-                  <SelectItem value="week">Cette semaine en cours</SelectItem>
-                  <SelectItem value="month">Ce mois-ci</SelectItem>
-                  <SelectItem value="quarter">Ce trimestre</SelectItem>
-                  <SelectItem value="year_2026">Exercice 2026 (Année en cours)</SelectItem>
-                  <SelectItem value="year_2025">Exercice 2025 (Clôturé)</SelectItem>
-                  <SelectItem value="custom">Période personnalisée (Dates)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Dates début et fin si Personnalisé */}
-            {periodPreset === 'custom' ? (
-              <>
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground">Date début</label>
-                  <Input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground">Date fin</label>
-                  <Input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="md:col-span-3 flex items-center">
-                <div className="px-2.5 py-1.5 rounded-lg bg-muted/60 border border-border/60 text-xs text-muted-foreground w-full">
-                  <span className="font-semibold text-foreground">Plage active : </span>
-                  <span className="text-[#1B5C2E] font-bold">{dateRange.label}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Magasin / Entrepôt */}
-            <div className="md:col-span-3 space-y-1">
-              <label className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                <Building2 className="h-3 w-3 text-[#1B5C2E]" />
-                Site / Magasin
-              </label>
-              <Select value={selectedWarehouse} onValueChange={(val) => setSelectedWarehouse(val || 'all')}>
-                <SelectTrigger className="h-8 text-xs bg-background">
-                  <SelectValue placeholder="Magasin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les Magasins (National)</SelectItem>
-                  <SelectItem value="Magasin Cotonou">Magasin Cotonou (Siège)</SelectItem>
-                  <SelectItem value="Magasin Parakou">Magasin Parakou (Nord)</SelectItem>
-                  <SelectItem value="Autres">Autres sites & dépôts</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Catégorie Produits Déchets */}
-            <div className="md:col-span-3 space-y-1">
-              <label className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                <Layers className="h-3 w-3 text-[#1B5C2E]" />
-                Catégorie ABMed
-              </label>
-              <Select value={selectedCategory} onValueChange={(val) => setSelectedCategory(val || 'all')}>
-                <SelectTrigger className="h-8 text-xs bg-background">
-                  <SelectValue placeholder="Catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les catégories</SelectItem>
-                  <SelectItem value="Catégorie 1">Cat. 1 - Chimiques & toxiques</SelectItem>
-                  <SelectItem value="Catégorie 2">Cat. 2 - Solides & gélules</SelectItem>
-                  <SelectItem value="Catégorie 3">Cat. 3 - Liquides & sirops</SelectItem>
-                  <SelectItem value="Catégorie 4">Cat. 4 - Aérosols & gaz</SelectItem>
-                  <SelectItem value="Catégorie 5">Cat. 5 - Stupéfiants & psycho.</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 3. CARTES KPI DYNAMIQUES FILTRÉES (6 INDICATEURS STRATÉGIQUES) */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-        
-        {/* KPI 1 : Stock & Réceptions Échantillons */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-[#1B5C2E]/10 text-[#1B5C2E]">
-              <TestTube2 className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                Échantillons Stock
-              </p>
-              <h3 className="text-base font-black text-foreground">
-                {kpis.totalSamplesStock}
-              </h3>
-              <p className="text-[9px] text-emerald-700 font-medium">
-                +{kpis.samplesReceivedInPeriod} reçus
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 2 : Masse Déchets Reçus */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600">
-              <Trash2 className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                Déchets Reçus
-              </p>
-              <h3 className="text-base font-black text-foreground truncate">
-                {kpis.totalWasteKg.toLocaleString('fr-FR')} <span className="text-[10px] font-semibold text-muted-foreground">kg</span>
-              </h3>
-              <p className="text-[9px] text-amber-700 font-medium">
-                {kpis.totalWasteTonnes} Tonnes
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 3 : Masse Déchets Détruits */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-red-500/10 text-red-600">
-              <Flame className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                Masse Détruite
-              </p>
-              <h3 className="text-base font-black text-foreground truncate">
-                {kpis.totalDestroyedKg.toLocaleString('fr-FR')} <span className="text-[10px] font-semibold text-muted-foreground">kg</span>
-              </h3>
-              <p className="text-[9px] text-red-600 font-medium">
-                {filteredDestructions.length} opérations
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 4 : Total Coût Cession Déclaré */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600">
-              <DollarSign className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                Cessions Déclarées
-              </p>
-              <h3 className="text-sm font-black text-foreground truncate">
-                {kpis.totalTransferCostFCFA.toLocaleString('fr-FR')}
-              </h3>
-              <p className="text-[9px] text-blue-600 font-medium truncate">
-                Base imposable FCFA
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 5 : Redevance ABMed (8%) */}
-        <Card className="shadow-2xs border border-emerald-500/30 rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-[#1B5C2E] text-white">
-              <TrendingUp className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 truncate">
-                Redevance ABMed (8%)
-              </p>
-              <h3 className="text-sm font-black text-emerald-900 dark:text-emerald-100 truncate">
-                {kpis.totalAbmedFeeFCFA.toLocaleString('fr-FR')} <span className="text-[9px]">F</span>
-              </h3>
-              <p className="text-[9px] text-emerald-700 font-bold truncate">
-                Exigible / Encaissé
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 6 : Conformité & Mouvements */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600">
-              <ShieldCheck className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                Conformité Qualité
-              </p>
-              <h3 className="text-base font-black text-foreground">
-                {kpis.conformityRate}%
-              </h3>
-              <p className="text-[9px] text-purple-600 font-medium">
-                {kpis.mvtCount} mouvements
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-      </div>
-
-      {/* 4. SÉLECTION DU RAPPORT VIA ONGLETS ET MENU DÉTAILLÉ */}
-      <Card className="border border-border/70 rounded-xl bg-card shadow-2xs">
-        <CardHeader className="p-3 pb-2 border-b border-border/50">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
-            <div>
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-[#1B5C2E]" />
-                Catalogue des Rapports Réglementaires ABMed
-              </CardTitle>
-              <CardDescription className="text-xs">
-                {reportDefinitions[reportType]?.title} — {reportDefinitions[reportType]?.description}
-              </CardDescription>
-            </div>
-
-            {/* Onglets de groupes de rapports */}
-            <Tabs
-              value={reportGroup}
-              onValueChange={(val) => {
-                const g = val as 'waste' | 'samples' | 'executive'
-                setReportGroup(g)
-                if (g === 'waste') setReportType('waste_receptions')
-                if (g === 'samples') setReportType('samples_receptions')
-                if (g === 'executive') setReportType('executive_summary')
-              }}
-              className="w-full md:w-auto"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadReportsData(true)}
+              disabled={isSyncing}
+              className="h-7 text-xs font-bold bg-white/80 hover:bg-white text-slate-900 border-slate-400 gap-1"
             >
-              <TabsList className="h-8 bg-muted/60 p-0.5">
-                <TabsTrigger value="waste" className="text-xs font-bold px-2.5 py-1">
-                  Déchets Pharmaceutiques
-                </TabsTrigger>
-                <TabsTrigger value="samples" className="text-xs font-bold px-2.5 py-1">
-                  Échantillons & Contrôles
-                </TabsTrigger>
-                <TabsTrigger value="executive" className="text-xs font-bold px-2.5 py-1">
-                  Synthèse Direction Générale
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+              <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+              Actualiser
+            </Button>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-3 pt-2 space-y-3">
-          
-          {/* Sous-sélecteur de type de rapport selon l'onglet actif */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            {reportGroup === 'waste' && (
-              <>
-                <Button
-                  variant={reportType === 'waste_receptions' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('waste_receptions')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'waste_receptions' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Registre des Réceptions
-                </Button>
-                <Button
-                  variant={reportType === 'waste_financial' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('waste_financial')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'waste_financial' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Bilan Financier & Redevance 8%
-                </Button>
-                <Button
-                  variant={reportType === 'waste_categories' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('waste_categories')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'waste_categories' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Ventilation Catégories (1 à 5)
-                </Button>
-                <Button
-                  variant={reportType === 'waste_seizures' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('waste_seizures')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'waste_seizures' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Produits Saisis & Rappels de Lots
-                </Button>
-                <Button
-                  variant={reportType === 'waste_destructions' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('waste_destructions')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'waste_destructions' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Registre des Destructions & PV
-                </Button>
-              </>
-            )}
-
-            {reportGroup === 'samples' && (
-              <>
-                <Button
-                  variant={reportType === 'samples_receptions' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('samples_receptions')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'samples_receptions' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Réceptions & Dossiers Déposés
-                </Button>
-                <Button
-                  variant={reportType === 'samples_stock' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('samples_stock')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'samples_stock' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  État du Stock Échantillothèque
-                </Button>
-                <Button
-                  variant={reportType === 'samples_movements' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('samples_movements')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'samples_movements' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Mouvements & Sorties (LNC/Personnel)
-                </Button>
-                <Button
-                  variant={reportType === 'samples_expirations' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setReportType('samples_expirations')}
-                  className={`h-7 text-xs font-semibold ${reportType === 'samples_expirations' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
-                >
-                  Veille des Péremptions
-                </Button>
-              </>
-            )}
-
-            {reportGroup === 'executive' && (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs font-semibold bg-[#1B5C2E] text-white"
-              >
-                Bilan Consolidé SGIE (Direction Générale)
-              </Button>
-            )}
+        {/* 2. ENCART D'INFORMATION & CONTEXTE (MODÈLE BOÎTE GRISE AVEC ICÔNE "i") */}
+        <div className="bg-slate-100 dark:bg-slate-900/80 p-3 md:p-3.5 border-t border-border/50 flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-slate-300 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 mt-0.5">
+            <Info className="h-5 w-5 font-bold" />
           </div>
+          <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+            <p>
+              Les données du tableau de bord et des différents rapports <strong>SGIE</strong> rendent compte de la gestion logistique et réglementaire des <strong>échantillons pharmaceutiques</strong> et des <strong>déchets de santé</strong> au niveau national pour l&apos;<strong>Autorité Béninoise du Médicament (ABMed)</strong>.
+              Ils sont consolidés en temps réel à partir des registres de dépôts d&apos;échantillons, des contrôles qualité du LNC, des déclarations de cessions de déchets (redevance légale de 8%) et des opérations de destruction sécurisées.
+              Les extractions périodiques peuvent être analysées mensuellement, trimestriellement ou selon l&apos;exercice budgétaire souhaité.
+            </p>
+          </div>
+        </div>
+      </div>
 
-          {/* 5. TABLEAU DE PRÉVISUALISATION DYNAMIQUE DES DONNÉES */}
-          <div className="space-y-2">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Filtrer dans ce rapport..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-8 pl-8 text-xs bg-background"
-                  />
-                </div>
-                <Badge variant="outline" className="text-xs font-bold text-muted-foreground whitespace-nowrap">
-                  {previewRows.length} lignes
-                </Badge>
+      {/* 3. BARRE D'OUTILS ET FILTRES DU CATALOGUE DE CARTES */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            variant={cardCategoryFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCardCategoryFilter('all')}
+            className={`h-7 text-xs font-semibold ${cardCategoryFilter === 'all' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
+          >
+            Tous les rapports ({reportList.length})
+          </Button>
+          <Button
+            variant={cardCategoryFilter === 'waste' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCardCategoryFilter('waste')}
+            className={`h-7 text-xs font-semibold ${cardCategoryFilter === 'waste' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
+          >
+            Déchets Pharmaceutiques
+          </Button>
+          <Button
+            variant={cardCategoryFilter === 'financial' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCardCategoryFilter('financial')}
+            className={`h-7 text-xs font-semibold ${cardCategoryFilter === 'financial' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
+          >
+            Bilan Financier & 8%
+          </Button>
+          <Button
+            variant={cardCategoryFilter === 'samples' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCardCategoryFilter('samples')}
+            className={`h-7 text-xs font-semibold ${cardCategoryFilter === 'samples' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
+          >
+            Échantillons & Stocks
+          </Button>
+          <Button
+            variant={cardCategoryFilter === 'executive' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCardCategoryFilter('executive')}
+            className={`h-7 text-xs font-semibold ${cardCategoryFilter === 'executive' ? 'bg-[#1B5C2E] hover:bg-[#154824] text-white' : ''}`}
+          >
+            Direction Générale
+          </Button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un rapport..."
+            value={cardSearchQuery}
+            onChange={(e) => setCardSearchQuery(e.target.value)}
+            className="h-7 pl-8 text-xs bg-background"
+          />
+        </div>
+      </div>
+
+      {/* 4. GRILLE VISUELLE DE CARTES DE RAPPORTS (3 COLONNES CONFORME AU SCREENSHOT) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filteredReportCards.map((report) => {
+          const isSelected = reportType === report.id
+
+          return (
+            <div
+              key={report.id}
+              onClick={() => handleSelectReport(report.id)}
+              className={`group relative p-2.5 rounded-xl border bg-card cursor-pointer transition-all duration-200 flex items-center gap-3 shadow-2xs hover:shadow-md ${
+                isSelected
+                  ? 'border-[#1B5C2E] ring-2 ring-[#1B5C2E]/25 bg-emerald-50/20 dark:bg-emerald-950/20'
+                  : 'border-border/70 hover:border-slate-400 dark:hover:border-slate-600'
+              }`}
+            >
+              {/* Miniature visuelle du rapport */}
+              <div className="shrink-0 transition-transform duration-200 group-hover:scale-105">
+                <ReportThumbnail type={report.id} />
               </div>
 
-              <div className="text-[11px] text-muted-foreground font-medium">
-                Période active : <span className="text-[#1B5C2E] font-bold">{dateRange.label}</span>
-              </div>
-            </div>
-
-            <div className="border border-border/70 rounded-lg overflow-x-auto bg-card shadow-2xs max-h-[380px] overflow-y-auto">
-              <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-xs">
-                  <TableRow>
-                    {currentReportData.headers.map((h, idx) => (
-                      <TableHead key={idx} className="py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                        {h}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {previewRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={currentReportData.headers.length} className="text-center py-8 text-xs text-muted-foreground">
-                        Aucun enregistrement ne correspond aux filtres et à la période sélectionnée ({dateRange.label}).
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    previewRows.map((row, rIdx) => (
-                      <TableRow key={rIdx} className="hover:bg-muted/30 text-xs transition-colors">
-                        {currentReportData.headers.map((h, cIdx) => {
-                          const val = String(row[h] || '-')
-                          const isCurrency = h.includes('FCFA') || h.includes('Montant') || h.includes('Redevance')
-                          const isWeight = h.includes('Kg') || h.includes('Poids') || h.includes('Tonnes')
-
-                          return (
-                            <TableCell key={cIdx} className={`py-1.5 whitespace-nowrap ${isCurrency || isWeight ? 'font-semibold' : ''}`}>
-                              {h.includes('Statut') || h.includes('Conformité') ? (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[9px] px-1.5 py-0 ${
-                                    val.toLowerCase().includes('conforme') || val.toLowerCase().includes('disponible') || val.toLowerCase().includes('exécuté') || val.toLowerCase().includes('valide')
-                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                      : val.toLowerCase().includes('périmé') || val.toLowerCase().includes('détruit') || val.toLowerCase().includes('saisi')
-                                      ? 'bg-red-50 text-red-800 border-red-300'
-                                      : 'bg-amber-50 text-amber-800 border-amber-300'
-                                  }`}
-                                >
-                                  {val}
-                                </Badge>
-                              ) : isCurrency && val !== '-' && val !== '0' ? (
-                                <span className="text-[#1B5C2E] font-bold">{val}</span>
-                              ) : (
-                                val
-                              )}
-                            </TableCell>
-                          )
-                        })}
-                      </TableRow>
-                    ))
+              {/* Titre et détails */}
+              <div className="flex-1 min-w-0 pr-6">
+                <p className="text-xs font-bold text-foreground leading-snug line-clamp-2 group-hover:text-[#1B5C2E] transition-colors">
+                  {report.title}
+                </p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${report.badgeColor}`}>
+                    {report.categoryLabel}
+                  </Badge>
+                  {isSelected && (
+                    <span className="text-[9px] font-bold text-[#1B5C2E] flex items-center gap-0.5">
+                      <CheckCircle2 className="h-2.5 w-2.5" /> Sélectionné
+                    </span>
                   )}
-                </TableBody>
-              </Table>
+                </div>
+              </div>
+
+              {/* Bouton Info Vert (i) en haut à droite comme dans la capture */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toast(report.title, {
+                    description: report.infoText,
+                    icon: <Info className="h-4 w-4 text-[#1B5C2E]" />,
+                  })
+                }}
+                title={report.infoText}
+                className="absolute top-2 right-2 p-1 rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 5. CONSOLE D'EXPLORATION ET D'EXTRACTION DU RAPPORT ACTIF */}
+      <div ref={reportViewerRef} className="pt-2">
+        <Card className="border border-border/70 rounded-xl bg-card shadow-sm overflow-hidden">
+          
+          {/* En-tête de la console du rapport sélectionné */}
+          <div className="p-3.5 bg-muted/30 border-b border-border/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#1B5C2E] text-white text-[10px]">
+                  Rapport Actif
+                </Badge>
+                <h2 className="text-base font-black text-foreground">
+                  {currentReportDef.title}
+                </h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {currentReportDef.description}
+              </p>
+            </div>
+
+            {/* Boutons d'export rapide pour ce rapport */}
+            <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('CSV')}
+                className="h-8 text-xs font-bold gap-1 shadow-2xs"
+              >
+                <Download className="h-3.5 w-3.5" /> CSV
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('Excel')}
+                className="h-8 text-xs font-bold gap-1 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-300 shadow-2xs"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" /> Excel (.xlsx)
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={() => handleExport('PDF')}
+                className="h-8 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-sm"
+              >
+                <FileOutput className="h-3.5 w-3.5" />
+                Générer Rapport PDF Officiel
+              </Button>
             </div>
           </div>
 
-        </CardContent>
-      </Card>
+          <CardContent className="p-3.5 space-y-3.5">
+            
+            {/* Barre de filtrage multi-critères et de dates pour ce rapport */}
+            <div className="p-3 rounded-lg bg-muted/40 border border-border/50 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+              
+              {/* Sélecteur de Période */}
+              <div className="md:col-span-3 space-y-1">
+                <label className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-[#1B5C2E]" />
+                  Période d&apos;analyse
+                </label>
+                <Select value={periodPreset} onValueChange={(val) => setPeriodPreset(val || 'year_2026')}>
+                  <SelectTrigger className="h-8 text-xs bg-background">
+                    <SelectValue placeholder="Période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Aujourd&apos;hui</SelectItem>
+                    <SelectItem value="week">Cette semaine en cours</SelectItem>
+                    <SelectItem value="month">Ce mois-ci</SelectItem>
+                    <SelectItem value="quarter">Ce trimestre</SelectItem>
+                    <SelectItem value="year_2026">Exercice 2026 (En cours)</SelectItem>
+                    <SelectItem value="year_2025">Exercice 2025 (Clôturé)</SelectItem>
+                    <SelectItem value="custom">Période personnalisée</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-      {/* 6. SECTION STATISTIQUES GRAPHIQUES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-        
-        {/* Graphique 1: Répartition Tonnage par Catégorie ABMed */}
-        <Card className="border border-border/70 rounded-xl bg-card shadow-2xs">
-          <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Masse par Catégorie ABMed (Kg)</span>
-              <Badge variant="outline" className="text-[9px] text-[#1B5C2E] border-[#1B5C2E]/30">
-                Période : {dateRange.label}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-1">
-            <div className="h-[160px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                  <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    formatter={(val) => [`${Number(val).toLocaleString('fr-FR')} Kg`, 'Masse']}
-                    contentStyle={{ fontSize: '11px', borderRadius: '8px' }}
-                  />
-                  <Bar dataKey="weight" fill="#1B5C2E" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Graphique 2: Statuts des Échantillons & Qualité */}
-        <Card className="border border-border/70 rounded-xl bg-card shadow-2xs">
-          <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Répartition Statuts Échantillons</span>
-              <span className="text-[10px] text-muted-foreground font-normal">Échantillothèque</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-1">
-            <div className="h-[120px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={sampleStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={26}
-                    outerRadius={45}
-                    paddingAngle={3}
-                    dataKey="value"
-                    stroke="none"
-                    isAnimationActive={false}
-                  >
-                    {sampleStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ fontSize: '11px', borderRadius: '8px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-border/40 text-[10px]">
-              {sampleStatusData.map((item, idx) => (
-                <div key={idx} className="flex flex-col items-center justify-center p-1 rounded-sm bg-muted/30">
-                  <span className="text-muted-foreground truncate text-[9px]">{item.name}</span>
-                  <span className="font-bold text-foreground">{item.value}</span>
+              {/* Dates personnalisées */}
+              {periodPreset === 'custom' ? (
+                <>
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground">Date début</label>
+                    <Input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground">Date fin</label>
+                    <Input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="md:col-span-3">
+                  <div className="px-2.5 py-1.5 rounded-lg bg-background border border-border/60 text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">Plage : </span>
+                    <span className="text-[#1B5C2E] font-bold">{dateRange.label}</span>
+                  </div>
                 </div>
-              ))}
+              )}
+
+              {/* Magasin */}
+              <div className="md:col-span-3 space-y-1">
+                <label className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                  <Building2 className="h-3 w-3 text-[#1B5C2E]" />
+                  Site / Magasin
+                </label>
+                <Select value={selectedWarehouse} onValueChange={(val) => setSelectedWarehouse(val || 'all')}>
+                  <SelectTrigger className="h-8 text-xs bg-background">
+                    <SelectValue placeholder="Magasin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les Magasins (National)</SelectItem>
+                    <SelectItem value="Magasin Cotonou">Magasin Cotonou (Siège)</SelectItem>
+                    <SelectItem value="Magasin Parakou">Magasin Parakou (Nord)</SelectItem>
+                    <SelectItem value="Autres">Autres dépôts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Catégorie Produits */}
+              <div className="md:col-span-3 space-y-1">
+                <label className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                  <Layers className="h-3 w-3 text-[#1B5C2E]" />
+                  Catégorie ABMed
+                </label>
+                <Select value={selectedCategory} onValueChange={(val) => setSelectedCategory(val || 'all')}>
+                  <SelectTrigger className="h-8 text-xs bg-background">
+                    <SelectValue placeholder="Catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les catégories</SelectItem>
+                    <SelectItem value="Catégorie 1">Cat. 1 - Chimiques & toxiques</SelectItem>
+                    <SelectItem value="Catégorie 2">Cat. 2 - Solides & gélules</SelectItem>
+                    <SelectItem value="Catégorie 3">Cat. 3 - Liquides & sirops</SelectItem>
+                    <SelectItem value="Catégorie 4">Cat. 4 - Aérosols & gaz</SelectItem>
+                    <SelectItem value="Catégorie 5">Cat. 5 - Stupéfiants & psycho.</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
             </div>
+
+            {/* 6 Indicateurs Stratégiques recalculés pour cette sélection */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Échantillons Stock</p>
+                <p className="text-base font-black text-foreground">{kpis.totalSamplesStock}</p>
+                <p className="text-[9px] text-emerald-700 font-medium">+{kpis.samplesReceivedInPeriod} reçus</p>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Déchets Reçus</p>
+                <p className="text-base font-black text-foreground">{kpis.totalWasteKg.toLocaleString('fr-FR')} <span className="text-[10px] text-muted-foreground font-normal">kg</span></p>
+                <p className="text-[9px] text-amber-600 font-medium">{kpis.totalWasteTonnes} Tonnes</p>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Masse Détruite</p>
+                <p className="text-base font-black text-foreground">{kpis.totalDestroyedKg.toLocaleString('fr-FR')} <span className="text-[10px] text-muted-foreground font-normal">kg</span></p>
+                <p className="text-[9px] text-red-600 font-medium">{filteredDestructions.length} opérations</p>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Cessions Déclarées</p>
+                <p className="text-sm font-black text-foreground">{kpis.totalTransferCostFCFA.toLocaleString('fr-FR')} <span className="text-[9px] text-muted-foreground font-normal">F</span></p>
+                <p className="text-[9px] text-blue-600 font-medium">Base imposable</p>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-emerald-500/40 bg-emerald-50/30 dark:bg-emerald-950/20">
+                <p className="text-[9px] font-bold uppercase text-emerald-800 dark:text-emerald-300">Redevance (8%)</p>
+                <p className="text-sm font-black text-emerald-900 dark:text-emerald-100">{kpis.totalAbmedFeeFCFA.toLocaleString('fr-FR')} <span className="text-[9px] font-bold">F</span></p>
+                <p className="text-[9px] text-emerald-700 font-bold">Exigible ABMed</p>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Conformité Qualité</p>
+                <p className="text-base font-black text-foreground">{kpis.conformityRate}%</p>
+                <p className="text-[9px] text-purple-600 font-medium">{kpis.mvtCount} mouvements</p>
+              </div>
+            </div>
+
+            {/* Tableau interactif de prévisualisation */}
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrer dans ce tableau..."
+                      value={tableSearchQuery}
+                      onChange={(e) => setTableSearchQuery(e.target.value)}
+                      className="h-8 pl-8 text-xs bg-background"
+                    />
+                  </div>
+                  <Badge variant="outline" className="text-xs font-bold text-muted-foreground whitespace-nowrap">
+                    {previewRows.length} lignes
+                  </Badge>
+                </div>
+
+                <div className="text-[11px] text-muted-foreground">
+                  Extraction active : <span className="text-[#1B5C2E] font-bold">{dateRange.label}</span>
+                </div>
+              </div>
+
+              <div className="border border-border/70 rounded-lg overflow-x-auto bg-card shadow-2xs max-h-[380px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-xs">
+                    <TableRow>
+                      {currentReportData.headers.map((h, idx) => (
+                        <TableHead key={idx} className="py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                          {h}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={currentReportData.headers.length} className="text-center py-8 text-xs text-muted-foreground">
+                          Aucun enregistrement ne correspond aux filtres et à la période sélectionnée ({dateRange.label}).
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      previewRows.map((row, rIdx) => (
+                        <TableRow key={rIdx} className="hover:bg-muted/30 text-xs transition-colors">
+                          {currentReportData.headers.map((h, cIdx) => {
+                            const val = String(row[h] || '-')
+                            const isCurrency = h.includes('FCFA') || h.includes('Montant') || h.includes('Redevance')
+                            const isWeight = h.includes('Kg') || h.includes('Poids') || h.includes('Tonnes')
+
+                            return (
+                              <TableCell key={cIdx} className={`py-1.5 whitespace-nowrap ${isCurrency || isWeight ? 'font-semibold' : ''}`}>
+                                {h.includes('Statut') || h.includes('Conformité') ? (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1.5 py-0 ${
+                                      val.toLowerCase().includes('conforme') || val.toLowerCase().includes('disponible') || val.toLowerCase().includes('exécuté') || val.toLowerCase().includes('valide')
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                        : val.toLowerCase().includes('périmé') || val.toLowerCase().includes('détruit') || val.toLowerCase().includes('saisi')
+                                        ? 'bg-red-50 text-red-800 border-red-300'
+                                        : 'bg-amber-50 text-amber-800 border-amber-300'
+                                    }`}
+                                  >
+                                    {val}
+                                  </Badge>
+                                ) : isCurrency && val !== '-' && val !== '0' ? (
+                                  <span className="text-[#1B5C2E] font-bold">{val}</span>
+                                ) : (
+                                  val
+                                )}
+                              </TableCell>
+                            )
+                          })}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Synthèse graphique comparative en bas de console */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-2">
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Masse par Catégorie Réglementaire ABMed (Kg)
+                </p>
+                <div className="h-[140px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+                      <RechartsTooltip
+                        formatter={(val) => [`${Number(val).toLocaleString('fr-FR')} Kg`, 'Masse']}
+                        contentStyle={{ fontSize: '11px', borderRadius: '8px' }}
+                      />
+                      <Bar dataKey="weight" fill="#1B5C2E" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border/70 bg-card">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Statuts & Contrôles Échantillothèque
+                </p>
+                <div className="h-[110px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={sampleStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={24}
+                        outerRadius={42}
+                        paddingAngle={3}
+                        dataKey="value"
+                        stroke="none"
+                        isAnimationActive={false}
+                      >
+                        {sampleStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ fontSize: '11px', borderRadius: '8px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-4 gap-1 pt-1 border-t border-border/40 text-[9px]">
+                  {sampleStatusData.map((item, idx) => (
+                    <div key={idx} className="flex justify-between px-1 py-0.5 rounded-xs bg-muted/30">
+                      <span className="text-muted-foreground truncate">{item.name}</span>
+                      <span className="font-bold text-foreground">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </CardContent>
         </Card>
-
       </div>
 
     </div>
