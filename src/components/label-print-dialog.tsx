@@ -362,10 +362,10 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl rounded-3xl border border-border/50 shadow-2xl bg-card p-0 overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-[75vh]">
+      <DialogContent className="max-w-5xl w-[95vw] rounded-3xl border border-border/50 shadow-2xl bg-card p-0 overflow-hidden flex flex-col md:flex-row h-[94vh] max-h-[94vh]">
         {/* Partie gauche : Prévisualisation interactive */}
-        <div className="flex-1 bg-slate-50 dark:bg-slate-900/40 p-6 flex flex-col items-center justify-between min-w-0 border-b md:border-b-0 md:border-r border-border/50">
-          <div className="w-full flex items-center justify-between mb-4">
+        <div className="flex-1 bg-slate-50 dark:bg-slate-900/40 p-4 sm:p-5 flex flex-col items-center justify-between min-w-0 border-b md:border-b-0 md:border-r border-border/50 overflow-y-auto">
+          <div className="w-full flex items-center justify-between mb-2 shrink-0">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-primary" /> Prévisualisation réglementaire
             </span>
@@ -397,7 +397,7 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
           </div>
 
           {/* Rendu dynamique de l'étiquette prévisualisée */}
-          <div className="flex-1 flex items-center justify-center w-full">
+          <div className="flex-1 flex items-center justify-center w-full my-auto py-1 overflow-y-auto">
             {loading ? (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <div className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
@@ -407,7 +407,7 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
               format === 'A4' ? (
                 isWaste ? (
                   // Mode Placard A4 Réglementaire Déchets (Fût / Carton)
-                  <div className="border-2 border-red-500 rounded-2xl bg-white shadow-2xl p-4 w-[380px] h-[520px] overflow-y-auto text-black select-none flex flex-col justify-between scale-[0.95] origin-top">
+                  <div className="border-2 border-red-500 rounded-2xl bg-white shadow-xl p-3 sm:p-3.5 w-[360px] sm:w-[380px] max-w-full text-black select-none flex flex-col justify-between my-auto">
                     {/* En-tête épuré officiel ABMed */}
                     <div className="border-b-2 border-red-600 pb-2 flex justify-between items-center">
                       <div className="flex items-center gap-2">
@@ -475,7 +475,7 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
                         </span>
                         
                         {/* QR Code Agrandie */}
-                        <div className="w-32 h-32 bg-white p-1.5 rounded-lg border border-slate-300 shadow-sm flex items-center justify-center">
+                        <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white p-1 rounded-lg border border-slate-300 shadow-sm flex items-center justify-center">
                           {qrCodes[currentItem.id] ? (
                             <img src={qrCodes[currentItem.id]} alt="QR Code Récapitulatif" className="w-full h-full object-contain" />
                           ) : (
@@ -623,7 +623,7 @@ export function LabelPrintDialog({ isOpen, onClose, type, items }: LabelPrintDia
         </div>
 
         {/* Partie droite : Configuration & Actions */}
-        <div className="w-full md:w-80 p-6 flex flex-col justify-between bg-card shrink-0">
+        <div className="w-full md:w-80 p-5 md:p-6 flex flex-col justify-between bg-card shrink-0 overflow-y-auto">
           <div className="space-y-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2">

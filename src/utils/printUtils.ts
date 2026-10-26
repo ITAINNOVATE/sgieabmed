@@ -99,22 +99,27 @@ function getLabelStyles(format: LabelFormat, type: 'sample' | 'waste'): string {
             size: A4 portrait;
             margin: 0 !important;
           }
-          body {
+          html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
         .a4-waste-placard {
           width: 100%;
-          max-width: 194mm;
-          min-height: 275mm;
+          max-width: 190mm;
+          min-height: 268mm;
+          max-height: 275mm;
           margin: 0 auto;
-          padding: 8mm 6mm;
+          padding: 5mm 6mm;
           box-sizing: border-box;
           background: white;
           font-family: 'Inter', -apple-system, sans-serif;
           page-break-after: always;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
       `;
     }
@@ -221,7 +226,7 @@ export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: strin
   );
 
   return `
-    <div class="a4-waste-placard" style="border: 2px solid #DC2626; border-radius: 8px; padding: 8mm; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: white;">
+    <div class="a4-waste-placard" style="border: 2px solid #DC2626; border-radius: 8px; padding: 5mm 6mm; display: flex; flex-direction: column; justify-content: space-between; box-shadow: none; background: white;">
       
       <!-- 1. EN-TÊTE ÉPURÉ OFFICIEL ABMED -->
       <div style="border-bottom: 2.5px solid #DC2626; padding-bottom: 4mm; display: flex; align-items: center; justify-content: space-between;">
@@ -272,27 +277,27 @@ export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: strin
             </div>
             <table style="width: 100%; font-size: 8pt; border-collapse: collapse; line-height: 1.5;">
               <tr>
-                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1.2mm 0;">Classification :</td>
+                <td style="color: #64748B; font-weight: 600; width: 44%; padding: 1.2mm 0; white-space: nowrap;">Classification :</td>
                 <td style="color: #0F172A; font-weight: 800;">${ex.category || item.productName}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Dénomination :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Dénomination :</td>
                 <td style="color: #0F172A; font-weight: 700;">${item.productName || 'Non spécifié'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">N° Lot d'origine :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">N° Lot d'origine :</td>
                 <td style="color: #0F172A; font-weight: 700; font-family: monospace;">${ex.originalBatch || item.batchNumber || '—'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Quantité / Poids :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Quantité / Poids :</td>
                 <td style="color: #B91C1C; font-weight: 900; font-size: 13pt;">${ex.weight || '1 Kg'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Conditionnement :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Conditionnement :</td>
                 <td style="color: #0F172A; font-weight: 600;">${ex.packaging || 'Fûts / Cartons scellés'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Motif de rejet :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Motif de rejet :</td>
                 <td style="color: #0F172A; font-weight: 600;">${ex.motive || 'Péremption / Non-conformité'}</td>
               </tr>
             </table>
@@ -305,23 +310,23 @@ export function renderWasteA4Html(item: LabelData, qrUrl: string, dateStr: strin
             </div>
             <table style="width: 100%; font-size: 8pt; border-collapse: collapse; line-height: 1.5;">
               <tr>
-                <td style="color: #64748B; font-weight: 600; width: 38%; padding: 1.2mm 0;">Structure Source :</td>
+                <td style="color: #64748B; font-weight: 600; width: 44%; padding: 1.2mm 0; white-space: nowrap;">Structure Source :</td>
                 <td style="color: #0F172A; font-weight: 800;">${ex.sourceStructure || 'Interne ABMed'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Apporteur / Déposant :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Apporteur / Déposant :</td>
                 <td style="color: #0F172A; font-weight: 600;">${ex.depositorName || 'Admin EGED'} ${ex.depositorPhone ? '(' + ex.depositorPhone + ')' : ''}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Emplacement Magasin :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Emplacement Magasin :</td>
                 <td style="color: #0F5C4A; font-weight: 800; font-family: monospace;">${locStr}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Plan de Destruction :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Plan de Destruction :</td>
                 <td style="color: #7E22CE; font-weight: 800; font-family: monospace;">${ex.destructionPlan || 'En attente de planification'}</td>
               </tr>
               <tr>
-                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0;">Date d'entrée :</td>
+                <td style="color: #64748B; font-weight: 600; padding: 1.2mm 0; white-space: nowrap;">Date d'entrée :</td>
                 <td style="color: #0F172A; font-weight: 600;">${ex.declarationDate || dateStr}</td>
               </tr>
             </table>
@@ -465,18 +470,29 @@ export function renderLabelHtml(item: LabelData, type: 'sample' | 'waste', qrUrl
  * Lance l'impression d'étiquettes (Planche A4 grand format pour déchets, planche d'échantillons ou rouleaux).
  */
 export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCodes: Record<string, string>, format: LabelFormat) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || items.length === 0) return;
+
+  // Nettoyer toute ancienne iframe d'impression
+  try {
+    document.querySelectorAll('.sgie-print-iframe').forEach(el => el.remove());
+  } catch (e) {}
 
   const iframe = document.createElement('iframe');
-  iframe.style.position = 'absolute';
-  iframe.style.width = '0px';
-  iframe.style.height = '0px';
+  iframe.className = 'sgie-print-iframe';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '210mm';
+  iframe.style.height = '297mm';
   iframe.style.border = 'none';
+  iframe.style.opacity = '0.01';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-9999';
   document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow?.document;
   if (!doc) {
-    console.error("Impossible d'accéder au document de l'iframe");
+    console.error("Impossible d'accéder au document de l'iframe d'impression");
     return;
   }
 
@@ -489,7 +505,7 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
     if (type === 'waste') {
       // Pour les DÉCHETS en A4 : chaque lot génère une pleine page A4 placard grand format
       bodyContent = items.map(item => `
-        <div style="page-break-after: always; width: 100%; min-height: 275mm; box-sizing: border-box;">
+        <div style="page-break-after: always; width: 100%; min-height: 268mm; max-height: 275mm; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid;">
           ${renderWasteA4Html(item, qrCodes[item.id] || '', dateStr)}
         </div>
       `).join('');
@@ -523,14 +539,17 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
     <html>
       <head>
         <meta charset="utf-8">
-        <title></title>
+        <title>Impression Étiquettes SGIE ABMed</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
           ${styleString}
-          body {
+          html, body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
           }
           * {
             box-sizing: border-box;
@@ -542,11 +561,20 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
         <script>
           window.onload = function() {
             setTimeout(function() {
+              window.focus();
               window.print();
+            }, 400);
+
+            // Ne supprimer l'iframe QUE lorsque la boîte de dialogue d'impression a terminé
+            window.onafterprint = function() {
               setTimeout(function() {
-                window.frameElement.remove();
-              }, 500);
-            }, 300);
+                try {
+                  if (window.frameElement) {
+                    window.frameElement.remove();
+                  }
+                } catch(e) {}
+              }, 1000);
+            };
           }
         </script>
       </body>
