@@ -11,6 +11,7 @@ import {
   SortingState,
   useReactTable,
   ColumnFiltersState,
+  PaginationState,
 } from "@tanstack/react-table"
 import { 
   ArrowUpDown, MoreHorizontal, Download, FileText, Plus, Search, 
@@ -94,6 +95,17 @@ export default function WasteStockPage() {
   const [selectedPackage, setSelectedPackage] = useState<GroupedWastePackage | null>(null)
   const [isPackageDetailOpen, setIsPackageDetailOpen] = useState(false)
 
+  // État de pagination contrôlé pour garantir la stabilité de la navigation
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 15,
+  })
+
+  // Réinitialiser à la page 1 UNIQUEMENT quand l'utilisateur change la recherche ou les filtres
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+  }, [globalSearch, statusFilter, typeFilter, groupingFilter])
+
   const hasLoadedOnceRef = useRef(false)
 
   // 1. Chargement des données (Batches & Packages)
@@ -112,7 +124,12 @@ export default function WasteStockPage() {
     } catch (e) {
       localPackages = []
     }
-    setPackages(localPackages)
+    setPackages((prev) => {
+      if (prev.length === localPackages.length && JSON.stringify(prev) === JSON.stringify(localPackages)) {
+        return prev
+      }
+      return localPackages
+    })
 
     // B. Batches de déchets
     let localBatches: WasteStockItem[] = []
@@ -166,7 +183,12 @@ export default function WasteStockPage() {
       }
     })
 
-    setData(finalBatches)
+    setData((prev) => {
+      if (prev.length === finalBatches.length && JSON.stringify(prev) === JSON.stringify(finalBatches)) {
+        return prev
+      }
+      return finalBatches
+    })
     setLoading(false)
     hasLoadedOnceRef.current = true
   }, [])
@@ -707,22 +729,20 @@ export default function WasteStockPage() {
   const table = useReactTable({
     data: filteredDetailData,
     columns: detailColumns,
+    autoResetPageIndex: false,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    onPaginationChange: setPagination,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
     state: {
+      pagination,
       sorting,
       columnFilters,
       rowSelection,
-    },
-    initialState: {
-      pagination: {
-        pageSize: 15,
-      },
     },
   })
 

@@ -11,6 +11,7 @@ import {
   SortingState,
   useReactTable,
   ColumnFiltersState,
+  PaginationState,
 } from "@tanstack/react-table"
 import { ArrowUpDown, ChevronDown, MoreHorizontal, Download, FileText, Plus, Search, Eye, Edit, Trash, Trash2, History, Printer, MapPin } from "lucide-react"
 
@@ -170,6 +171,15 @@ export default function SamplesDataTable() {
   const [data, setData] = useState<Sample[]>([])
   const [loading, setLoading] = useState(false)
   const [globalSearch, setGlobalSearch] = useState("")
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 15,
+  })
+
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, pageIndex: 0 }))
+  }, [globalSearch])
+
   const [rowSelection, setRowSelection] = useState({})
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
   const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
@@ -290,7 +300,13 @@ export default function SamplesDataTable() {
           }
         })
 
-        setData(Array.from(sampleMap.values()))
+        const finalSamples = Array.from(sampleMap.values())
+        setData((prev) => {
+          if (prev.length === finalSamples.length && JSON.stringify(prev) === JSON.stringify(finalSamples)) {
+            return prev
+          }
+          return finalSamples
+        })
       } catch (e) {
         setData(DEFAULT_SAMPLES)
       } finally {
@@ -413,14 +429,16 @@ export default function SamplesDataTable() {
   const table = useReactTable({
     data: filteredData,
     columns,
+    autoResetPageIndex: false,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    onPaginationChange: setPagination,
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onRowSelectionChange: setRowSelection,
-    state: { sorting, columnFilters, rowSelection },
+    state: { pagination, sorting, columnFilters, rowSelection },
     meta: tableMeta
   })
 
@@ -580,9 +598,17 @@ export default function SamplesDataTable() {
             </Table>
           </div>
           
-          <div className="flex items-center justify-end space-x-2 p-4 border-t border-border/50">
-            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Précédent</Button>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Suivant</Button>
+          <div className="flex items-center justify-between p-4 border-t border-border/50 text-xs text-muted-foreground">
+            <div>
+              Affichage de {table.getRowModel().rows.length} sur {filteredData.length} échantillon{filteredData.length > 1 ? "s" : ""}
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Précédent</Button>
+              <span className="text-xs font-semibold text-foreground px-1">
+                Page {table.getState().pagination.pageIndex + 1} sur {table.getPageCount() || 1}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Suivant</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
