@@ -29,6 +29,12 @@ import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
+import { 
+  Center, 
+  getRegisteredCenters, 
+  saveCenter, 
+  generateNextCenterCode 
+} from "@/utils/centers-storage"
 
 // --- CONSTANTES OFFICIELLES ABMed ---
 export const WASTE_WAREHOUSES = [
@@ -134,6 +140,9 @@ const formSchema = z.object({
   recipient_agent: z.string().min(1, "Agent récepteur requis"),
 
   // 2. Structure Déposante / Provenance (Saisie unique pour tout le dépôt)
+  center_mode: z.enum(["new", "existing"]).default("new"),
+  center_code: z.string().optional(),
+  center_id: z.string().optional(),
   source_structure: z.string().min(2, "Le nom de la structure apportrice est requis"),
   source_type: z.string().min(1, "Type de structure requis"),
   city: z.string().optional(),
@@ -167,6 +176,12 @@ export default function NewWasteReceptionPage() {
   const [isUploadingDoc, setIsUploadingDoc] = useState(false)
   const [customYearInput, setCustomYearInput] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // État des centres pour la provenance
+  const [registeredCenters, setRegisteredCenters] = useState<Center[]>([])
+  const [generatedCenterCode, setGeneratedCenterCode] = useState<string>("")
+  const [selectedCenterCode, setSelectedCenterCode] = useState<string>("")
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -183,6 +198,9 @@ export default function NewWasteReceptionPage() {
       delivery_slip_ref: "",
       recipient_agent: "Admin EGED (Agent ABMed)",
 
+      center_mode: "new",
+      center_code: "",
+      center_id: "",
       source_structure: "",
       source_type: "Officine privée de pharmacie",
       city: "",
@@ -269,6 +287,21 @@ export default function NewWasteReceptionPage() {
         form.setValue("recipient_agent", `${u.first_name} ${u.last_name} (${u.role || u.fonction || 'Agent ABMed'})`)
       }
     } catch (e) {}
+
+    async function loadCenters() {
+      try {
+        const list = await getRegisteredCenters()
+        setRegisteredCenters(list)
+        const nextCode = generateNextCenterCode(list)
+        setGeneratedCenterCode(nextCode)
+        if (!form.getValues("center_code")) {
+          form.setValue("center_code", nextCode)
+        }
+      } catch (err) {
+        console.warn("Erreur chargement centres dans waste/new:", err)
+      }
+    }
+    loadCenters()
 
     async function fetchSamples() {
       try {
@@ -511,6 +544,25 @@ export default function NewWasteReceptionPage() {
         ? Math.round((Number(values.transfer_cost_amount) || 0) * 0.08)
         : (values.transfer_cost_mode === "dons" ? "Exonéré (Dons)" : "NA")
 
+      // Enregistrement automatique ou mise à jour du centre dans le registre
+      const centerCodeToUse = values.center_code || generatedCenterCode || "CTR-AUTO"
+      if (values.source_structure && values.source_structure.trim() !== "") {
+        try {
+          await saveCenter({
+            id: values.center_id,
+            center_code: centerCodeToUse,
+            name: values.source_structure.trim().toUpperCase(),
+            center_type: values.source_type || "Officine privée de pharmacie",
+            city: values.city || "Cotonou",
+            country: "Bénin",
+            contact_person: values.depositor_name || "",
+            phone: values.depositor_phone || "",
+          })
+        } catch (cErr) {
+          console.warn("Notice auto-enregistrement centre waste:", cErr)
+        }
+      }
+
       const newBatches = values.waste_items.map((item, idx) => {
         const uniqueBatchNumber = `${prefix}-${idx + 1}`
         const selectedSample = samples.find((s) => s.id === item.sample_id)
@@ -529,6 +581,8 @@ export default function NewWasteReceptionPage() {
           delivery_slip_ref: values.delivery_slip_ref || "",
           recipient_agent: values.recipient_agent,
 
+          center_code: centerCodeToUse,
+          center_id: values.center_id || null,
           source_structure: values.source_structure,
           source_type: values.source_type,
           city: values.city || "Cotonou",
@@ -645,6 +699,8 @@ export default function NewWasteReceptionPage() {
       const batchesPayload = newBatches.map((b) => ({
         batch_number: b.batch_number,
         reception_number: b.reception_number,
+        center_code: b.center_code,
+        center_id: b.center_id,
         reception_date: b.reception_date,
         reception_time: b.reception_time,
         delivery_slip_ref: b.delivery_slip_ref,
@@ -862,7 +918,7 @@ export default function NewWasteReceptionPage() {
             </CardContent>
           </Card>
 
-          {/* SECTION 2 : PROVENANCE & STRUCTURE APPORTRICE (SAISIE UNIQUE) */}
+          {/* SECTION 2 : PROVENANCE & IDENTIFICATION DU CENTRE */}
           <Card className="shadow-sm border-2 border-primary/20 rounded-2xl bg-primary/[0.02]">
             <CardHeader className="p-4 pb-3 border-b border-border/50 bg-muted/20">
               <div className="flex items-center justify-between">
@@ -870,97 +926,209 @@ export default function NewWasteReceptionPage() {
                   <Building2 className="mr-2 h-4 w-4 text-primary" />
                   2. Provenance & Structure qui a apporté les Déchets
                 </CardTitle>
-                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
-                  Saisie unique pour tout le dépôt
+                <Badge variant="outline" className="text-xs font-mono font-bold bg-background">
+                  {form.watch("center_code") || generatedCenterCode || "CTR-AUTO"}
                 </Badge>
               </div>
               <CardDescription className="text-xs">
                 Ces informations s&apos;appliquent automatiquement à tous les déchets ajoutés ci-dessous.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <CardContent className="p-4 space-y-4">
               
-              <div className="md:col-span-2">
-                <FormField control={form.control} name="source_structure" render={({ field }) => (
+              {/* SÉLECTEUR NOUVEAU vs ANCIEN CENTRE */}
+              <div className="p-3 bg-background rounded-xl border border-border/70 space-y-2">
+                <span className="text-xs font-bold text-foreground block">
+                  Statut de l&apos;Établissement / Centre Apporteur :
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      form.setValue("center_mode", "new")
+                      form.setValue("center_code", generatedCenterCode)
+                      setSelectedCenterCode("")
+                    }}
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      form.watch("center_mode") === "new"
+                        ? "bg-[#1B5C2E] text-white border-[#1B5C2E] shadow-xs"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Nouveau Centre
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      form.setValue("center_mode", "existing")
+                    }}
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      form.watch("center_mode") === "existing"
+                        ? "bg-[#1B5C2E] text-white border-[#1B5C2E] shadow-xs"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <Building2 className="h-4 w-4" />
+                    Ancien Centre (Répertorié)
+                  </button>
+                </div>
+
+                {/* BANNIÈRE IDENTIFIANT ATTRIBUÉ OU CHOIX ANCIEN CENTRE */}
+                {form.watch("center_mode") === "new" ? (
+                  <div className="mt-2 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 rounded-lg flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                      <div>
+                        <span className="font-semibold text-emerald-900 dark:text-emerald-300">
+                          Identifiant unique créé automatiquement :
+                        </span>
+                        <span className="font-mono font-extrabold text-[#1B5C2E] ml-1.5 text-sm">
+                          {form.watch("center_code") || generatedCenterCode}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge className="bg-[#1B5C2E] text-white text-[10px]">1er Enregistrement</Badge>
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-1.5">
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      Sélectionner le centre existant parmi les établissements enregistrés :
+                    </label>
+                    <Select
+                      value={selectedCenterCode}
+                      onValueChange={(code) => {
+                        const val = code || ""
+                        setSelectedCenterCode(val)
+                        const found = registeredCenters.find(c => c.center_code === val)
+                        if (found) {
+                          form.setValue("center_code", found.center_code)
+                          form.setValue("center_id", found.id)
+                          form.setValue("source_structure", found.name, { shouldValidate: true })
+                          if (found.center_type) form.setValue("source_type", found.center_type)
+                          if (found.city) form.setValue("city", found.city)
+                          if (found.phone) form.setValue("depositor_phone", found.phone)
+                          if (found.contact_person) form.setValue("depositor_name", found.contact_person)
+                          toast.info(`Centre ${found.center_code} chargé : ${found.name}`)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background">
+                        <SelectValue placeholder="Choisir un centre répertorié..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {registeredCenters.length === 0 ? (
+                          <SelectItem value="none" disabled className="text-xs">
+                            Aucun centre enregistré pour l&apos;instant
+                          </SelectItem>
+                        ) : (
+                          registeredCenters.map((c) => (
+                            <SelectItem key={c.center_code} value={c.center_code} className="text-xs">
+                              [{c.center_code}] {c.name} — {c.city}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {selectedCenterCode && (
+                      <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded border border-emerald-200 text-xs flex items-center justify-between">
+                        <span className="text-emerald-900 dark:text-emerald-300 font-medium">
+                          Identifiant associé : <strong className="font-mono">{selectedCenterCode}</strong>
+                        </span>
+                        <Badge className="bg-emerald-700 text-white text-[10px]">Identifié</Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* CHAMPS DE SAISIE DE LA STRUCTURE ET DU DÉPOSANT */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <FormField control={form.control} name="source_structure" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold text-foreground">
+                        Structure / Établissement Apporteur <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          className="h-9 text-xs font-semibold bg-background" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+
+                <FormField control={form.control} name="source_type" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold">Type d&apos;Établissement</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "Officine privée de pharmacie"}>
+                      <FormControl>
+                        <SelectTrigger className="h-9 text-xs bg-background">
+                          <SelectValue placeholder="Sélectionner le type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {WASTE_SOURCE_TYPES.map((st) => (
+                          <SelectItem key={st} value={st} className="text-xs">
+                            {st}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="depositor_name" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-foreground">
-                      Structure / Établissement Apporteur <span className="text-red-500">*</span>
+                      Nom & Prénom de l&apos;Apporteur / Déposant <span className="text-red-500">*</span>
                     </FormLabel>
                     <FormControl>
-                      <Input 
-                        {...field} 
-                        className="h-9 text-xs font-semibold bg-background" 
-                      />
+                      <Input {...field} className="h-9 text-xs bg-background" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
-              </div>
 
-              <FormField control={form.control} name="source_type" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-semibold">Type d&apos;Établissement</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormField control={form.control} name="depositor_phone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold">
+                      Téléphone du Déposant <span className="text-red-500">*</span>
+                    </FormLabel>
                     <FormControl>
-                      <SelectTrigger className="h-9 text-xs bg-background">
-                        <SelectValue placeholder="Sélectionner le type" />
-                      </SelectTrigger>
+                      <Input {...field} className="h-9 text-xs bg-background" />
                     </FormControl>
-                    <SelectContent>
-                      {WASTE_SOURCE_TYPES.map((st) => (
-                        <SelectItem key={st} value={st} className="text-xs">
-                          {st}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-              <FormField control={form.control} name="depositor_name" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold text-foreground">
-                    Nom & Prénom de l&apos;Apporteur / Déposant <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input {...field} className="h-9 text-xs bg-background" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <FormField control={form.control} name="depositor_id_card" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold">N° Pièce d&apos;identité (CIP / CNI / Passeport)</FormLabel>
+                    <FormControl>
+                      <Input {...field} className="h-9 text-xs bg-background" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-              <FormField control={form.control} name="depositor_phone" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-semibold">
-                    Téléphone du Déposant <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input {...field} className="h-9 text-xs bg-background" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="depositor_id_card" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-semibold">N° Pièce d&apos;identité (CIP / CNI / Passeport)</FormLabel>
-                  <FormControl>
-                    <Input {...field} className="h-9 text-xs bg-background" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="city" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-semibold">Ville / Commune de provenance</FormLabel>
-                  <FormControl>
-                    <Input {...field} className="h-9 text-xs bg-background" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <div className="md:col-span-3">
+                  <FormField control={form.control} name="city" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Ville / Commune de provenance</FormLabel>
+                      <FormControl>
+                        <Input {...field} className="h-9 text-xs bg-background" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
 
             </CardContent>
           </Card>

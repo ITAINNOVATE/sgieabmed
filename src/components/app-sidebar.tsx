@@ -196,6 +196,24 @@ export function AppSidebar() {
                 )}
               </SidebarMenuItem>
 
+              {/* 2b. RÉPERTOIRE DES CENTRES APPORTEURS */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
+                    isActive('/dashboard/centers') 
+                      ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                      : "text-white hover:bg-white/15 hover:text-white"
+                  }`}
+                >
+                  <Link href="/dashboard/centers" className="flex items-center gap-2.5 w-full">
+                    <Building2 className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Centres Apporteurs</span>
+                    <span className="ml-auto bg-emerald-500/30 text-emerald-100 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">CTR</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* 3. GESTION DES ÉCHANTILLONS PHARMACEUTIQUES */}
               <SidebarMenuItem>
                 <SidebarMenuButton 

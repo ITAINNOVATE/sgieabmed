@@ -72,6 +72,11 @@ import {
 } from "@/utils/exportUtils"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { 
+  Center, 
+  getRegisteredCenters, 
+  calculateCentersData 
+} from "@/utils/centers-storage"
 
 interface Sample {
   id: string
@@ -192,6 +197,30 @@ function ReportThumbnail({ type }: { type: string }) {
           <div className="h-1.5 w-full bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200/50 flex justify-between items-center px-0.5">
             <div className="h-1 w-4 bg-emerald-600 rounded-xs" />
             <div className="h-1 w-3 bg-[#1B5C2E] rounded-xs" />
+          </div>
+        </div>
+      )
+
+    case 'centers_activity':
+      return (
+        <div className="w-24 h-16 rounded border border-emerald-200 bg-emerald-50/40 dark:bg-slate-900 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
+          <div className="h-2 w-full bg-[#1B5C2E] rounded-xs mb-0.5 flex items-center justify-between px-1">
+            <div className="h-1 w-6 bg-white/80 rounded-xs" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="h-1.5 w-full bg-emerald-100/70 dark:bg-emerald-950/40 rounded-xs flex items-center justify-between px-1">
+              <div className="h-1 w-7 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-2 bg-[#1B5C2E] rounded-xs" />
+            </div>
+            <div className="h-1.5 w-full bg-emerald-100/70 dark:bg-emerald-950/40 rounded-xs flex items-center justify-between px-1">
+              <div className="h-1 w-5 bg-slate-400 rounded-xs" />
+              <div className="h-1 w-3 bg-red-500 rounded-xs" />
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-emerald-200/50 rounded-xs flex justify-between items-center px-1">
+            <div className="h-1 w-4 bg-[#1B5C2E] rounded-xs" />
+            <div className="h-1 w-3 bg-emerald-600 rounded-xs" />
           </div>
         </div>
       )
@@ -452,6 +481,7 @@ export default function ReportsClient({
   const [movements, setMovements] = useState<Movement[]>(initialMovements)
   const [wasteBatches, setWasteBatches] = useState<WasteBatch[]>(initialWaste)
   const [destructions, setDestructions] = useState<DestructionPlan[]>(initialDestructions)
+  const [centersList, setCentersList] = useState<Center[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
   const hasLoadedOnceRef = useRef(false)
   const reportViewerRef = useRef<HTMLDivElement>(null)
@@ -630,6 +660,13 @@ export default function ReportsClient({
       setMovements(Array.from(mvtMap.values()))
       setWasteBatches(Array.from(wasteMap.values()))
       setDestructions(Array.from(destMap.values()))
+
+      try {
+        const cList = await getRegisteredCenters()
+        setCentersList(cList)
+      } catch (cErr) {
+        console.warn("Notice fetch centers in reports:", cErr)
+      }
     } catch (err) {
       console.warn("Sync fallback in ReportsClient:", err)
     } finally {
@@ -851,6 +888,58 @@ export default function ReportsClient({
     }
   > = useMemo(() => {
     return {
+      centers_activity: {
+        id: 'centers_activity',
+        title: "Rapport d'activité consolidé par Centre Apporteur (Échantillons & Déchets)",
+        shortTitle: "Activité par Centre",
+        category: 'executive',
+        categoryLabel: "Centres Apporteurs",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        infoText: "Agrégation officielle de tous les dépôts d'échantillons et de déchets par structure et identifiant unique CTR.",
+        description: "Suivi détaillé par centre apporteur avec identifiant CTR, volumes d'échantillons et tonnages de déchets apportés.",
+        getRows: () => {
+          const headers = [
+            "Identifiant CTR",
+            "Nom du Centre / Structure",
+            "Type d'Établissement",
+            "Ville",
+            "Contact & Téléphone",
+            "Nb Réceptions Éch.",
+            "Nb Échantillons",
+            "Nb Lots Déchets",
+            "Poids Déchets (Kg)",
+            "Dernier Dépôt",
+          ]
+          const stats = calculateCentersData(centersList, filteredReceptions, filteredWaste)
+          const exportData: Record<string, any>[] = stats.map((s) => ({
+            "Identifiant CTR": s.center.center_code,
+            "Nom du Centre / Structure": s.center.name,
+            "Type d'Établissement": s.center.center_type,
+            "Ville": s.center.city,
+            "Contact & Téléphone": `${s.center.contact_person || ''} ${s.center.phone ? `(${s.center.phone})` : ''}`.trim() || '-',
+            "Nb Réceptions Éch.": s.samplesReceptionsCount,
+            "Nb Échantillons": s.samplesCount,
+            "Nb Lots Déchets": s.wasteBatchesCount,
+            "Poids Déchets (Kg)": s.wasteTotalWeightKg,
+            "Dernier Dépôt": s.lastActivityDate ? new Date(s.lastActivityDate).toLocaleDateString('fr-FR') : 'Aucun',
+          }))
+
+          const rows = exportData.map((d) => [
+            d["Identifiant CTR"],
+            d["Nom du Centre / Structure"],
+            d["Type d'Établissement"],
+            d["Ville"],
+            d["Contact & Téléphone"],
+            d["Nb Réceptions Éch."],
+            d["Nb Échantillons"],
+            d["Nb Lots Déchets"],
+            `${d["Poids Déchets (Kg)"]} Kg`,
+            d["Dernier Dépôt"],
+          ])
+
+          return { headers, rows, exportData }
+        },
+      },
       waste_receptions: {
         id: 'waste_receptions',
         title: "Tableau de bord de la réception des déchets pharmaceutiques",

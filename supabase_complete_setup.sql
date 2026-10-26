@@ -169,7 +169,33 @@ CREATE TABLE IF NOT EXISTS public.inventories (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 8b. TABLE DES CENTRES ET STRUCTURES APPORTRICES
+CREATE TABLE IF NOT EXISTS public.centers (
+    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    center_code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    center_type TEXT DEFAULT 'Officine privée de pharmacie',
+    city TEXT DEFAULT 'Cotonou',
+    country TEXT DEFAULT 'Bénin',
+    address TEXT,
+    contact_person TEXT,
+    phone TEXT,
+    email TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Colonnes de liaison
+ALTER TABLE public.receptions ADD COLUMN IF NOT EXISTS center_code TEXT;
+ALTER TABLE public.receptions ADD COLUMN IF NOT EXISTS center_id TEXT;
+ALTER TABLE public.waste_batches ADD COLUMN IF NOT EXISTS center_code TEXT;
+ALTER TABLE public.waste_batches ADD COLUMN IF NOT EXISTS center_id TEXT;
+
 -- 9. ACTIVATION DU ROW LEVEL SECURITY & DROITS D'ACCÈS
+ALTER TABLE public.centers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "centers_all_access" ON public.centers;
+CREATE POLICY "centers_all_access" ON public.centers FOR ALL USING (true) WITH CHECK (true);
+
 ALTER TABLE public.receptions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "receptions_all_access" ON public.receptions;
 CREATE POLICY "receptions_all_access" ON public.receptions FOR ALL USING (true) WITH CHECK (true);
@@ -202,6 +228,7 @@ CREATE POLICY "inventories_all_access" ON public.inventories FOR ALL USING (true
 -- Permet aux ordinateurs connectés de recevoir automatiquement les mises à jour sans rafraîchir
 DO $$
 BEGIN
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.centers; EXCEPTION WHEN OTHERS THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.receptions; EXCEPTION WHEN OTHERS THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.samples; EXCEPTION WHEN OTHERS THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.movements; EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -210,3 +237,4 @@ BEGIN
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.waste_movements; EXCEPTION WHEN OTHERS THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.inventories; EXCEPTION WHEN OTHERS THEN NULL; END;
 END $$;
+

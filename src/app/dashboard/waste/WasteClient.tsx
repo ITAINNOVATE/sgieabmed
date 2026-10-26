@@ -155,6 +155,7 @@ export default function WasteClient({
     const matchesSearch = 
       batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       batch.waste_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (batch.center_code && batch.center_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.source_structure && batch.source_structure.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.depositor_name && batch.depositor_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.current_location && batch.current_location.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -344,9 +345,16 @@ export default function WasteClient({
                       <TableCell className="px-2 py-2 min-w-0">
                         {batch.source_structure ? (
                           <div className="min-w-0">
-                            <span className="font-semibold text-foreground truncate block" title={batch.source_structure}>
-                              {batch.source_structure}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-foreground truncate block" title={batch.source_structure}>
+                                {batch.source_structure}
+                              </span>
+                              {batch.center_code && (
+                                <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 bg-emerald-50 text-emerald-800 border-emerald-300">
+                                  {batch.center_code}
+                                </Badge>
+                              )}
+                            </div>
                             {batch.depositor_name && (
                               <span className="block text-[10px] text-muted-foreground truncate" title={`Apporté par : ${batch.depositor_name}`}>
                                 Apporté par : {batch.depositor_name}

@@ -255,7 +255,7 @@ function ReceptionsContent() {
     try {
       const { data, error } = await supabase
         .from('receptions')
-        .select('id, rec_number, date_reception, supplier, status, inspector, created_at, samples_data')
+        .select('id, rec_number, date_reception, supplier, status, inspector, created_at, samples_data, center_code')
         .order('created_at', { ascending: false })
       if (!error && Array.isArray(data)) {
         remoteFetchSuccess = true
@@ -447,6 +447,7 @@ function ReceptionsContent() {
   const filteredReceptions = receptions.filter(rec => {
     const matchesSearch = 
       rec.rec_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (rec.center_code && rec.center_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (rec.supplier && rec.supplier.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (rec.inspector && rec.inspector.toLowerCase().includes(searchTerm.toLowerCase()))
     
@@ -617,7 +618,14 @@ function ReceptionsContent() {
                         </TableCell>
                         <TableCell className="py-2">
                           <div className="flex flex-col">
-                            <span className="font-semibold text-foreground">{rec.supplier || 'N/A'}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-foreground">{rec.supplier || 'N/A'}</span>
+                              {rec.center_code && (
+                                <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 bg-emerald-50 text-emerald-800 border-emerald-300">
+                                  {rec.center_code}
+                                </Badge>
+                              )}
+                            </div>
                             {rec.inspector && (
                               <span className="text-[10px] text-muted-foreground font-medium">Soumis par : {rec.inspector}</span>
                             )}

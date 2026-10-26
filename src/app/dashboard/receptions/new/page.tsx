@@ -20,11 +20,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 import { 
   ArrowLeft, Save, Building2, FileSignature, Truck, CheckSquare, 
-  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText
+  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText, Sparkles, Search
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { 
+  Center, 
+  CENTER_TYPES, 
+  getRegisteredCenters, 
+  saveCenter, 
+  generateNextCenterCode 
+} from "@/utils/centers-storage"
 import React from 'react'
 
 // --- ZOD SCHEMA ---
@@ -38,7 +45,11 @@ const formSchema = z.object({
   inspector: z.string().optional(),
   status: z.string(),
 
-  // 2. Provenance
+  // 2. Provenance & Centre Apporteur
+  center_mode: z.enum(["new", "existing"]).default("new"),
+  center_code: z.string().optional(),
+  center_id: z.string().optional(),
+  center_type: z.string().optional(),
   supplier: z.string().optional(),
   manufacturer: z.string().optional(),
   country: z.string().optional(),
@@ -490,6 +501,11 @@ function NewReceptionContent() {
   const [autoSaveTime, setAutoSaveTime] = useState<string | null>(null)
   const AUTO_SAVE_KEY = 'reception_form_autosave'
 
+  // État pour les centres répertoriés
+  const [registeredCenters, setRegisteredCenters] = useState<Center[]>([])
+  const [generatedCenterCode, setGeneratedCenterCode] = useState<string>("")
+  const [selectedCenterCode, setSelectedCenterCode] = useState<string>("")
+
   React.useEffect(() => {
     async function loadValidators() {
       try {
@@ -511,6 +527,23 @@ function NewReceptionContent() {
     loadValidators()
   }, [])
 
+  React.useEffect(() => {
+    async function loadCenters() {
+      try {
+        const list = await getRegisteredCenters()
+        setRegisteredCenters(list)
+        const nextCode = generateNextCenterCode(list)
+        setGeneratedCenterCode(nextCode)
+        if (!form.getValues("center_code")) {
+          form.setValue("center_code", nextCode)
+        }
+      } catch (e) {
+        console.warn("Erreur chargement centres:", e)
+      }
+    }
+    loadCenters()
+  }, [])
+
   const router = useRouter()
   const nextSearchParams = useSearchParams()
   const supabase = createClient()
@@ -523,6 +556,17 @@ function NewReceptionContent() {
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
       inspector: "Admin EGED",
       status: "En attente",
+      center_mode: "new",
+      center_code: "",
+      center_id: "",
+      center_type: "Officine privée de pharmacie",
+      supplier: "",
+      manufacturer: "",
+      country: "Bénin",
+      city: "Cotonou",
+      contact_person: "",
+      phone: "",
+      email: "",
       samples: [{ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 }],
       check_packaging: false,
       check_boxes: false,
@@ -701,6 +745,26 @@ function NewReceptionContent() {
       }))
     } catch (e) {}
 
+    // ─── Enregistrement automatique ou mise à jour du centre dans le registre ───
+    const centerCodeToUse = values.center_code || generatedCenterCode || "CTR-AUTO"
+    if (values.supplier && values.supplier.trim() !== "") {
+      try {
+        await saveCenter({
+          id: values.center_id,
+          center_code: centerCodeToUse,
+          name: values.supplier.trim().toUpperCase(),
+          center_type: values.center_type || "Officine privée de pharmacie",
+          city: values.city || "Cotonou",
+          country: values.country || "Bénin",
+          contact_person: values.contact_person || "",
+          phone: values.phone || "",
+          email: values.email || "",
+        })
+      } catch (cErr) {
+        console.warn("Notice auto-enregistrement centre:", cErr)
+      }
+    }
+
     const fullPayload: any = {
       rec_number: values.rec_number,
       date_reception: values.date_reception || new Date().toISOString().split('T')[0],
@@ -709,6 +773,8 @@ function NewReceptionContent() {
       type_reception: values.type_reception || null,
       inspector: values.inspector || "Admin EGED",
       status: status,
+      center_code: centerCodeToUse,
+      center_id: values.center_id || null,
       supplier: values.supplier || null,
       manufacturer: values.manufacturer || null,
       country: values.country || null,
@@ -737,6 +803,7 @@ function NewReceptionContent() {
         id: values.rec_number,
         rec_number: values.rec_number,
         date_reception: values.date_reception || new Date().toISOString().split('T')[0],
+        center_code: centerCodeToUse,
         supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
         status: status,
         inspector: values.inspector || "Admin EGED",
@@ -1193,31 +1260,202 @@ function NewReceptionContent() {
               </CardContent>
             </Card>
 
-            {/* 2. PROVENANCE */}
+            {/* 2. PROVENANCE & IDENTIFICATION DU CENTRE */}
             <Card className="shadow-sm border-border/50">
               <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-                <CardTitle className="flex items-center text-lg"><Building2 className="mr-2 h-5 w-5 text-primary" /> 2. Provenance</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center text-lg">
+                    <Building2 className="mr-2 h-5 w-5 text-primary" /> 2. Provenance & Centre Apporteur
+                  </CardTitle>
+                  <Badge variant="outline" className="text-xs font-mono font-bold bg-background">
+                    {form.watch("center_code") || generatedCenterCode || "CTR-AUTO"}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="grid sm:grid-cols-2 gap-4 pt-6">
-                <FormField control={form.control} name="supplier" render={({ field }) => (
-                  <FormItem className="sm:col-span-2">
-                    <FormLabel>Demandeur/Donnateur/Objet</FormLabel>
-                    <FormControl><UppercaseInput placeholder="" {...field} value={field.value ?? ""} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="manufacturer" render={({ field }) => (
-                  <FormItem><FormLabel>Fabricant</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="country" render={({ field }) => (
-                  <FormItem><FormLabel>Pays d'origine</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="contact_person" render={({ field }) => (
-                  <FormItem><FormLabel>Personne de contact</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel>Téléphone</FormLabel><FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
+              <CardContent className="space-y-4 pt-6">
+                
+                {/* SELECTEUR NOUVEAU vs ANCIEN CENTRE */}
+                <div className="p-3 bg-muted/40 rounded-xl border border-border/70 space-y-2">
+                  <span className="text-xs font-bold text-foreground block">
+                    Statut du Centre Apporteur :
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        form.setValue("center_mode", "new")
+                        form.setValue("center_code", generatedCenterCode)
+                        setSelectedCenterCode("")
+                      }}
+                      className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                        form.watch("center_mode") === "new"
+                          ? "bg-[#1B5C2E] text-white border-[#1B5C2E] shadow-xs"
+                          : "bg-background text-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Nouveau Centre
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        form.setValue("center_mode", "existing")
+                      }}
+                      className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                        form.watch("center_mode") === "existing"
+                          ? "bg-[#1B5C2E] text-white border-[#1B5C2E] shadow-xs"
+                          : "bg-background text-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      <Building2 className="h-4 w-4" />
+                      Ancien Centre (Répertorié)
+                    </button>
+                  </div>
+
+                  {/* BANNIÈRE IDENTIFIANT ATTRIBUÉ OU CHOIX ANCIEN CENTRE */}
+                  {form.watch("center_mode") === "new" ? (
+                    <div className="mt-2 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 rounded-lg flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-[#1B5C2E] shrink-0" />
+                        <div>
+                          <span className="font-semibold text-emerald-900 dark:text-emerald-300">
+                            Identifiant unique créé automatiquement :
+                          </span>
+                          <span className="font-mono font-extrabold text-[#1B5C2E] ml-1.5 text-sm">
+                            {form.watch("center_code") || generatedCenterCode}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge className="bg-[#1B5C2E] text-white text-[10px]">1er Enregistrement</Badge>
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-1.5">
+                      <label className="text-[11px] font-semibold text-muted-foreground">
+                        Sélectionner le centre existant :
+                      </label>
+                      <Select
+                        value={selectedCenterCode}
+                        onValueChange={(code) => {
+                          const val = code || ""
+                          setSelectedCenterCode(val)
+                          const found = registeredCenters.find(c => c.center_code === val)
+                          if (found) {
+                            form.setValue("center_code", found.center_code)
+                            form.setValue("center_id", found.id)
+                            form.setValue("supplier", found.name)
+                            form.setValue("center_type", found.center_type)
+                            form.setValue("city", found.city)
+                            if (found.country) form.setValue("country", found.country)
+                            if (found.contact_person) form.setValue("contact_person", found.contact_person)
+                            if (found.phone) form.setValue("phone", found.phone)
+                            if (found.email) form.setValue("email", found.email)
+                            toast.info(`Centre ${found.center_code} chargé : ${found.name}`)
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-background">
+                          <SelectValue placeholder="Choisir un centre répertorié..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {registeredCenters.length === 0 ? (
+                            <SelectItem value="none" disabled className="text-xs">
+                              Aucun centre enregistré pour l&apos;instant
+                            </SelectItem>
+                          ) : (
+                            registeredCenters.map((c) => (
+                              <SelectItem key={c.center_code} value={c.center_code} className="text-xs">
+                                [{c.center_code}] {c.name} — {c.city}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedCenterCode && (
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded border border-emerald-200 text-xs flex items-center justify-between">
+                          <span className="text-emerald-900 dark:text-emerald-300 font-medium">
+                            Identifiant associé : <strong className="font-mono">{selectedCenterCode}</strong>
+                          </span>
+                          <Badge className="bg-emerald-700 text-white text-[10px]">Identifié</Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* CHAMPS DE SAISIE */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="supplier" render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel className="text-xs font-bold">
+                        Nom de la Structure / Demandeur <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl><UppercaseInput placeholder="Ex: PHARMACIE DU PORT, CHNU, LABO..." {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="center_type" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Type de structure</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || "Officine privée de pharmacie"}>
+                        <FormControl>
+                          <SelectTrigger className="h-9 text-xs bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CENTER_TYPES.map(t => (
+                            <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="manufacturer" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Fabricant</FormLabel>
+                      <FormControl><UppercaseInput placeholder="Ex: SANOFI, PFIZER..." {...field} value={field.value ?? ""} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="city" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Ville / Commune</FormLabel>
+                      <FormControl><UppercaseInput placeholder="Ex: COTONOU" {...field} value={field.value ?? ""} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="country" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Pays d&apos;origine</FormLabel>
+                      <FormControl><UppercaseInput placeholder="Ex: BÉNIN" {...field} value={field.value ?? ""} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="contact_person" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Personne de contact</FormLabel>
+                      <FormControl><UppercaseInput placeholder="Ex: DR. AHOUNOU" {...field} value={field.value ?? ""} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold">Téléphone</FormLabel>
+                      <FormControl><UppercaseInput placeholder="Ex: +229 97 00 00 00" {...field} value={field.value ?? ""} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel className="text-xs font-semibold">Email</FormLabel>
+                      <FormControl><Input type="email" placeholder="Ex: contact@structure.bj" {...field} value={field.value ?? ""} className="h-9 text-xs" /></FormControl>
+                    </FormItem>
+                  )} />
+                </div>
               </CardContent>
             </Card>
 

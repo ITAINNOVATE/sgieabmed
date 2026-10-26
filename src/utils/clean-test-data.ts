@@ -14,6 +14,7 @@ export async function clearAllTestData(): Promise<boolean> {
       localStorage.removeItem('waste_batches_custom_v1')
       localStorage.removeItem('destruction_plans_custom_v1')
       localStorage.removeItem('reception_deleted_ids')
+      localStorage.removeItem('registered_centers_v1')
 
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
