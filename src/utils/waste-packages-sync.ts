@@ -5,19 +5,27 @@ import { WasteStockItem } from "@/app/dashboard/waste/stock/page"
 import { normalizeWasteLocation } from "@/utils/waste-locations"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
 
+const BUILTIN_DISSOLVED_PACKAGES = ["COLIS-2026-31-8204", "pkg-1793030452370"]
+
 /**
  * Récupère l'ensemble des numéros et identifiants de colis dissous (tombstones)
  * stockés localement dans le navigateur.
  */
 export function getLocalDissolvedPackageNumbers(): Set<string> {
-  if (typeof window === "undefined" || !window.localStorage) return new Set()
+  const set = new Set<string>(BUILTIN_DISSOLVED_PACKAGES)
+  if (typeof window === "undefined" || !window.localStorage) return set
   try {
     const raw = localStorage.getItem("waste_packages_deleted_ids")
-    if (!raw) return new Set()
+    if (!raw) return set
     const arr = JSON.parse(raw)
-    return new Set(Array.isArray(arr) ? arr : [])
+    if (Array.isArray(arr)) {
+      arr.forEach(item => {
+        if (typeof item === "string" && item.trim()) set.add(item.trim())
+      })
+    }
+    return set
   } catch {
-    return new Set()
+    return set
   }
 }
 
@@ -80,6 +88,7 @@ export async function fetchCloudGroupedPackages(): Promise<GroupedWastePackage[]
       .select("*")
       .in("type", ["Regroupement en colis", "Colis dissous"])
       .order("created_at", { ascending: false })
+      .order("mvt_number", { ascending: false })
 
     if (error || !data || data.length === 0) {
       return []
@@ -388,32 +397,57 @@ export async function syncLocalAndCloudPackages(
   const remotePkgs = await fetchCloudGroupedPackages()
 
   const pkgMap = new Map<string, GroupedWastePackage>()
+  const registeredNumbers = new Set<string>()
+  const registeredIds = new Set<string>()
 
   // A. Commencer par les colis distants valides (source de vérité Cloud)
   remotePkgs.forEach((rp) => {
-    const key = rp.package_number || rp.id
-    if (key && !dissolvedSet.has(rp.package_number) && (!rp.id || !dissolvedSet.has(rp.id))) {
-      pkgMap.set(key, rp)
+    const isDissolved = 
+      (rp.package_number && dissolvedSet.has(rp.package_number)) || 
+      (rp.id && dissolvedSet.has(rp.id))
+
+    if (!isDissolved) {
+      const canonicalKey = rp.package_number || rp.id
+      if (canonicalKey) {
+        pkgMap.set(canonicalKey, rp)
+        if (rp.package_number) registeredNumbers.add(rp.package_number)
+        if (rp.id) registeredIds.add(rp.id)
+      }
     }
   })
 
   // B. Fusionner les colis locaux non encore envoyés qui NE SONT PAS dissous
   const unsyncedLocals: GroupedWastePackage[] = []
   localPkgs.forEach((lp) => {
-    const key = lp.package_number || lp.id
-    if (
-      key &&
-      !dissolvedSet.has(lp.package_number) &&
-      (!lp.id || !dissolvedSet.has(lp.id))
-    ) {
-      if (!pkgMap.has(key)) {
-        pkgMap.set(key, lp)
-        unsyncedLocals.push(lp)
+    const isDissolved = 
+      (lp.package_number && dissolvedSet.has(lp.package_number)) || 
+      (lp.id && dissolvedSet.has(lp.id))
+
+    if (!isDissolved) {
+      const alreadyInCloud = 
+        (lp.package_number && registeredNumbers.has(lp.package_number)) || 
+        (lp.id && registeredIds.has(lp.id))
+
+      if (!alreadyInCloud) {
+        const canonicalKey = lp.package_number || lp.id
+        if (canonicalKey && !pkgMap.has(canonicalKey)) {
+          pkgMap.set(canonicalKey, lp)
+          if (lp.package_number) registeredNumbers.add(lp.package_number)
+          if (lp.id) registeredIds.add(lp.id)
+          unsyncedLocals.push(lp)
+        }
       }
     }
   })
 
+  // Tri déterministe rigoureux : date desc, puis package_number desc
   const merged = Array.from(pkgMap.values())
+  merged.sort((a, b) => {
+    const timeA = new Date(a.created_at || 0).getTime()
+    const timeB = new Date(b.created_at || 0).getTime()
+    if (timeB !== timeA) return timeB - timeA
+    return (b.package_number || "").localeCompare(a.package_number || "")
+  })
 
   // C. Sauvegarder dans le localStorage local la liste propre
   if (typeof window !== "undefined" && window.localStorage) {

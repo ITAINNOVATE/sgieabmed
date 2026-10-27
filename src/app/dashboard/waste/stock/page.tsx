@@ -158,9 +158,21 @@ export default function WasteStockPage() {
     const dissolved = getLocalDissolvedPackageNumbers()
     finalPackages = finalPackages.filter(p => !dissolved.has(p.package_number) && (!p.id || !dissolved.has(p.id)))
 
+    // Tri déterministe rigoureux pour stabiliser l'affichage
+    finalPackages.sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime()
+      const timeB = new Date(b.created_at || 0).getTime()
+      if (timeB !== timeA) return timeB - timeA
+      return (b.package_number || "").localeCompare(a.package_number || "")
+    })
+
     setPackages((prev) => {
-      if (prev.length === finalPackages.length && JSON.stringify(prev) === JSON.stringify(finalPackages)) {
-        return prev
+      if (prev.length === finalPackages.length) {
+        const isIdentical = prev.every((p, i) => {
+          const f = finalPackages[i]
+          return f && p.package_number === f.package_number && p.total_weight === f.total_weight && p.current_location === f.current_location && (p.items?.length || 0) === (f.items?.length || 0)
+        })
+        if (isIdentical) return prev
       }
       return finalPackages
     })
@@ -233,9 +245,15 @@ export default function WasteStockPage() {
       }
     })
 
+    finalBatches.sort((a, b) => (b.batch_number || "").localeCompare(a.batch_number || ""))
+
     setData((prev) => {
-      if (prev.length === finalBatches.length && JSON.stringify(prev) === JSON.stringify(finalBatches)) {
-        return prev
+      if (prev.length === finalBatches.length) {
+        const isIdentical = prev.every((b, i) => {
+          const f = finalBatches[i]
+          return f && b.id === f.id && b.package_number === f.package_number && b.current_location === f.current_location && b.observations === f.observations
+        })
+        if (isIdentical) return prev
       }
       return finalBatches
     })
@@ -247,11 +265,11 @@ export default function WasteStockPage() {
     fetchData()
   }, [fetchData])
 
-  // Synchronisation temps réel (3 secondes pour une réactivité instantanée)
+  // Synchronisation temps réel optimisée (réactivité instantanée sur mutation, polling doux en tâche de fond)
   useRealtimeSync({
     tables: ["waste_batches", "waste_movements", "destruction_plans"],
     onSync: fetchData,
-    pollIntervalMs: 3000,
+    pollIntervalMs: 6000,
   })
 
   // 2. Filtrage pour Stocks en détail

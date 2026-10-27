@@ -20,12 +20,14 @@ import {
   Home, LayoutDashboard, Package, Trash2, ChartColumn, Bell,
   Settings, Inbox, ArrowLeftRight, ClipboardCheck, Folder, 
   Flame, MapPin, Building2, LogOut, ChevronRight, ChevronDown,
-  Users, History, PackageCheck, AlertCircle, BarChart3, Shield, ShieldCheck, Boxes
+  Users, History, PackageCheck, AlertCircle, BarChart3, Shield, ShieldCheck, Boxes,
+  CalendarDays, FileCheck
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { logout } from "@/app/actions/auth"
 import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
+import { getCurrentUser, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
 import "@/utils/waste-locations"
 import "@/utils/sample-reset"
 
@@ -33,6 +35,16 @@ export function AppSidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { isMobile, setOpenMobile } = useSidebar()
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null)
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser())
+  }, [pathname])
+
+  const isCenterUser = 
+    currentUser?.role === "Centre Apporteur" || 
+    currentUser?.matricule?.startsWith("CTR-") || 
+    currentUser?.username?.startsWith("CTR-")
 
   // Fermeture automatique du volet mobile lors de la navigation
   useEffect(() => {
@@ -126,9 +138,84 @@ export function AppSidebar() {
         <SidebarGroup className="p-1">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              
-              {/* 1. ACCUEIL */}
-              <SidebarMenuItem>
+              {isCenterUser ? (
+                <>
+                  {/* ─── ESPACE RESTREINT DÉDIÉ : CENTRES APPORTEURS ─── */}
+                  
+                  {/* 1. ACCUEIL ÉTABLISSEMENT */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
+                        isActive('/dashboard') 
+                          ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                          : "text-white hover:bg-white/15 hover:text-white"
+                      }`}
+                    >
+                      <Link href="/dashboard" className="flex items-center gap-2.5 w-full">
+                        <Home className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                        <span className="font-bold text-white tracking-wide truncate">Accueil Établissement</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* 2. PRISE DE RENDEZ-VOUS */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
+                        isActive('/dashboard/appointments') 
+                          ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                          : "text-white hover:bg-white/15 hover:text-white"
+                      }`}
+                    >
+                      <Link href="/dashboard/appointments" className="flex items-center gap-2.5 w-full">
+                        <CalendarDays className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                        <span className="font-bold text-white tracking-wide truncate">Prise de Rendez-vous</span>
+                        <span className="ml-auto bg-emerald-400/30 text-emerald-100 text-[10px] font-bold px-1.5 py-0.5 rounded">RDV</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* 3. DOCUMENTS & ATTESTATIONS */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
+                        isActive('/dashboard/center-documents') 
+                          ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                          : "text-white hover:bg-white/15 hover:text-white"
+                      }`}
+                    >
+                      <Link href="/dashboard/center-documents" className="flex items-center gap-2.5 w-full">
+                        <FileCheck className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                        <span className="font-bold text-white tracking-wide truncate">Mes Documents & Guides</span>
+                        <span className="ml-auto bg-purple-400/30 text-purple-100 text-[10px] font-bold px-1.5 py-0.5 rounded">PDF</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* 4. PROFIL DU CENTRE */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
+                        isActive('/dashboard/profile') 
+                          ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                          : "text-white hover:bg-white/15 hover:text-white"
+                      }`}
+                    >
+                      <Link href="/dashboard/profile" className="flex items-center gap-2.5 w-full">
+                        <Building2 className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                        <span className="font-bold text-white tracking-wide truncate">Profil Établissement</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
+              ) : (
+                <>
+                  {/* 1. ACCUEIL */}
+                  <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild 
                   className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
@@ -210,6 +297,24 @@ export function AppSidebar() {
                     <Building2 className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
                     <span className="font-bold text-white tracking-wide truncate">Centres Apporteurs</span>
                     <span className="ml-auto bg-emerald-500/30 text-emerald-100 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">CTR</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* 2c. GESTION DES RENDEZ-VOUS & RÉCEPTIONS */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  className={`h-9 px-2.5 text-xs font-bold rounded-lg transition-all ${
+                    isActive('/dashboard/appointments') 
+                      ? "bg-white/20 text-white font-extrabold shadow-xs" 
+                      : "text-white hover:bg-white/15 hover:text-white"
+                  }`}
+                >
+                  <Link href="/dashboard/appointments" className="flex items-center gap-2.5 w-full">
+                    <CalendarDays className="h-4.5 w-4.5 shrink-0 text-white" strokeWidth={2.2} />
+                    <span className="font-bold text-white tracking-wide truncate">Rendez-vous & Créneaux</span>
+                    <span className="ml-auto bg-blue-500/30 text-blue-100 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">RDV</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -647,7 +752,8 @@ export function AppSidebar() {
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
-
+                </>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

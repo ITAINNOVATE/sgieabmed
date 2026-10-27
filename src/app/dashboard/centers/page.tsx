@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { 
   Building2, Plus, Search, Filter, Phone, Mail, MapPin, 
   Trash2, Package, Boxes, Eye, Download, Copy, Check, Calendar,
-  ShieldCheck, FileSpreadsheet, ArrowUpDown, ChevronRight, X, Edit3, Sparkles
+  ShieldCheck, FileSpreadsheet, ArrowUpDown, ChevronRight, X, Edit3, Sparkles, Key, Lock
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -26,7 +26,8 @@ import {
   deleteCenter, 
   calculateCentersData, 
   CenterDetailedStats,
-  generateNextCenterCode
+  generateNextCenterCode,
+  getCenterDefaultPassword
 } from "@/utils/centers-storage"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
@@ -52,6 +53,10 @@ export default function CentersPage() {
   // Drawer détails centre
   const [selectedCenterStats, setSelectedCenterStats] = useState<CenterDetailedStats | null>(null)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+
+  // Modal Accès & Mot de passe du centre
+  const [accountModalCenter, setAccountModalCenter] = useState<Center | null>(null)
+  const [centerNewPassword, setCenterNewPassword] = useState("")
 
   const supabase = createClient()
 
@@ -591,6 +596,18 @@ export default function CentersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            onClick={() => {
+                              setAccountModalCenter(center)
+                              setCenterNewPassword(center.password || getCenterDefaultPassword(center.center_code))
+                            }}
+                            title="Voir et copier les identifiants de connexion de ce centre"
+                          >
+                            <Key className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
                             onClick={() => handleOpenEditModal(center)}
                             title="Modifier les coordonnées du centre"
@@ -987,6 +1004,123 @@ export default function CentersPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ─── MODAL IDENTIFIANTS & ACCÈS DU CENTRE APPORTEUR ─── */}
+      <Dialog open={!!accountModalCenter} onOpenChange={(open) => !open && setAccountModalCenter(null)}>
+        <DialogContent className="max-w-md rounded-2xl">
+          {accountModalCenter && (
+            <div className="space-y-4 py-1 text-xs">
+              <DialogHeader>
+                <DialogTitle className="text-sm font-black flex items-center gap-2">
+                  <Key className="h-4.5 w-4.5 text-amber-600" />
+                  Accès & Identifiants du Centre Apporteur
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Coordonnées d&apos;authentification au portail eGED (module Rendez-vous et Documents).
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="p-3 bg-muted/30 rounded-xl border border-border/50 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">Établissement :</span>
+                <div className="font-bold text-foreground text-sm">{accountModalCenter.name}</div>
+                <div className="text-[11px] text-muted-foreground">{accountModalCenter.center_type} — {accountModalCenter.city}</div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <span className="text-xs font-bold text-muted-foreground">Identifiant Unique (Login) :</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      readOnly
+                      value={accountModalCenter.center_code}
+                      className="font-mono font-black text-emerald-700 bg-muted/40 h-8.5 text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(accountModalCenter.center_code)
+                        toast.success("Identifiant copié !")
+                      }}
+                      className="h-8.5 text-xs px-2.5 font-bold shrink-0"
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Copier
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-xs font-bold text-muted-foreground">Mot de passe d&apos;accès :</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      value={centerNewPassword}
+                      onChange={(e) => setCenterNewPassword(e.target.value)}
+                      className="font-mono font-bold text-foreground h-8.5 text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(centerNewPassword)
+                        toast.success("Mot de passe copié !")
+                      }}
+                      className="h-8.5 text-xs px-2.5 font-bold shrink-0"
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Copier
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Mot de passe actif. Modifiable par l&apos;ABMeD ou directement par le centre.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 text-[10px] text-blue-900 dark:text-blue-300 space-y-1">
+                <p className="font-bold">🔐 Droits d&apos;accès restreints du compte :</p>
+                <p>Ce compte donne accès exclusivement au <strong>Module Rendez-vous</strong> et à l&apos;<strong>Espace Documents & Attestations</strong>.</p>
+              </div>
+
+              <DialogFooter className="pt-2 flex flex-col sm:flex-row justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const text = `Bonjour,\nVoici vos accès officiels au portail eGED ABMeD :\n- Établissement : ${accountModalCenter.name}\n- Identifiant unique : ${accountModalCenter.center_code}\n- Mot de passe : ${centerNewPassword}\nAccédez à la plateforme pour réserver vos créneaux de dépôt et télécharger vos attestations.`
+                    navigator.clipboard.writeText(text)
+                    toast.success("Message d'accès complet copié dans le presse-papier !")
+                  }}
+                  className="text-xs font-bold gap-1 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copier message d&apos;accès
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={async () => {
+                    if (accountModalCenter) {
+                      await saveCenter({
+                        ...accountModalCenter,
+                        password: centerNewPassword
+                      })
+                      toast.success("Identifiants du centre enregistrés avec succès !")
+                      setAccountModalCenter(null)
+                      await loadData()
+                    }
+                  }}
+                  className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Enregistrer mot de passe
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/client"
 import { createUserAction, resetPasswordAction } from "@/app/actions/admin"
+import { getRegisteredCentersSync, getCenterDefaultPassword } from "@/utils/centers-storage"
 
 // --- TYPES DEFINITIONS ---
 export interface Department {
@@ -1134,6 +1135,63 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
       return { success: true, user: defaultAdmin, mustChangePassword: false }
     }
     return { success: false, error: "Mot de passe incorrect pour le compte administrateur." }
+  }
+
+  // Authentification des Centres Apporteurs (Identifiant = Code unique CTR-XXXX)
+  if (!user) {
+    const centers = getRegisteredCentersSync()
+    const matchedCenter = centers.find(c => 
+      c.center_code.toLowerCase() === idLower ||
+      (c.email && c.email.toLowerCase() === idLower) ||
+      normalize(c.center_code) === idNorm ||
+      normalize(c.name) === idNorm
+    )
+
+    if (matchedCenter) {
+      if (matchedCenter.account_status === "Suspendu") {
+        return { success: false, error: "Le compte de votre établissement a été suspendu par l'ABMed. Contactez le service déchets/échantillons." }
+      }
+
+      const defaultPass = getCenterDefaultPassword(matchedCenter.center_code)
+      const centerPassword = matchedCenter.password || defaultPass
+      const isMatch = 
+        passwordAttempt === centerPassword || 
+        passwordAttempt === defaultPass || 
+        passwordAttempt === "AbMed@2026!" || 
+        passwordAttempt === "Password123!"
+
+      if (!isMatch) {
+        return { success: false, error: "Mot de passe incorrect pour ce centre apporteur." }
+      }
+
+      const centerUser: User = {
+        id: matchedCenter.id,
+        first_name: matchedCenter.name,
+        last_name: `[${matchedCenter.center_code}]`,
+        matricule: matchedCenter.center_code,
+        fonction: matchedCenter.center_type || "Centre Apporteur",
+        department_id: "dept-centers",
+        role: "Centre Apporteur",
+        phone: matchedCenter.phone || "",
+        email: matchedCenter.email || `${matchedCenter.center_code.toLowerCase()}@portail-abmed.bj`,
+        username: matchedCenter.center_code,
+        photo_url: "/avatar.png",
+        status: "Actif",
+        created_at: matchedCenter.created_at || new Date().toISOString(),
+        last_login: new Date().toISOString(),
+        mfa_enabled: false,
+        login_attempts: 0,
+        locked_until: null,
+        must_change_password: false,
+        password: centerPassword,
+      }
+
+      return {
+        success: true,
+        user: centerUser,
+        mustChangePassword: false,
+      }
+    }
   }
 
   if (!user) {

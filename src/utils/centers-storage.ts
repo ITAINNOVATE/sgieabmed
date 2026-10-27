@@ -14,8 +14,20 @@ export interface Center {
   contact_person?: string
   phone?: string
   email?: string
+  password?: string // Mot de passe d'accès pour le centre
+  account_status?: "Actif" | "Suspendu"
+  last_login?: string
   created_at: string
   updated_at?: string
+}
+
+/**
+ * Génère le mot de passe initial sécurisé par défaut pour un centre apporteur
+ * Ex: CTR-2026-0001 -> AbMed@CTR20260001!
+ */
+export function getCenterDefaultPassword(centerCode: string): string {
+  const clean = (centerCode || "CTR").replace(/[^a-zA-Z0-9]/g, "")
+  return `AbMed@${clean}!`
 }
 
 export const CENTER_TYPES = [
@@ -73,8 +85,13 @@ export function getRegisteredCentersSync(): Center[] {
       if (stored) {
         const parsed: Center[] = JSON.parse(stored)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          memoryCentersCache = parsed
-          return parsed
+          const withAuth = parsed.map(c => ({
+            ...c,
+            password: c.password || getCenterDefaultPassword(c.center_code),
+            account_status: c.account_status || "Actif"
+          }))
+          memoryCentersCache = withAuth
+          return withAuth
         }
       }
     } catch (e) {}
@@ -303,6 +320,9 @@ export async function saveCenter(centerData: Partial<Center>): Promise<Center> {
     contact_person: centerData.contact_person ?? target?.contact_person ?? "",
     phone: centerData.phone ?? target?.phone ?? "",
     email: centerData.email ?? target?.email ?? "",
+    password: centerData.password || target?.password || getCenterDefaultPassword(centerCode),
+    account_status: centerData.account_status || target?.account_status || "Actif",
+    last_login: centerData.last_login || target?.last_login,
     created_at: target?.created_at || centerData.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
