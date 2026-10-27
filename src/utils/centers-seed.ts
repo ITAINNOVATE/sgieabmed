@@ -598,5 +598,18 @@ export const DEFAULT_OFFICIAL_CENTERS: Center[] = [
     "email": "ctr-2026-0046@portail-abmed.bj",
     "account_status": "Actif",
     "created_at": "2026-10-26T09:31:35.002018+00:00"
+  },
+  {
+    "id": "center-2026-0047",
+    "center_code": "CTR-2026-0047",
+    "name": "PHARMACIE OUESSE CENTRE",
+    "center_type": "Officine privée de pharmacie",
+    "city": "OUESSE",
+    "country": "Bénin",
+    "contact_person": "MIDINGOYI NATACHA",
+    "phone": "0151031357",
+    "email": "ctr-2026-0047@portail-abmed.bj",
+    "account_status": "Actif",
+    "created_at": "2026-10-27T11:22:00.000Z"
   }
 ];

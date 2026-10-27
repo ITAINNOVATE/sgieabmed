@@ -34,6 +34,8 @@ export function getCenterDefaultPassword(centerCode: string): string {
 export const CENTER_TYPES = [
   "Officine privée de pharmacie",
   "Établissement hospitalier / Clinique",
+  "Zone Sanitaire",
+  "Promoteur d'essai clinique",
   "Grossiste-répartiteur pharmaceutique",
   "Laboratoire d'analyses médicales",
   "Industrie / Fabricant pharmaceutique",

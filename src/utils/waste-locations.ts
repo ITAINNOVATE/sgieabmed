@@ -32,7 +32,7 @@ runWasteResetOnce()
 export const WASTE_STORE_NAME = "MAGASIN DES DECHETS"
 
 export interface WasteZoneDefinition {
-  id: "solides" | "liquides" | "dangereuses"
+  id: "solides" | "liquides" | "dangereuses" | "mixtes"
   zoneName: string
   fullLocation: string
   shortCode: string
@@ -64,6 +64,14 @@ export const WASTE_ZONES: WasteZoneDefinition[] = [
     shortCode: "Z-DANGEREUSES",
     description: "Produits chimiques, solvants, DASRI, piquants/tranchants, cytotoxiques et produits toxiques.",
     badgeColor: "bg-red-50 text-red-800 border-red-200",
+  },
+  {
+    id: "mixtes",
+    zoneName: "Zone déchets mixtes",
+    fullLocation: "MAGASIN DES DECHETS — Zone déchets mixtes (Solides, Liquides & Divers)",
+    shortCode: "Z-MIXTES",
+    description: "Lots volumineux mixtes non triés en provenance des Zones Sanitaires ou hôpitaux.",
+    badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
   },
 ]
 

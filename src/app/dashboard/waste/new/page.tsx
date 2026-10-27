@@ -56,6 +56,8 @@ export const WASTE_WAREHOUSES = [
 export const WASTE_SOURCE_TYPES = [
   "Officine privée de pharmacie",
   "Établissement hospitalier / Clinique",
+  "Zone Sanitaire",
+  "Promoteur d'essai clinique",
   "Grossiste-répartiteur pharmaceutique",
   "Laboratoire d'analyses médicales",
   "Industrie / Fabricant pharmaceutique",
@@ -70,6 +72,7 @@ export const PRODUCT_NATURES = [
   "psychotropes",
   "dispositifs médicaux",
   "cosmétiques",
+  "produits mixtes (solides & liquides)",
   "autres (à préciser)",
 ]
 
@@ -79,11 +82,13 @@ export const PRODUCT_CATEGORIES = [
   "Catégorie 3 : Produits gazeux ou liquéfiés (bombes aérosols, y compris atomiseurs avec gaz propulseur et inhalateurs)",
   "Catégorie 4 : Produits particuliers à risque nécessitant une gestion particulière (substances sous contrôle international, stupéfiants, psychotropes, antinéoplasiques/cytotoxiques)",
   "Catégorie 5 : Produits d'emballage et emballages vides (bidons d'alcool, bouteilles vides de solutés après utilisation, etc.)",
+  "Catégorie Mixte : Produits mixtes (Solides, Liquides, Sirops & Divers — Non triés / Spécifique Zones Sanitaires)",
 ]
 
 export const WASTE_CLASSIFICATIONS = [
   "Médicaments périmés (Formes solides)",
   "Médicaments périmés (Formes liquides / sirops)",
+  "Médicaments périmés (Formes mixtes : Solides, Liquides & Divers)",
   "Produits saisis",
   "Produits chimiques dangereux & solvants",
   "Déchets infectieux (DASRI)",
@@ -117,6 +122,7 @@ export const DESTRUCTION_MOTIVES = [
   "Rappel de lot",
   "Issus de saisies",
   "Non-conformité analytique",
+  "Retour Patient",
   "Autre",
 ]
 
@@ -1335,6 +1341,11 @@ function NewWasteReceptionContent() {
                       </SelectContent>
                     </Select>
                     <FormMessage />
+                    {field.value === "Zone Sanitaire" && (
+                      <p className="text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-lg p-2 mt-1">
+                        📦 <strong>Zone Sanitaire détectée :</strong> L&apos;option <strong>« Catégorie Mixte »</strong> (Solides, Liquides, Sirops & Divers) est activée ci-dessous pour faciliter la saisie de vos dépôts volumineux sans tri préalable séparé.
+                      </p>
+                    )}
                   </FormItem>
                 )} />
 

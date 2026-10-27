@@ -30,6 +30,7 @@ export const RECEPTION_FINANCE_DEFAULTS: Record<string, WasteFinancialData> = {
   "REC-DECH-2026-3047": { transfer_cost_amount: 380000,  transfer_cost_mode: "chiffre", abmed_fee_8_percent: 30400,  exercise_years: ["2025", "2026"] },         // AIDJEDO (4.26 kg)
   "REC-DECH-2026-1816": { transfer_cost_amount: 320000,  transfer_cost_mode: "chiffre", abmed_fee_8_percent: 25600,  exercise_years: ["2026"] },                  // REHOBOTH-P (3.30 kg)
   "REC-DECH-2026-8867": { transfer_cost_amount: 290000,  transfer_cost_mode: "chiffre", abmed_fee_8_percent: 23200,  exercise_years: ["2025", "2026"] },         // BOLADJI (2.92 kg)
+  "REC-DECH-2026-5923": { transfer_cost_amount: 1368234, transfer_cost_mode: "chiffre", abmed_fee_8_percent: 109459, exercise_years: ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025"] }, // PHARMACIE OUESSE CENTRE (36.15 kg)
 }
 
 /**
