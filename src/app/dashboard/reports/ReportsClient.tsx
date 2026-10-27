@@ -95,6 +95,7 @@ import {
 import {
   getLocalDissolvedPackageNumbers,
 } from "@/utils/waste-packages-sync"
+import { parseFinancesFromBatch } from "@/utils/waste-finances"
 
 interface Sample {
   id: string
@@ -673,7 +674,10 @@ export default function ReportsClient({
         if (Array.isArray(localWaste)) {
           localWaste.forEach((w: any) => {
             const k = w.batch_number || w.id
-            if (k) wasteMap.set(k, w)
+            if (k) {
+              const fin = parseFinancesFromBatch(w)
+              wasteMap.set(k, { ...w, ...fin })
+            }
           })
         }
 
@@ -770,7 +774,11 @@ export default function ReportsClient({
       if (wRes.data && wRes.data.length > 0) {
         wRes.data.forEach((w: any) => {
           const k = w.batch_number || w.id
-          if (k) wasteMap.set(k, w)
+          if (k) {
+            const existing = wasteMap.get(k)
+            const fin = parseFinancesFromBatch(existing?.transfer_cost_amount ? existing : w)
+            wasteMap.set(k, { ...existing, ...w, ...fin })
+          }
         })
       }
 

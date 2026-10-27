@@ -41,6 +41,10 @@ import {
   optimizeFileForUpload, 
   safeSaveDocsToLocalStorage 
 } from "@/utils/idb-docs"
+import { 
+  parseFinancesFromBatch, 
+  encodeFinancesInObservations 
+} from "@/utils/waste-finances"
 
 // --- CONSTANTES OFFICIELLES ABMed ---
 export const WASTE_WAREHOUSES = [
@@ -344,9 +348,9 @@ function NewWasteReceptionContent() {
               depositor_phone: primary.depositor_phone || "",
               depositor_id_card: primary.depositor_id_card || "",
 
-              exercise_years: primary.exercise_years && Array.isArray(primary.exercise_years) ? primary.exercise_years : [new Date().getFullYear().toString()],
-              transfer_cost_mode: primary.transfer_cost_mode || "chiffre",
-              transfer_cost_amount: Number(primary.transfer_cost_amount) || 0,
+              exercise_years: parseFinancesFromBatch(primary).exercise_years && Array.isArray(parseFinancesFromBatch(primary).exercise_years) ? (parseFinancesFromBatch(primary).exercise_years as string[]) : [new Date().getFullYear().toString()],
+              transfer_cost_mode: (parseFinancesFromBatch(primary).transfer_cost_mode as "chiffre" | "na" | "dons") || "chiffre",
+              transfer_cost_amount: parseFinancesFromBatch(primary).transfer_cost_amount || 0,
 
               waste_items: matchedBatches.map((b: any, idx: number) => ({
                 batch_number: b.batch_number || `${prefix}-${idx + 1}`,
@@ -763,7 +767,12 @@ function NewWasteReceptionContent() {
           destruction_motive: item.destruction_motive,
           current_location: item.current_location || "MAGASIN DES DECHETS",
           status: "Déclaré",
-          observations: item.observations || "",
+          observations: encodeFinancesInObservations(item.observations, {
+            transfer_cost_amount: Number(values.transfer_cost_amount) || 0,
+            transfer_cost_mode: values.transfer_cost_mode,
+            abmed_fee_8_percent: typeof fee8 === "number" ? fee8 : 0,
+            exercise_years: values.exercise_years,
+          }),
           attached_docs: attachedDocs,
           created_at: new Date().toISOString(),
           creator: { first_name: "Agent", last_name: "ABMed" },
@@ -797,6 +806,16 @@ function NewWasteReceptionContent() {
           ? [...newBatches, ...currentList.filter((b: any) => b.reception_number !== values.reception_number && b.batch_number !== editingId)]
           : [...newBatches, ...currentList]
         localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedList))
+
+        // Sauvegarder les finances dédiées
+        try {
+          localStorage.setItem("waste_reception_finances_" + values.reception_number, JSON.stringify({
+            transfer_cost_amount: Number(values.transfer_cost_amount) || 0,
+            transfer_cost_mode: values.transfer_cost_mode,
+            abmed_fee_8_percent: typeof fee8 === "number" ? fee8 : 0,
+            exercise_years: values.exercise_years,
+          }))
+        } catch (e) {}
 
         // Sauvegarder les détails complets de la réception pour restauration et documentation
         try {

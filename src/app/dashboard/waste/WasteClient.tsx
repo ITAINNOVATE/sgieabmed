@@ -13,7 +13,8 @@ import {
   AlertTriangle, ArrowLeftRight, 
   CheckCircle2, Box, LayoutDashboard, List, FileText, Download, Pencil,
   Building2, Calendar, CalendarDays, RotateCcw, Boxes, ChevronDown, ChevronRight,
-  FolderOpen, ShieldCheck, Clock, ExternalLink, Paperclip, X
+  FolderOpen, ShieldCheck, Clock, ExternalLink, Paperclip, X,
+  Banknote, DollarSign, Wallet
 } from "lucide-react"
 import { toast } from "sonner"
 import { 
@@ -40,6 +41,11 @@ import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { 
+  parseFinancesFromBatch, 
+  updateReceptionFinances, 
+  encodeFinancesInObservations 
+} from "@/utils/waste-finances"
 import "@/utils/waste-locations"
 
 const WASTE_CATEGORIES_COLORS = ['#E53935', '#FB8C00', '#1E88E5', '#43A047']
@@ -117,6 +123,39 @@ export default function WasteClient({
   // 3. État d'ouverture de la modale de réception (pour voir l'éclaté d'une réception spécifique)
   const [selectedReception, setSelectedReception] = useState<WasteReceptionGroup | null>(null)
 
+  // 3b. État pour l'ajustement rapide des finances d'une réception
+  const [editingFinancesRec, setEditingFinancesRec] = useState<WasteReceptionGroup | null>(null)
+  const [financeAmountInput, setFinanceAmountInput] = useState<string>("")
+  const [financeModeInput, setFinanceModeInput] = useState<string>("chiffre")
+  const [isSavingFinances, setIsSavingFinances] = useState<boolean>(false)
+
+  const handleSaveFinances = async () => {
+    if (!editingFinancesRec) return
+    setIsSavingFinances(true)
+    const amt = Number(financeAmountInput) || 0
+    const success = await updateReceptionFinances(editingFinancesRec.reception_number, {
+      transfer_cost_amount: amt,
+      transfer_cost_mode: financeModeInput,
+      abmed_fee_8_percent: financeModeInput === "chiffre" ? Math.round(amt * 0.08) : 0,
+    })
+    if (success) {
+      toast.success(`Finances de la réception ${editingFinancesRec.reception_number} mises à jour avec succès`)
+      if (selectedReception && selectedReception.reception_number === editingFinancesRec.reception_number) {
+        setSelectedReception({
+          ...selectedReception,
+          transfer_cost_amount: amt,
+          transfer_cost_mode: financeModeInput,
+          abmed_fee_8_percent: financeModeInput === "chiffre" ? Math.round(amt * 0.08) : 0,
+        })
+      }
+      setEditingFinancesRec(null)
+      fetchBatches()
+    } else {
+      toast.error("Erreur lors de la mise à jour des finances")
+    }
+    setIsSavingFinances(false)
+  }
+
   // 4. Sélection & impression d'étiquettes
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
@@ -141,7 +180,10 @@ export default function WasteClient({
         if (!hasLoadedOnceRef.current && localBatches.length > 0) {
           const validLocal = localBatches.filter(
             (b: any) => !deletedIds.includes(b.id) && !deletedIds.includes(b.batch_number) && !deletedIds.includes(b.reception_number)
-          )
+          ).map((b: any) => {
+            const fin = parseFinancesFromBatch(b)
+            return { ...b, ...fin }
+          })
           setBatches(validLocal)
           hasLoadedOnceRef.current = true
         }
@@ -166,13 +208,16 @@ export default function WasteClient({
     localBatches.forEach((b: any) => {
       const key = b.batch_number || b.id
       if (key && !deletedIds.includes(b.id) && !deletedIds.includes(b.batch_number) && !deletedIds.includes(b.reception_number)) {
-        batchMap.set(key, b)
+        const fin = parseFinancesFromBatch(b)
+        batchMap.set(key, { ...b, ...fin })
       }
     })
     remoteBatches.forEach((b: any) => {
       const key = b.batch_number || b.id
       if (key && !deletedIds.includes(b.id) && !deletedIds.includes(b.batch_number) && !deletedIds.includes(b.reception_number)) {
-        batchMap.set(key, b)
+        const existing = batchMap.get(key)
+        const fin = parseFinancesFromBatch(existing?.transfer_cost_amount ? existing : b)
+        batchMap.set(key, { ...existing, ...b, ...fin })
       }
     })
 
@@ -346,6 +391,8 @@ export default function WasteClient({
           attachedDocs = [...attachedDocs, ...batch.attached_docs]
         }
 
+        const fin = parseFinancesFromBatch(batch)
+
         map.set(recKey, {
           reception_number: batch.reception_number || recKey,
           reception_date: batch.reception_date || (batch.created_at ? batch.created_at.slice(0, 10) : ''),
@@ -358,9 +405,9 @@ export default function WasteClient({
           depositor_name: batch.depositor_name || '',
           depositor_phone: batch.depositor_phone || '',
           depositor_id_card: batch.depositor_id_card || '',
-          transfer_cost_mode: batch.transfer_cost_mode || '',
-          transfer_cost_amount: Number(batch.transfer_cost_amount) || 0,
-          abmed_fee_8_percent: Number(batch.abmed_fee_8_percent) || 0,
+          transfer_cost_mode: fin.transfer_cost_mode,
+          transfer_cost_amount: fin.transfer_cost_amount,
+          abmed_fee_8_percent: fin.abmed_fee_8_percent,
           delivery_slip_ref: batch.delivery_slip_ref || '',
           recipient_agent: batch.recipient_agent || 'Agent eGED ABMed',
           warehouse: batch.warehouse || batch.current_location || 'Magasin des Déchets',
@@ -431,16 +478,15 @@ export default function WasteClient({
     const totalWeightKg = Math.round(filteredBatches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) * 100) / 100
     const totalReceptions = receptionGroups.length
     const totalCenters = receptionsByCenter.length
-    const totalFeeFCFA = filteredBatches.reduce((acc, b) => {
-      if (b.abmed_fee_8_percent !== undefined) return acc + Number(b.abmed_fee_8_percent)
-      return acc + Math.round((Number(b.transfer_cost_amount) || 0) * 0.08)
-    }, 0)
+    const totalCessionFCFA = receptionGroups.reduce((acc, r) => acc + (Number(r.transfer_cost_amount) || 0), 0)
+    const totalFeeFCFA = receptionGroups.reduce((acc, r) => acc + (Number(r.abmed_fee_8_percent) || 0), 0)
 
     return {
       totalWeightKg,
       totalWeightTonnes: (totalWeightKg / 1000).toFixed(2),
       totalReceptions,
       totalCenters,
+      totalCessionFCFA,
       totalFeeFCFA,
     }
   }, [filteredBatches, receptionGroups, receptionsByCenter])
@@ -803,7 +849,7 @@ export default function WasteClient({
         <div className="p-3 rounded-xl border border-emerald-500/40 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-2xs">
           <p className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300">Redevance 8% ABMeD</p>
           <p className="text-base font-black text-[#1B5C2E] dark:text-emerald-300">{statsOverview.totalFeeFCFA.toLocaleString('fr-FR')} <span className="text-[10px] font-normal">FCFA</span></p>
-          <p className="text-[10px] text-emerald-700 font-bold">Droit réglementaire</p>
+          <p className="text-[10px] text-emerald-700 font-bold truncate">Cession : {statsOverview.totalCessionFCFA.toLocaleString('fr-FR')} FCFA</p>
         </div>
       </div>
 
@@ -818,7 +864,7 @@ export default function WasteClient({
                   Réceptions Effectuées par Centre Apporteur ({receptionGroups.length} bordereaux)
                 </CardTitle>
                 <CardDescription className="text-xs mt-0.5">
-                  Cliquez sur une réception pour <strong>ouvrir son éclaté</strong> et consulter les lots, pesées et documents.
+                  Consultez les bordereaux déposés avec leur montant de cession, redevance 8% ABMeD et détail éclaté des lots.
                 </CardDescription>
               </div>
 
@@ -851,23 +897,24 @@ export default function WasteClient({
           <CardContent className="p-0 overflow-x-auto">
             {centersSubView === 'receptions_list' ? (
               /* A. TABLEAU DES RÉCEPTIONS PAR BORDEREAU / CENTRE */
-              <Table className="min-w-[850px] w-full">
+              <Table className="min-w-[920px] w-full">
                 <TableHeader className="bg-muted/40">
                   <TableRow>
-                    <TableHead className="w-[140px] px-3 py-2.5 text-[10.5px] font-bold uppercase">N° Récépissé</TableHead>
-                    <TableHead className="w-[100px] px-2 py-2.5 text-[10.5px] font-bold uppercase">Date Dépôt</TableHead>
-                    <TableHead className="w-[26%] px-3 py-2.5 text-[10.5px] font-bold uppercase">Centre Apporteur & CTR</TableHead>
-                    <TableHead className="w-[18%] px-2 py-2.5 text-[10.5px] font-bold uppercase">Déposant / Contact</TableHead>
-                    <TableHead className="w-[90px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-center">Lots Inclus</TableHead>
-                    <TableHead className="w-[100px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-right">Poids Total</TableHead>
-                    <TableHead className="w-[100px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-center">Statut</TableHead>
-                    <TableHead className="w-[160px] px-3 py-2.5 text-[10.5px] font-bold uppercase text-right pr-4">Actions</TableHead>
+                    <TableHead className="w-[130px] px-3 py-2.5 text-[10.5px] font-bold uppercase">N° Récépissé</TableHead>
+                    <TableHead className="w-[90px] px-2 py-2.5 text-[10.5px] font-bold uppercase">Date Dépôt</TableHead>
+                    <TableHead className="w-[22%] px-3 py-2.5 text-[10.5px] font-bold uppercase">Centre Apporteur & CTR</TableHead>
+                    <TableHead className="w-[15%] px-2 py-2.5 text-[10.5px] font-bold uppercase">Déposant / Contact</TableHead>
+                    <TableHead className="w-[80px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-center">Lots</TableHead>
+                    <TableHead className="w-[90px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-right">Poids</TableHead>
+                    <TableHead className="w-[150px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-right">Cession & 8% ABMeD</TableHead>
+                    <TableHead className="w-[85px] px-2 py-2.5 text-[10.5px] font-bold uppercase text-center">Statut</TableHead>
+                    <TableHead className="w-[155px] px-3 py-2.5 text-[10.5px] font-bold uppercase text-right pr-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {receptionGroups.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-20 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={9} className="h-20 text-center text-xs text-muted-foreground">
                         Aucune réception de déchets trouvée avec les filtres sélectionnés.
                       </TableCell>
                     </TableRow>
@@ -916,6 +963,28 @@ export default function WasteClient({
                         </TableCell>
                         <TableCell className="px-2 py-2.5 text-right font-black text-foreground whitespace-nowrap">
                           {rec.total_weight.toLocaleString('fr-FR')} kg
+                        </TableCell>
+                        <TableCell className="px-2 py-2.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono font-bold text-foreground text-xs">
+                              {rec.transfer_cost_mode === 'dons' ? 'Dons (Exonéré)' : `${(rec.transfer_cost_amount || 0).toLocaleString('fr-FR')} F`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingFinancesRec(rec)
+                                setFinanceAmountInput(String(rec.transfer_cost_amount || 0))
+                                setFinanceModeInput(rec.transfer_cost_mode || "chiffre")
+                              }}
+                              className="inline-flex items-center gap-1 mt-0.5 hover:opacity-85 transition-opacity"
+                              title="Cliquer pour corriger ou modifier ce montant financier"
+                            >
+                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-mono text-[9.5px] font-black px-1.5 py-0 cursor-pointer hover:bg-emerald-200">
+                                8% : {(rec.abmed_fee_8_percent || 0).toLocaleString('fr-FR')} F
+                              </Badge>
+                              <Pencil className="h-2.5 w-2.5 text-emerald-700" />
+                            </button>
+                          </div>
                         </TableCell>
                         <TableCell className="px-2 py-2.5 text-center whitespace-nowrap">
                           <Badge 
@@ -1447,19 +1516,37 @@ export default function WasteClient({
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs space-y-1">
-                  <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">
-                    Bilan de la Réception
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">
+                      Bilan Financier & 8% ABMeD
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingFinancesRec(selectedReception)
+                        setFinanceAmountInput(String(selectedReception.transfer_cost_amount || 0))
+                        setFinanceModeInput(selectedReception.transfer_cost_mode || "chiffre")
+                      }}
+                      className="h-5 px-1.5 text-[10px] text-emerald-800 hover:bg-emerald-50 font-bold gap-1"
+                      title="Modifier les montants de cette réception"
+                    >
+                      <Pencil className="h-2.5 w-2.5" /> Corriger
+                    </Button>
+                  </div>
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="font-black text-foreground text-base tracking-tight">
-                      {selectedReception.total_weight.toLocaleString('fr-FR')} kg
+                    <span className="font-black text-foreground text-sm font-mono tracking-tight">
+                      Cession : {selectedReception.transfer_cost_mode === 'dons' ? 'Dons (Exonéré)' : `${(selectedReception.transfer_cost_amount || 0).toLocaleString('fr-FR')} FCFA`}
                     </span>
                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] font-bold">
-                      {selectedReception.batches.length} lot(s) éclatés
+                      {selectedReception.total_weight.toLocaleString('fr-FR')} kg ({selectedReception.batches.length} lots)
                     </Badge>
                   </div>
-                  <div className="text-[11px] text-emerald-800 font-semibold pt-1 break-words">
-                    Redevance 8% : {selectedReception.abmed_fee_8_percent ? `${selectedReception.abmed_fee_8_percent.toLocaleString('fr-FR')} FCFA` : 'Calculé sur récépissé'}
+                  <div className="pt-1">
+                    <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-mono text-xs font-black px-2 py-0.5">
+                      Redevance 8% ABMeD : {(selectedReception.abmed_fee_8_percent || 0).toLocaleString('fr-FR')} FCFA
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -1568,6 +1655,80 @@ export default function WasteClient({
               </span>
               <Button variant="outline" size="sm" onClick={() => setSelectedReception(null)} className="font-bold">
                 Fermer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* 7b. DIALOGUE DE MODIFICATION RAPIDE DES FINANCES D'UNE RÉCEPTION */}
+      <Dialog open={!!editingFinancesRec} onOpenChange={(open) => !open && setEditingFinancesRec(null)}>
+        {editingFinancesRec && (
+          <DialogContent className="max-w-md p-5 rounded-2xl shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-black flex items-center gap-2 text-foreground">
+                <Banknote className="h-5 w-5 text-[#1B5C2E]" />
+                Ajuster les Finances de la Réception
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {editingFinancesRec.reception_number} • {editingFinancesRec.source_structure}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Régime de Cession</label>
+                <Select value={financeModeInput} onValueChange={(val) => setFinanceModeInput(val || "chiffre")}>
+                  <SelectTrigger className="h-9 text-xs bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="chiffre" className="text-xs font-semibold">Montant chiffré (FCFA)</SelectItem>
+                    <SelectItem value="na" className="text-xs font-semibold">NA (Non Applicable)</SelectItem>
+                    <SelectItem value="dons" className="text-xs font-semibold">Dons (Exonéré)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {financeModeInput === "chiffre" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Montant Total de la Cession (FCFA)</label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="1000"
+                      min="0"
+                      value={financeAmountInput}
+                      onChange={(e) => setFinanceAmountInput(e.target.value)}
+                      className="h-9 text-xs font-mono font-bold pr-14 bg-background"
+                      placeholder="ex: 1500000"
+                    />
+                    <span className="absolute right-2.5 top-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
+                      FCFA
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs flex justify-between items-center mt-3">
+                    <span className="font-semibold text-emerald-900 dark:text-emerald-200">Redevance 8% ABMeD calculée :</span>
+                    <span className="font-black font-mono text-emerald-800 dark:text-emerald-300 text-sm">
+                      {Math.round((Number(financeAmountInput) || 0) * 0.08).toLocaleString('fr-FR')} FCFA
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="flex justify-end gap-2 pt-2 border-t border-border/50">
+              <Button variant="outline" size="sm" onClick={() => setEditingFinancesRec(null)} disabled={isSavingFinances}>
+                Annuler
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={handleSaveFinances} 
+                disabled={isSavingFinances} 
+                className="bg-[#1B5C2E] text-white hover:bg-[#144723] font-bold gap-1.5"
+              >
+                {isSavingFinances ? "Enregistrement..." : "Enregistrer & Synchroniser"}
               </Button>
             </DialogFooter>
           </DialogContent>
