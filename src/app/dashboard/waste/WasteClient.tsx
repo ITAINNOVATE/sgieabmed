@@ -886,7 +886,7 @@ export default function WasteClient({
                         </TableCell>
                         <TableCell className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-foreground text-xs">
+                            <span className="font-bold text-foreground text-xs break-words whitespace-normal leading-snug">
                               {rec.source_structure}
                             </span>
                             {rec.center_code && (
@@ -895,16 +895,16 @@ export default function WasteClient({
                               </Badge>
                             )}
                           </div>
-                          <span className="text-[10.5px] text-muted-foreground block mt-0.5">
+                          <span className="text-[10.5px] text-muted-foreground block mt-0.5 break-words whitespace-normal">
                             {rec.source_type} • {rec.city}
                           </span>
                         </TableCell>
                         <TableCell className="px-2 py-2.5 text-muted-foreground">
-                          <span className="font-medium text-foreground block truncate" title={rec.depositor_name}>
+                          <span className="font-medium text-foreground block break-words whitespace-normal leading-snug" title={rec.depositor_name}>
                             {rec.depositor_name || "Non spécifié"}
                           </span>
                           {rec.depositor_phone && (
-                            <span className="text-[10px] text-muted-foreground block">
+                            <span className="text-[10px] text-muted-foreground block mt-0.5">
                               Tél: {rec.depositor_phone}
                             </span>
                           )}
@@ -1354,34 +1354,36 @@ export default function WasteClient({
       {/* 7. MODALE D'OUVERTURE DE LA RÉCEPTION (VISUALISATION DE L'ÉCLATÉ DES DÉCHETS) */}
       <Dialog open={!!selectedReception} onOpenChange={(open) => !open && setSelectedReception(null)}>
         {selectedReception && (
-          <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 rounded-2xl border-0 shadow-2xl">
-            {/* En-tête vert officiel ABMeD */}
-            <div className="bg-[#1B5C2E] text-white p-4 sm:p-5 rounded-t-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div>
+          <DialogContent className="max-w-5xl lg:max-w-6xl w-[96vw] max-h-[92vh] overflow-y-auto p-0 rounded-2xl border-0 shadow-2xl [&>button:last-child]:text-white [&>button:last-child]:bg-white/20 [&>button:last-child]:hover:bg-white/35 [&>button:last-child]:rounded-full [&>button:last-child]:h-8 [&>button:last-child]:w-8 [&>button:last-child]:flex [&>button:last-child]:items-center [&>button:last-child]:justify-center [&>button:last-child]:top-3.5 [&>button:last-child]:right-3.5">
+            {/* En-tête vert officiel ABMeD avec bouton Fermer bien visible */}
+            <div className="bg-[#1B5C2E] text-white p-4 sm:p-5 rounded-t-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pr-14 sm:pr-14">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-white/20 text-white border-white/30 text-[10px] font-mono font-bold">
+                  <Badge className="bg-white/20 text-white border-white/30 text-[10px] font-mono font-bold tracking-wider">
                     RÉCÉPISSÉ DÉCHARGE OFFICIEL
                   </Badge>
-                  <span className="text-xs text-emerald-200">
+                  <span className="text-xs text-emerald-200 font-medium">
                     {selectedReception.reception_date ? new Date(selectedReception.reception_date).toLocaleDateString('fr-FR') : '-'}
                   </span>
                 </div>
-                <h3 className="text-lg sm:text-xl font-black mt-1">
+                <h3 className="text-lg sm:text-2xl font-black tracking-tight">
                   {selectedReception.reception_number}
                 </h3>
-                <p className="text-xs text-white/90">
-                  Centre Apporteur : <strong className="text-white">{selectedReception.source_structure}</strong> {selectedReception.center_code ? `(${selectedReception.center_code})` : ''}
+                <p className="text-xs text-white/90 leading-snug">
+                  Centre Apporteur : <strong className="text-white font-bold">{selectedReception.source_structure}</strong> {selectedReception.center_code ? `(${selectedReception.center_code})` : ''}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+              {/* Actions en haut : Télécharger, Modifier et FERMER */}
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                 <Button
                   size="sm"
                   className="bg-white text-[#1B5C2E] hover:bg-white/90 font-bold text-xs gap-1.5 shadow-sm"
                   onClick={() => handleDownloadReceptionSlip(selectedReception)}
+                  title="Télécharger l'attestation / bordereau officiel en PDF"
                 >
                   <Download className="h-3.5 w-3.5 text-[#1B5C2E]" />
-                  Télécharger Récépissé (PDF)
+                  Télécharger PDF
                 </Button>
 
                 <Button
@@ -1389,50 +1391,82 @@ export default function WasteClient({
                   size="sm"
                   asChild
                   className="bg-emerald-900/40 text-white border-white/40 hover:bg-white/20 font-bold text-xs gap-1"
+                  title="Modifier les informations de cette réception"
                 >
                   <Link href={`/dashboard/waste/new?edit=${selectedReception.reception_number}`}>
                     <Pencil className="h-3.5 w-3.5" />
                     Modifier
                   </Link>
                 </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedReception(null)}
+                  className="bg-white/20 hover:bg-white/35 text-white border-white/40 font-bold text-xs gap-1.5 shadow-xs"
+                  title="Fermer cette fenêtre"
+                >
+                  <X className="h-4 w-4 text-white" />
+                  Fermer
+                </Button>
               </div>
             </div>
 
-            {/* Corps du dialogue : Métadonnées + L'Éclaté des Déchets */}
+            {/* Corps du dialogue : Métadonnées cadrants + L'Éclaté des Déchets */}
             <div className="p-4 sm:p-6 space-y-4">
               
-              {/* Informations du Centre et du Déposant */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/60 text-xs">
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Structure / Centre</span>
-                  <span className="font-bold text-foreground text-sm">{selectedReception.source_structure}</span>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    Code CTR : <span className="font-mono font-bold text-emerald-700">{selectedReception.center_code}</span> • {selectedReception.city}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Transporteur / Déposant</span>
-                  <span className="font-semibold text-foreground">{selectedReception.depositor_name || "Non spécifié"}</span>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    Tél : {selectedReception.depositor_phone || "-"}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Bilan de la Réception</span>
-                  <span className="font-bold text-foreground text-sm">
-                    {selectedReception.total_weight.toLocaleString('fr-FR')} kg ({selectedReception.batches.length} lots)
+              {/* Informations du Centre et du Déposant : 3 cadrants équilibrés avec retour à la ligne */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs space-y-1">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">
+                    Structure / Centre
                   </span>
-                  <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">
+                  <div className="font-bold text-foreground text-sm leading-snug break-words">
+                    {selectedReception.source_structure}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase">CTR :</span>
+                    <span className="font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded text-[10.5px]">
+                      {selectedReception.center_code || "N/A"}
+                    </span>
+                    <span>•</span>
+                    <span className="break-words font-medium text-foreground">{selectedReception.city || "Ville non précisée"}</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs space-y-1">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">
+                    Transporteur / Déposant
+                  </span>
+                  <div className="font-bold text-foreground text-sm leading-snug break-words">
+                    {selectedReception.depositor_name || "Non spécifié"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pt-1">
+                    Contact Tél : <span className="font-semibold text-foreground">{selectedReception.depositor_phone || "Non renseigné"}</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs space-y-1">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">
+                    Bilan de la Réception
+                  </span>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-black text-foreground text-base tracking-tight">
+                      {selectedReception.total_weight.toLocaleString('fr-FR')} kg
+                    </span>
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] font-bold">
+                      {selectedReception.batches.length} lot(s) éclatés
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-emerald-800 font-semibold pt-1 break-words">
                     Redevance 8% : {selectedReception.abmed_fee_8_percent ? `${selectedReception.abmed_fee_8_percent.toLocaleString('fr-FR')} FCFA` : 'Calculé sur récépissé'}
                   </div>
                 </div>
               </div>
 
-              {/* TABLEAU DE L'ÉCLATÉ DES DÉCHETS INCLUS DANS CETTE RÉCEPTION */}
+              {/* TABLEAU DE L'ÉCLATÉ DES DÉCHETS AVEC RETOUR À LA LIGNE DES TEXTES LONGS */}
               <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
                     <Boxes className="h-4 w-4 text-[#1B5C2E]" />
                     L&apos;Éclaté des Déchets ({selectedReception.batches.length} lots apportés)
@@ -1442,47 +1476,47 @@ export default function WasteClient({
                   </span>
                 </div>
 
-                <div className="border border-border/70 rounded-xl overflow-x-auto shadow-2xs max-h-[300px] overflow-y-auto">
-                  <Table className="min-w-[700px]">
-                    <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-xs">
+                <div className="border border-border/70 rounded-xl overflow-x-auto shadow-2xs max-h-[380px] overflow-y-auto bg-card">
+                  <Table className="w-full min-w-[760px] table-auto">
+                    <TableHeader className="bg-muted/60 sticky top-0 z-10 backdrop-blur-xs">
                       <TableRow>
-                        <TableHead className="text-[10px] font-bold uppercase py-2">N° Lot Déchet</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2">Désignation / Nom Commercial</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2">Catégorie Officielle</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2 text-right">Poids (Kg)</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2">Conditionnement</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2">Emplacement</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2 text-center">Statut</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase py-2 text-right pr-3">Action</TableHead>
+                        <TableHead className="w-[140px] text-[10px] font-bold uppercase py-2.5">N° Lot Déchet</TableHead>
+                        <TableHead className="min-w-[220px] max-w-[340px] text-[10px] font-bold uppercase py-2.5">Désignation / Nom Commercial</TableHead>
+                        <TableHead className="min-w-[160px] max-w-[240px] text-[10px] font-bold uppercase py-2.5">Catégorie Officielle</TableHead>
+                        <TableHead className="w-[90px] text-[10px] font-bold uppercase py-2.5 text-right whitespace-nowrap">Poids (Kg)</TableHead>
+                        <TableHead className="w-[120px] text-[10px] font-bold uppercase py-2.5">Conditionnement</TableHead>
+                        <TableHead className="w-[110px] text-[10px] font-bold uppercase py-2.5">Emplacement</TableHead>
+                        <TableHead className="w-[85px] text-[10px] font-bold uppercase py-2.5 text-center whitespace-nowrap">Statut</TableHead>
+                        <TableHead className="w-[80px] text-[10px] font-bold uppercase py-2.5 text-right pr-3 whitespace-nowrap">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedReception.batches.map((b: any, bIdx: number) => (
                         <TableRow key={b.id || bIdx} className="hover:bg-muted/30 text-xs">
-                          <TableCell className="font-mono font-bold text-foreground whitespace-nowrap">
+                          <TableCell className="font-mono font-bold text-foreground whitespace-nowrap align-top py-2.5">
                             {b.batch_number}
                           </TableCell>
-                          <TableCell className="font-medium text-foreground">
+                          <TableCell className="font-medium text-foreground whitespace-normal break-words leading-snug align-top py-2.5">
                             {b.commercial_name || b.waste_type || "Déchet pharmaceutique"}
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-[11px]">
+                          <TableCell className="text-muted-foreground text-[11px] whitespace-normal break-words leading-snug align-top py-2.5">
                             {b.product_category || "Non classé"}
                           </TableCell>
-                          <TableCell className="text-right font-black text-foreground tabular-nums whitespace-nowrap">
+                          <TableCell className="text-right font-black text-foreground tabular-nums whitespace-nowrap align-top py-2.5">
                             {Number(b.quantity) || 0} {b.unit || 'Kg'}
                           </TableCell>
-                          <TableCell className="text-muted-foreground whitespace-nowrap">
+                          <TableCell className="text-muted-foreground whitespace-normal break-words leading-snug text-[11px] align-top py-2.5">
                             {b.packaging_type || b.packaging || "Carton scellé"}
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-[11px] whitespace-nowrap">
+                          <TableCell className="text-muted-foreground text-[11px] whitespace-normal break-words leading-snug align-top py-2.5">
                             {b.current_location || "Magasin Déchets"}
                           </TableCell>
-                          <TableCell className="text-center whitespace-nowrap">
+                          <TableCell className="text-center whitespace-nowrap align-top py-2.5">
                             <Badge variant="outline" className="text-[9.5px] font-semibold">
                               {b.status || "Déclaré"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right pr-3 whitespace-nowrap">
+                          <TableCell className="text-right pr-3 whitespace-nowrap align-top py-2.5">
                             <Button variant="ghost" size="sm" asChild className="h-6.5 px-2 text-[10.5px] text-red-600 font-bold hover:bg-red-50">
                               <Link href={`/dashboard/waste/${b.id}`}>
                                 <Eye className="h-3 w-3 mr-0.5" /> Voir
@@ -1532,7 +1566,7 @@ export default function WasteClient({
               <span className="text-xs text-muted-foreground">
                 Bordereau archivé et sécurisé eGED ABMed
               </span>
-              <Button variant="outline" size="sm" onClick={() => setSelectedReception(null)}>
+              <Button variant="outline" size="sm" onClick={() => setSelectedReception(null)} className="font-bold">
                 Fermer
               </Button>
             </DialogFooter>
