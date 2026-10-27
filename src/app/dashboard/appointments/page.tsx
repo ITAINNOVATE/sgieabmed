@@ -5,7 +5,7 @@ import {
   CalendarDays, Clock, MapPin, Plus, CheckCircle2, AlertCircle, 
   Search, Users, Building2, FileText, Download, Printer, XCircle, 
   ChevronRight, Calendar, ArrowRight, ShieldCheck, CheckSquare, Filter,
-  Sparkles, RefreshCw, Layers
+  Sparkles, RefreshCw, Layers, Trash2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -42,7 +42,8 @@ import {
   getAppointments,
   bookAppointment,
   cancelAppointment,
-  updateAppointmentStatus
+  updateAppointmentStatus,
+  clearAllAppointmentsData
 } from "@/utils/appointments-storage"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportToExcel } from "@/utils/exportUtils"
@@ -327,6 +328,17 @@ export default function AppointmentsPage() {
     loadData()
   }
 
+  // VIDER TOUTES LES DONNÉES DU MODULE POUR DÉMARRER EN RÉEL
+  const handleClearAll = async () => {
+    if (confirm("Êtes-vous sûr de vouloir vider TOUS les créneaux et rendez-vous du module ? Le module sera vierge pour la saisie de vos données réelles.")) {
+      setLoading(true)
+      await clearAllAppointmentsData()
+      await loadData()
+      setLoading(false)
+      toast.success("Le module Rendez-vous a été vidé avec succès. Vous pouvez maintenant créer vos vraies journées.")
+    }
+  }
+
   // Export Excel des rendez-vous
   const handleExportExcel = () => {
     const dataToExport = filteredAppointments.map((a) => ({
@@ -402,6 +414,18 @@ export default function AppointmentsPage() {
         <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
           {!isCenterUser && (
             <>
+              {(schedules.length > 0 || appointments.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAll}
+                  className="text-xs font-semibold gap-1.5 h-8.5 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                  title="Vider tous les créneaux et rendez-vous pour recommencer à zéro"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Vider
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

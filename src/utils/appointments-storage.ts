@@ -42,151 +42,51 @@ export interface Appointment {
   validated_by?: string
 }
 
-export const LOCAL_STORAGE_SCHEDULES_KEY = "abmed_reception_schedules_v2"
-export const LOCAL_STORAGE_APPOINTMENTS_KEY = "abmed_appointments_v2"
+export const LOCAL_STORAGE_SCHEDULES_KEY = "abmed_reception_schedules_v3"
+export const LOCAL_STORAGE_APPOINTMENTS_KEY = "abmed_appointments_v3"
 
-// Données initiales réalistes pour les prochains jours de réception
-const DEFAULT_SCHEDULES: ReceptionSchedule[] = [
-  {
-    id: "sched-2026-10-28",
-    date: "2026-10-28",
-    start_time: "08:30",
-    end_time: "15:00",
-    reception_type: "Déchets pharmaceutiques",
-    max_capacity: 8,
-    booked_count: 3,
-    location: "Magasin Déchets ABMed — Quai de Déchargement N°1",
-    instructions: "Bordereau de déclaration signé obligatoire. Conditionnement en cartons scellés ou fûts étanches.",
-    status: "Ouvert",
-    created_by: "Maëlle DOSSOU-YOVO (Agent Déchets)",
-    created_at: "2026-10-25T08:00:00Z"
-  },
-  {
-    id: "sched-2026-10-29",
-    date: "2026-10-29",
-    start_time: "09:00",
-    end_time: "16:00",
-    reception_type: "Échantillons pharmaceutiques",
-    max_capacity: 10,
-    booked_count: 4,
-    location: "Laboratoire National de Contrôle (LNC) — Accueil Échantillons",
-    instructions: "Respect de la chaîne de froid pour les thermolabiles. Fiche de prélèvement officielle requise.",
-    status: "Ouvert",
-    created_by: "Marie ADANDE (Responsable Échantillothèque)",
-    created_at: "2026-10-25T08:30:00Z"
-  },
-  {
-    id: "sched-2026-10-30",
-    date: "2026-10-30",
-    start_time: "08:30",
-    end_time: "16:30",
-    reception_type: "Mixte (Échantillons & Déchets)",
-    max_capacity: 12,
-    booked_count: 5,
-    location: "Centre Administratif ABMed — Guichet Unique Réception",
-    instructions: "Ouvert à tous les centres et officines pour dépôts combinés.",
-    status: "Ouvert",
-    created_by: "Admin EGED",
-    created_at: "2026-10-25T09:00:00Z"
-  },
-  {
-    id: "sched-2026-11-03",
-    date: "2026-11-03",
-    start_time: "08:30",
-    end_time: "15:00",
-    reception_type: "Déchets pharmaceutiques",
-    max_capacity: 6,
-    booked_count: 1,
-    location: "Magasin Déchets ABMed — Quai de Déchargement N°1",
-    instructions: "Priorité aux officines privées du département de l'Ouémé et du Littoral.",
-    status: "Ouvert",
-    created_by: "Maëlle DOSSOU-YOVO (Agent Déchets)",
-    created_at: "2026-10-26T10:00:00Z"
-  }
-]
-
-const DEFAULT_APPOINTMENTS: Appointment[] = [
-  {
-    id: "rdv-init-001",
-    appointment_number: "RDV-2026-10-001",
-    schedule_id: "sched-2026-10-28",
-    date: "2026-10-28",
-    time_slot: "09:00",
-    center_code: "CTR-2026-0001",
-    center_name: "PHARMACIE ST CHARLES",
-    center_type: "Officine privée de pharmacie",
-    city: "COTONOU",
-    contact_phone: "0197241285",
-    type: "Déchets",
-    estimated_quantity: "5 cartons (Médicaments périmés solides)",
-    depositor_name: "SOSSOU Eric",
-    status: "Confirmé",
-    created_at: "2026-10-26T11:00:00Z"
-  },
-  {
-    id: "rdv-init-002",
-    appointment_number: "RDV-2026-10-002",
-    schedule_id: "sched-2026-10-28",
-    date: "2026-10-28",
-    time_slot: "10:30",
-    center_code: "CTR-2026-0004",
-    center_name: "PHARMACIE DU CARREFOUR Y DE IGOLO SARL",
-    center_type: "Officine privée de pharmacie",
-    city: "IFANGNI",
-    contact_phone: "0197042703",
-    type: "Déchets",
-    estimated_quantity: "2 fûts (Formes liquides & sirops)",
-    depositor_name: "HONVOU Clement",
-    status: "Confirmé",
-    created_at: "2026-10-26T12:00:00Z"
-  },
-  {
-    id: "rdv-init-003",
-    appointment_number: "RDV-2026-10-003",
-    schedule_id: "sched-2026-10-29",
-    date: "2026-10-29",
-    time_slot: "09:30",
-    center_code: "CTR-2026-0002",
-    center_name: "PHARMACIE STE VALENTINE",
-    center_type: "Officine privée de pharmacie",
-    city: "BOHICON",
-    contact_phone: "0190869299",
-    type: "Échantillons",
-    estimated_quantity: "6 flacons pour contrôle analytique",
-    depositor_name: "VIKIN Augustin",
-    status: "Confirmé",
-    created_at: "2026-10-26T13:30:00Z"
-  }
-]
+// Par défaut, aucune donnée fictive : le module démarre entièrement vierge
+const DEFAULT_SCHEDULES: ReceptionSchedule[] = []
+const DEFAULT_APPOINTMENTS: Appointment[] = []
 
 let memorySchedulesCache: ReceptionSchedule[] | null = null
 let memoryAppointmentsCache: Appointment[] | null = null
 
+// Nettoyage automatique des anciens caches d'exemples de test (v1 et v2)
+if (typeof window !== "undefined") {
+  try {
+    localStorage.removeItem("abmed_reception_schedules_v1")
+    localStorage.removeItem("abmed_appointments_v1")
+    localStorage.removeItem("abmed_reception_schedules_v2")
+    localStorage.removeItem("abmed_appointments_v2")
+  } catch (e) {}
+}
+
 // --- GESTION DES JOURNÉES DE RÉCEPTION (CRÉNEAUX ABMED) ---
 
 export function getReceptionSchedulesSync(): ReceptionSchedule[] {
-  if (memorySchedulesCache && memorySchedulesCache.length > 0) {
+  if (memorySchedulesCache !== null) {
     return memorySchedulesCache
   }
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_SCHEDULES_KEY)
-      if (stored) {
+      if (stored !== null) {
         const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           memorySchedulesCache = parsed
           return parsed
         }
       }
     } catch (e) {}
   }
-  memorySchedulesCache = [...DEFAULT_SCHEDULES]
+  memorySchedulesCache = []
   if (typeof window !== "undefined") {
     try {
-      localStorage.setItem(LOCAL_STORAGE_SCHEDULES_KEY, JSON.stringify(DEFAULT_SCHEDULES))
+      localStorage.setItem(LOCAL_STORAGE_SCHEDULES_KEY, JSON.stringify([]))
     } catch (e) {}
   }
-  return DEFAULT_SCHEDULES
+  return []
 }
 
 export async function getReceptionSchedules(): Promise<ReceptionSchedule[]> {
@@ -212,19 +112,17 @@ export async function getReceptionSchedules(): Promise<ReceptionSchedule[]> {
         } catch {}
       })
 
-      if (cloudSchedules.length > 0) {
-        const schedMap = new Map<string, ReceptionSchedule>()
-        localList.forEach((s) => schedMap.set(s.id, s))
-        cloudSchedules.forEach((s) => schedMap.set(s.id, s))
-        const merged = Array.from(schedMap.values()).sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        )
-        memorySchedulesCache = merged
-        if (typeof window !== "undefined") {
-          localStorage.setItem(LOCAL_STORAGE_SCHEDULES_KEY, JSON.stringify(merged))
-        }
-        return merged
+      const schedMap = new Map<string, ReceptionSchedule>()
+      localList.forEach((s) => schedMap.set(s.id, s))
+      cloudSchedules.forEach((s) => schedMap.set(s.id, s))
+      const merged = Array.from(schedMap.values()).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      )
+      memorySchedulesCache = merged
+      if (typeof window !== "undefined") {
+        localStorage.setItem(LOCAL_STORAGE_SCHEDULES_KEY, JSON.stringify(merged))
       }
+      return merged
     }
   } catch (err) {}
   return localList
@@ -308,28 +206,28 @@ export async function deleteReceptionSchedule(scheduleId: string): Promise<boole
 // --- GESTION DES RENDEZ-VOUS PRIS PAR LES CENTRES ---
 
 export function getAppointmentsSync(): Appointment[] {
-  if (memoryAppointmentsCache && memoryAppointmentsCache.length > 0) {
+  if (memoryAppointmentsCache !== null) {
     return memoryAppointmentsCache
   }
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_APPOINTMENTS_KEY)
-      if (stored) {
+      if (stored !== null) {
         const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           memoryAppointmentsCache = parsed
           return parsed
         }
       }
     } catch (e) {}
   }
-  memoryAppointmentsCache = [...DEFAULT_APPOINTMENTS]
+  memoryAppointmentsCache = []
   if (typeof window !== "undefined") {
     try {
-      localStorage.setItem(LOCAL_STORAGE_APPOINTMENTS_KEY, JSON.stringify(DEFAULT_APPOINTMENTS))
+      localStorage.setItem(LOCAL_STORAGE_APPOINTMENTS_KEY, JSON.stringify([]))
     } catch (e) {}
   }
-  return DEFAULT_APPOINTMENTS
+  return []
 }
 
 export async function getAppointments(): Promise<Appointment[]> {
@@ -355,22 +253,57 @@ export async function getAppointments(): Promise<Appointment[]> {
         } catch {}
       })
 
-      if (cloudAppointments.length > 0) {
-        const appMap = new Map<string, Appointment>()
-        localList.forEach((a) => appMap.set(a.id, a))
-        cloudAppointments.forEach((a) => appMap.set(a.id, a))
-        const merged = Array.from(appMap.values()).sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
-        memoryAppointmentsCache = merged
-        if (typeof window !== "undefined") {
-          localStorage.setItem(LOCAL_STORAGE_APPOINTMENTS_KEY, JSON.stringify(merged))
-        }
-        return merged
+      const appMap = new Map<string, Appointment>()
+      localList.forEach((a) => appMap.set(a.id, a))
+      cloudAppointments.forEach((a) => appMap.set(a.id, a))
+      const merged = Array.from(appMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+      memoryAppointmentsCache = merged
+      if (typeof window !== "undefined") {
+        localStorage.setItem(LOCAL_STORAGE_APPOINTMENTS_KEY, JSON.stringify(merged))
       }
+      return merged
     }
   } catch (err) {}
   return localList
+}
+
+/**
+ * Réinitialise et vide intégralement tous les créneaux et rendez-vous du module
+ */
+export async function clearAllAppointmentsData(): Promise<boolean> {
+  memorySchedulesCache = []
+  memoryAppointmentsCache = []
+
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_SCHEDULES_KEY, JSON.stringify([]))
+      localStorage.setItem(LOCAL_STORAGE_APPOINTMENTS_KEY, JSON.stringify([]))
+      localStorage.removeItem("abmed_reception_schedules_v1")
+      localStorage.removeItem("abmed_appointments_v1")
+      localStorage.removeItem("abmed_reception_schedules_v2")
+      localStorage.removeItem("abmed_appointments_v2")
+    } catch (e) {}
+  }
+
+  try {
+    const supabase = createClient()
+    await Promise.allSettled([
+      supabase.from("waste_movements").delete().eq("type", "Créneau réception"),
+      supabase.from("waste_movements").delete().eq("type", "Rendez-vous"),
+      supabase.from("waste_movements").delete().like("mvt_number", "SCHED-%"),
+      supabase.from("waste_movements").delete().like("mvt_number", "APP-%"),
+    ])
+  } catch (err) {}
+
+  broadcastDataMutation({
+    entity: "appointments,reception_schedules,waste_movements",
+    action: "clear_all",
+    id: "all"
+  })
+
+  return true
 }
 
 /**
