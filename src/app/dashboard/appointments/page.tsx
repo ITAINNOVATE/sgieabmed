@@ -139,9 +139,9 @@ export default function AppointmentsPage() {
   }, [loadData])
 
   useRealtimeSync({
-    tables: ["waste_movements", "receptions"],
+    tables: ["appointments", "reception_schedules", "waste_movements", "centers"],
     onSync: loadData,
-    pollIntervalMs: 6000
+    pollIntervalMs: 3000
   })
 
   // Pré-remplissage du formulaire de réservation lorsque le centre ouvre le modal

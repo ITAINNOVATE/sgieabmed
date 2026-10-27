@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { 
   FileText, Download, Eye, ShieldCheck, FileCheck, BookOpen, 
   Search, Calendar, Building2, CheckCircle2, AlertCircle, Printer,
@@ -22,9 +22,10 @@ import {
 import { toast } from "sonner"
 import { getCurrentUser, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
 import { getRegisteredCentersSync, Center } from "@/utils/centers-storage"
-import { getAppointmentsSync, Appointment } from "@/utils/appointments-storage"
+import { getAppointmentsSync, getAppointments, Appointment } from "@/utils/appointments-storage"
 import { exportToPDF, exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 import { createClient } from "@/utils/supabase/client"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 interface PublicDocument {
   id: string
@@ -141,74 +142,79 @@ export default function CenterDocumentsPage() {
   }, [currentUser])
 
   // Chargement des documents personnels
-  useEffect(() => {
-    const loadPersonalDocuments = async () => {
-      setLoading(true)
-      const list: PersonalDocument[] = []
-      const centerCode = userCenter?.center_code || currentUser?.matricule || "CTR-2026-0001"
-      const centerName = userCenter?.name || currentUser?.first_name || "Établissement"
+  const loadPersonalDocuments = useCallback(async () => {
+    const list: PersonalDocument[] = []
+    const centerCode = userCenter?.center_code || currentUser?.matricule || "CTR-2026-0001"
+    const centerName = userCenter?.name || currentUser?.first_name || "Établissement"
 
-      // 1. Récépissés des rendez-vous
-      const appointments = getAppointmentsSync()
-      const myApps = appointments.filter((a) => a.center_code.toUpperCase() === centerCode.toUpperCase())
-      myApps.forEach((a) => {
-        list.push({
-          id: `doc-app-${a.id}`,
-          title: `Récépissé Officiel de Rendez-vous — ${a.appointment_number}`,
-          type: "Récépissé de rendez-vous",
-          reference: a.appointment_number,
-          date: a.date,
-          center_code: a.center_code,
-          center_name: a.center_name,
-          status: "Validé",
-          pdfPayload: a
-        })
-      })
-
-      // 2. Attestations officielles de destruction générées
-      try {
-        const supabase = createClient()
-        const { data: plans } = await supabase
-          .from("destruction_plans")
-          .select("*")
-          .order("created_at", { ascending: false })
-
-        if (plans && plans.length > 0) {
-          plans.forEach((p: any) => {
-            const certNum = p.certificate_number || p.plan_number
-            list.push({
-              id: `doc-cert-${p.id}`,
-              title: `Attestation Officielle de Destruction N° ${certNum}`,
-              type: "Attestation de destruction",
-              reference: certNum,
-              date: p.destruction_date || p.created_at?.split("T")[0] || "2026-10-26",
-              center_code: centerCode,
-              center_name: centerName,
-              status: "Délivré & Certifié",
-              pdfPayload: p
-            })
-          })
-        }
-      } catch (e) {}
-
-      // 3. Bordereaux de prise en charge récents
+    // 1. Récépissés des rendez-vous
+    const appointments = await getAppointments()
+    const myApps = appointments.filter((a) => a.center_code.toUpperCase() === centerCode.toUpperCase())
+    myApps.forEach((a) => {
       list.push({
-        id: `doc-rec-bord-01`,
-        title: `Bordereau Officiel de Prise en Charge Déchets — REC-DECH-2026-6961`,
-        type: "Bordereau de prise en charge",
-        reference: "REC-DECH-2026-6961",
-        date: "2026-10-26",
-        center_code: centerCode,
-        center_name: centerName,
-        status: "Délivré & Certifié"
+        id: `doc-app-${a.id}`,
+        title: `Récépissé Officiel de Rendez-vous — ${a.appointment_number}`,
+        type: "Récépissé de rendez-vous",
+        reference: a.appointment_number,
+        date: a.date,
+        center_code: a.center_code,
+        center_name: a.center_name,
+        status: "Validé",
+        pdfPayload: a
       })
+    })
 
-      setPersonalDocs(list)
-      setLoading(false)
-    }
+    // 2. Attestations officielles de destruction générées
+    try {
+      const supabase = createClient()
+      const { data: plans } = await supabase
+        .from("destruction_plans")
+        .select("*")
+        .order("created_at", { ascending: false })
 
-    loadPersonalDocuments()
+      if (plans && plans.length > 0) {
+        plans.forEach((p: any) => {
+          const certNum = p.certificate_number || p.plan_number
+          list.push({
+            id: `doc-cert-${p.id}`,
+            title: `Attestation Officielle de Destruction N° ${certNum}`,
+            type: "Attestation de destruction",
+            reference: certNum,
+            date: p.destruction_date || p.created_at?.split("T")[0] || "2026-10-26",
+            center_code: centerCode,
+            center_name: centerName,
+            status: "Délivré & Certifié",
+            pdfPayload: p
+          })
+        })
+      }
+    } catch (e) {}
+
+    // 3. Bordereaux de prise en charge récents
+    list.push({
+      id: `doc-rec-bord-01`,
+      title: `Bordereau Officiel de Prise en Charge Déchets — REC-DECH-2026-6961`,
+      type: "Bordereau de prise en charge",
+      reference: "REC-DECH-2026-6961",
+      date: "2026-10-26",
+      center_code: centerCode,
+      center_name: centerName,
+      status: "Délivré & Certifié"
+    })
+
+    setPersonalDocs(list)
+    setLoading(false)
   }, [userCenter, currentUser])
+
+  useEffect(() => {
+    loadPersonalDocuments()
+  }, [loadPersonalDocuments])
+
+  useRealtimeSync({
+    tables: ["destruction_plans", "appointments", "reception_schedules", "waste_batches", "receptions"],
+    onSync: loadPersonalDocuments,
+    pollIntervalMs: 3000
+  })
 
   // Filtrage des documents
   const filteredPersonalDocs = useMemo(() => {

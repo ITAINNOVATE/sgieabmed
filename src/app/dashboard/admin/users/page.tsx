@@ -23,6 +23,7 @@ import {
   unlockUserAccount, resetUserMFA, softDeleteUser
 } from "../adminMockData"
 import { toast } from "sonner"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 export default function UsersAdminPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -72,18 +73,21 @@ export default function UsersAdminPage() {
   const [username, setUsername] = useState("")
   const [status, setStatus] = useState<"Actif" | "Suspendu" | "Désactivé">("Actif")
 
-  useEffect(() => {
-    async function load() {
-      const [u, d, r] = await Promise.all([
-        getUsers(),
-        getDepartments(),
-        getRoles()
-      ])
-      setUsers(u)
-      setDepartments(d)
-      setRoles(r)
-      setLoading(false)
+  const load = async () => {
+    const [u, d, r] = await Promise.all([
+      getUsers(),
+      getDepartments(),
+      getRoles()
+    ])
+    setUsers(u)
+    setDepartments(d)
+    setRoles(r)
+    setLoading(false)
+    return { u, d, r }
+  }
 
+  useEffect(() => {
+    load().then(({ u, d, r }) => {
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search)
         const actionParam = params.get("action")
@@ -124,9 +128,16 @@ export default function UsersAdminPage() {
           }
         }
       }
-    }
-    load()
+    })
   }, [])
+
+  useRealtimeSync({
+    tables: ["users", "departments", "roles"],
+    onSync: async () => {
+      await load()
+    },
+    pollIntervalMs: 3000,
+  })
 
   if (loading) {
     return <div className="text-center py-10">Chargement...</div>

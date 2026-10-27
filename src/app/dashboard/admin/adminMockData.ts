@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/client"
 import { createUserAction, resetPasswordAction } from "@/app/actions/admin"
 import { getRegisteredCentersSync, getCenterDefaultPassword } from "@/utils/centers-storage"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 
 // --- TYPES DEFINITIONS ---
 export interface Department {
@@ -953,6 +954,12 @@ export const createUser = async (payload: {
     await logAdminAction("Admin", "CREATE_USER", "Utilisateur", `Création du compte ${payload.username} (MDP généré automatiquement)`)
   } catch (err) {}
 
+  broadcastDataMutation({
+    entity: "users",
+    action: "create",
+    id: payload.username
+  })
+
   return { success: true, tempPass, user: newUser }
 }
 
@@ -976,6 +983,12 @@ export const updateUser = async (id: string, user: Partial<Omit<User, 'id' | 'cr
     const supabase = createClient()
     await supabase.from('users').update(user).eq('id', id)
   } catch (err) {}
+
+  broadcastDataMutation({
+    entity: "users",
+    action: "update",
+    id
+  })
 
   return true
 }
@@ -1023,6 +1036,12 @@ export const softDeleteUser = async (id: string): Promise<boolean> => {
     const supabase = createClient()
     await supabase.from('users').update({ is_deleted: true, status: 'Désactivé' }).eq('id', id)
   } catch (err) {}
+
+  broadcastDataMutation({
+    entity: "users",
+    action: "delete",
+    id
+  })
 
   return true
 }

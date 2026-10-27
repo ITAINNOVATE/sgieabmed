@@ -123,7 +123,7 @@ export default function CentersPage() {
   useRealtimeSync({
     tables: ["centers", "receptions", "waste_batches"],
     onSync: () => loadData(false),
-    pollIntervalMs: 5000,
+    pollIntervalMs: 3000,
   })
 
   // ─── Consolidation des statistiques par centre ─────────────────────────────

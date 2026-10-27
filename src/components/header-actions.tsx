@@ -262,9 +262,9 @@ export function HeaderActions() {
 
   // Synchronisation globale multi-postes pour la cloche et les notifications
   useRealtimeSync({
-    tables: ["receptions", "destruction_plans", "waste_batches"],
+    tables: ["receptions", "destruction_plans", "waste_batches", "appointments", "reception_schedules", "waste_movements"],
     onSync: refreshRealData,
-    pollIntervalMs: 5000,
+    pollIntervalMs: 3000,
   })
 
   useEffect(() => {

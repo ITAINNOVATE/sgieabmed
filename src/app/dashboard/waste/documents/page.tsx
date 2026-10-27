@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const STORAGE_KEY = "waste_documents_custom_v1"
 
@@ -61,15 +62,13 @@ export default function WasteDocumentsPage() {
 
   useEffect(() => {
     loadDocuments()
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadDocuments()
-      }
-    }
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
+
+  useRealtimeSync({
+    tables: ["waste_documents", "waste_batches", "receptions"],
+    onSync: loadDocuments,
+    pollIntervalMs: 3000,
+  })
 
   // Liste unique des apporteurs pour les filtres
   const uniqueApporteurs = useMemo(() => {

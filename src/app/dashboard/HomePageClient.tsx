@@ -12,13 +12,24 @@ import Link from "next/link"
 import Image from "next/image"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
 import { getRegisteredCentersSync } from "@/utils/centers-storage"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 export default function HomePageClient() {
   const [currentUser, setCurrentUser] = useState<any>(null)
 
-  useEffect(() => {
+  const reloadUser = () => {
     setCurrentUser(getCurrentUser())
+  }
+
+  useEffect(() => {
+    reloadUser()
   }, [])
+
+  useRealtimeSync({
+    tables: ["users", "centers", "appointments", "receptions"],
+    onSync: reloadUser,
+    pollIntervalMs: 4000,
+  })
 
   const isCenterUser = 
     currentUser?.role === "Centre Apporteur" || 

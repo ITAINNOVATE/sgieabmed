@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/utils/supabase/client"
 import { exportDestructionCertificatePDF } from "@/utils/exportUtils"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 
 const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {}
 
@@ -191,6 +192,12 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
         .update({ status: newStatus })
         .or(`id.eq.${plan.id},plan_number.eq.${plan.plan_number}`)
         .then(() => {})
+
+      broadcastDataMutation({
+        entity: "destruction_plans,destruction_validations",
+        action: "validate",
+        id: plan.plan_number
+      })
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -299,6 +306,12 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           ? supabase.from('waste_movements').upsert(movementsPayload, { onConflict: 'mvt_number' })
           : Promise.resolve(),
       ]).catch(err => console.warn("Supabase execute sync warning:", err))
+
+      broadcastDataMutation({
+        entity: "destruction_plans,waste_batches,waste_movements",
+        action: "execute",
+        id: plan.plan_number
+      })
     } catch (error: any) {
       toast.error(error.message)
     } finally {

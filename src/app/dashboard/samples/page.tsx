@@ -31,6 +31,7 @@ import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 
 export type Sample = {
   id: string
@@ -446,9 +447,9 @@ export default function SamplesDataTable() {
 
   // Synchronisation temps réel multi-postes pour les échantillons en stock
   useRealtimeSync({
-    tables: ['samples', 'receptions', 'movements'],
+    tables: ['samples', 'receptions', 'movements', 'centers'],
     onSync: fetchData,
-    pollIntervalMs: 6000,
+    pollIntervalMs: 3000,
   })
 
   const filteredData = useMemo(() => {
@@ -487,6 +488,12 @@ export default function SamplesDataTable() {
       } catch (e) {}
       const supabase = createClient()
       supabase.from('samples').delete().or(`id.eq.${sample.id},sample_number.eq.${sample.sample_number}`).then(() => {})
+
+      broadcastDataMutation({
+        entity: "samples,movements",
+        action: "delete",
+        id: sample.sample_number || sample.id
+      })
     }
   }), [])
 

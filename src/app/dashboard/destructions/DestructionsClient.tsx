@@ -99,9 +99,9 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
 
   // Synchronisation temps réel automatique des plans de destruction
   useRealtimeSync({
-    tables: ['destruction_plans', 'waste_batches'],
+    tables: ['destruction_plans', 'waste_batches', 'waste_movements'],
     onSync: fetchPlans,
-    pollIntervalMs: 6000,
+    pollIntervalMs: 3000,
   })
 
   const filteredPlans = plansList.filter(plan => {

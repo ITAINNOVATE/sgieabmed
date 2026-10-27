@@ -174,7 +174,7 @@ export default function DashboardClient({
   useRealtimeSync({
     tables: ['samples', 'receptions', 'movements', 'inventories'],
     onSync: loadDashboardData,
-    pollIntervalMs: 8000,
+    pollIntervalMs: 3000,
   })
 
   // ─── 1. CALCUL DES KPIs ÉCHANTILLONS EN TEMPS RÉEL ──────────────────────

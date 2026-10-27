@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { SampleArchivedDocument, SAMPLE_DOCUMENT_TYPES } from "@/types/sample-documents"
+import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 
 const STORAGE_KEY = "sample_documents_custom_v1"
 
@@ -145,15 +146,13 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
 
   useEffect(() => {
     loadDocuments()
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY || e.key === "reception_history_records") {
-        loadDocuments()
-      }
-    }
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
+
+  useRealtimeSync({
+    tables: ["sample_documents", "receptions", "samples"],
+    onSync: loadDocuments,
+    pollIntervalMs: 3000,
+  })
 
   // Liste unique des apporteurs pour les filtres
   const uniqueApporteurs = useMemo(() => {

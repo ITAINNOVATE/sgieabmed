@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/utils/supabase/client'
 import { normalizeWasteLocation } from '@/utils/waste-locations'
+import { broadcastDataMutation } from '@/utils/realtimeBus'
 
 const formSchema = z.object({
   name: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
@@ -168,6 +169,12 @@ export default function NewWasteInventoryPage() {
       }, { onConflict: 'inv_number' })
 
       await Promise.race([syncPromise, new Promise(r => setTimeout(r, 600))])
+
+      broadcastDataMutation({
+        entity: "inventories,waste_batches",
+        action: "create",
+        id: invNumber,
+      })
 
       toast.success(`Session "${values.name}" démarrée avec ${items.length} lot(s) de déchets (${totalSystemWeight} Kg) !`)
       router.push(`/dashboard/waste/inventory/${invId}`)

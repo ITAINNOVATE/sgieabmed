@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save, Box, AlertCircle } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { Sample } from "../../page"
 
 const formSchema = z.object({
@@ -124,19 +125,37 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSaving(true)
-    const { error } = await supabase
-      .from('samples')
-      .update(values)
-      .eq('id', resolvedParams.id)
-    
-    if (error) {
-      toast.error("Erreur lors de la mise à jour")
-      console.error(error)
-    } else {
+    try {
+      if (typeof window !== "undefined") {
+        const overrides = JSON.parse(localStorage.getItem('local_sample_overrides') || '{}')
+        const overrideVal = {
+          ...(overrides[resolvedParams.id] || {}),
+          ...values,
+        }
+        overrides[resolvedParams.id] = overrideVal
+        if (sampleNumber) overrides[sampleNumber] = overrideVal
+        localStorage.setItem('local_sample_overrides', JSON.stringify(overrides))
+      }
+
+      await supabase
+        .from('samples')
+        .update(values)
+        .eq('id', resolvedParams.id)
+
+      broadcastDataMutation({
+        entity: "samples",
+        action: "update",
+        id: sampleNumber || resolvedParams.id,
+      })
+
       toast.success("Échantillon mis à jour avec succès !")
       router.push(`/dashboard/samples/${resolvedParams.id}`)
+    } catch (err: any) {
+      toast.error("Erreur lors de la mise à jour : " + (err.message || ""))
+      console.error(err)
+    } finally {
+      setIsSaving(false)
     }
-    setIsSaving(false)
   }
 
   if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement...</div>

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/utils/supabase/client'
+import { broadcastDataMutation } from '@/utils/realtimeBus'
 
 const formSchema = z.object({
   name: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
@@ -185,6 +186,12 @@ export default function NewInventoryPage() {
       }, { onConflict: 'inv_number' })
 
       await Promise.race([syncPromise, new Promise(r => setTimeout(r, 600))])
+
+      broadcastDataMutation({
+        entity: "inventories,samples",
+        action: "create",
+        id: invNumber,
+      })
 
       toast.success(`Session "${values.name}" démarrée avec ${items.length} échantillon(s) !`)
       router.push(`/dashboard/inventory/${invId}`)

@@ -17,6 +17,7 @@ import { MapPin, AlertTriangle, CheckCircle2, Loader2, ChevronRight } from "luci
 import {
   getLocalRooms, getLocalZones, getLocalCabinets, getLocalShelves, updateLocalShelf
 } from "@/utils/locations-storage"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
 
 interface SampleLocationDialogProps {
   open: boolean
@@ -259,6 +260,12 @@ export function SampleLocationDialog({ open, onOpenChange, sample, onSuccess }: 
           localStorage.setItem('local_movements_history', JSON.stringify(localMovements))
         } catch {}
       }
+
+      broadcastDataMutation({
+        entity: "samples,movements,shelves,locations",
+        action: "assign_location",
+        id: sample.sample_number || sample.id
+      })
 
       toast.success(`Emplacement assigné à ${sample.sample_number}`, {
         description: locationPath

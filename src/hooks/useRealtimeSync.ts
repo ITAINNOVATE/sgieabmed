@@ -63,6 +63,92 @@ export function useRealtimeSync({
     }, 50)
   })
 
+function checkIfEventIsRelevant(entity: string, tables: string[]): boolean {
+  if (!entity || tables.length === 0 || tables.includes("*") || tables.includes("all")) {
+    return true
+  }
+  const lowEntity = entity.toLowerCase()
+  if (lowEntity.includes("global") || lowEntity.includes("all")) return true
+
+  return tables.some((t) => {
+    const lowTable = t.toLowerCase()
+    if (lowEntity.includes(lowTable) || lowTable.includes(lowEntity)) return true
+
+    // Correspondances sémantiques entre entités liées
+    if (lowTable.includes("appointment") || lowTable.includes("rdv") || lowTable.includes("sched")) {
+      return (
+        lowEntity.includes("sched") ||
+        lowEntity.includes("rdv") ||
+        lowEntity.includes("appoint") ||
+        lowEntity.includes("waste_movements") ||
+        lowEntity.includes("center")
+      )
+    }
+    if (lowTable.includes("waste_movements")) {
+      return (
+        lowEntity.includes("sched") ||
+        lowEntity.includes("rdv") ||
+        lowEntity.includes("appoint") ||
+        lowEntity.includes("waste") ||
+        lowEntity.includes("package") ||
+        lowEntity.includes("colis") ||
+        lowEntity.includes("destruction")
+      )
+    }
+    if (lowTable.includes("center") || lowTable.includes("centre")) {
+      return (
+        lowEntity.includes("center") ||
+        lowEntity.includes("centre") ||
+        lowEntity.includes("reception") ||
+        lowEntity.includes("waste") ||
+        lowEntity.includes("appointment")
+      )
+    }
+    if (lowTable.includes("waste")) {
+      return (
+        lowEntity.includes("waste") ||
+        lowEntity.includes("batch") ||
+        lowEntity.includes("package") ||
+        lowEntity.includes("colis") ||
+        lowEntity.includes("destruction") ||
+        lowEntity.includes("center")
+      )
+    }
+    if (lowTable.includes("sample") || lowTable.includes("echantillon")) {
+      return (
+        lowEntity.includes("sample") ||
+        lowEntity.includes("mvt") ||
+        lowEntity.includes("movement") ||
+        lowEntity.includes("location") ||
+        lowEntity.includes("shelf") ||
+        lowEntity.includes("inventory") ||
+        lowEntity.includes("center")
+      )
+    }
+    if (lowTable.includes("reception")) {
+      return (
+        lowEntity.includes("reception") ||
+        lowEntity.includes("sample") ||
+        lowEntity.includes("waste") ||
+        lowEntity.includes("center")
+      )
+    }
+    if (lowTable.includes("destruction")) {
+      return lowEntity.includes("destruction") || lowEntity.includes("waste")
+    }
+    if (lowTable.includes("user") || lowTable.includes("role") || lowTable.includes("permission")) {
+      return (
+        lowEntity.includes("user") ||
+        lowEntity.includes("role") ||
+        lowEntity.includes("permission") ||
+        lowEntity.includes("security")
+      )
+    }
+
+    return false
+  })
+}
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return
 
@@ -75,21 +161,18 @@ export function useRealtimeSync({
 
     // 1. Abonnement au canal Broadcast Global Supabase (tous les postes, <50ms)
     const broadcastChannel = getGlobalBroadcastChannel()
+    const handleBroadcastMsg = (payload: any) => {
+      const entity = (payload?.payload?.entity || payload?.entity || "").toLowerCase()
+      if (checkIfEventIsRelevant(entity, tables)) {
+        triggerSync.current()
+      }
+    }
+
     if (broadcastChannel) {
       broadcastChannel.on(
         "broadcast",
         { event: "sgie_mutation" },
-        (payload: any) => {
-          const entity = (payload?.payload?.entity || "").toLowerCase()
-          const isRelevant =
-            !entity ||
-            tables.some((t) => entity.includes(t.toLowerCase())) ||
-            tables.length === 0
-
-          if (isRelevant) {
-            triggerSync.current()
-          }
-        }
+        handleBroadcastMsg
       )
     }
 
@@ -116,12 +199,7 @@ export function useRealtimeSync({
         nativeBc = new BroadcastChannel("sgie_realtime_bus")
         nativeBc.onmessage = (event) => {
           const entity = (event.data?.entity || "").toLowerCase()
-          const isRelevant =
-            !entity ||
-            tables.some((t) => entity.includes(t.toLowerCase())) ||
-            tables.length === 0
-
-          if (isRelevant) {
+          if (checkIfEventIsRelevant(entity, tables)) {
             triggerSync.current()
           }
         }
@@ -129,25 +207,18 @@ export function useRealtimeSync({
     }
 
     // 4. Écoute des événements locaux
-    const handleLocalSyncEvent = () => triggerSync.current()
+    const handleLocalSyncEvent = (e: any) => {
+      const entity = e?.detail?.entity || ""
+      if (checkIfEventIsRelevant(entity, tables)) {
+        triggerSync.current()
+      }
+    }
     const handleStorageChange = (e: StorageEvent) => {
       if (!e.key) {
         triggerSync.current()
         return
       }
-      const lowerKey = e.key.toLowerCase()
-      const isCritical = [
-        "reception",
-        "waste",
-        "sample",
-        "destruction",
-        "mvt",
-        "movement",
-        "invent",
-        "sgie",
-      ].some((p) => lowerKey.includes(p))
-
-      if (isCritical) {
+      if (checkIfEventIsRelevant(e.key, tables)) {
         triggerSync.current()
       }
     }

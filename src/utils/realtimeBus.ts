@@ -16,6 +16,13 @@ let nativeBroadcastChannel: BroadcastChannel | null = null
 if (typeof window !== "undefined" && "BroadcastChannel" in window) {
   try {
     nativeBroadcastChannel = new BroadcastChannel("sgie_realtime_bus")
+    nativeBroadcastChannel.onmessage = (event) => {
+      const payload = event.data || {}
+      try {
+        window.dispatchEvent(new CustomEvent("eged-data-updated", { detail: payload }))
+        window.dispatchEvent(new CustomEvent("sgie-sync-event", { detail: payload }))
+      } catch (e) {}
+    }
   } catch (e) {
     console.warn("[RealtimeBus] BroadcastChannel non supporté:", e)
   }
@@ -34,9 +41,34 @@ export function getGlobalBroadcastChannel() {
           broadcast: { self: false, ack: false },
         },
       })
+
+      // 1. Écouter les diffusions WebSocket transmises par les autres ordinateurs / téléphones
+      globalSupabaseChannel.on("broadcast", { event: "sgie_mutation" }, (data: any) => {
+        const payload = data?.payload || {}
+        try {
+          window.dispatchEvent(new CustomEvent("eged-data-updated", { detail: payload }))
+          window.dispatchEvent(new CustomEvent("sgie-sync-event", { detail: payload }))
+        } catch (e) {}
+      })
+
+      // 2. Écouter en direct toutes les réplications PostgreSQL Cloud de Supabase
+      globalSupabaseChannel.on("postgres_changes", { event: "*", schema: "public" }, (data: any) => {
+        const payload: MutationPayload = {
+          entity: data.table || "database",
+          action: data.eventType || "change",
+          record: data.new || data.old,
+          timestamp: Date.now()
+        }
+        try {
+          window.dispatchEvent(new CustomEvent("eged-data-updated", { detail: payload }))
+          window.dispatchEvent(new CustomEvent("sgie-sync-event", { detail: payload }))
+        } catch (e) {}
+      })
+
+      // Inscription au canal une fois les gestionnaires d'événements attachés
       globalSupabaseChannel.subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
-          console.log("[RealtimeBus] Connecté au réseau WebSocket global SGIE")
+          console.log("[RealtimeBus] Connecté au réseau WebSocket & PostgreSQL global SGIE")
         }
       })
     } catch (e) {
@@ -108,6 +140,15 @@ export function installLocalStorageSyncInterceptor() {
     "invent",
     "magasin",
     "location",
+    "center",
+    "centre",
+    "appointment",
+    "sched",
+    "rdv",
+    "user",
+    "role",
+    "setting",
+    "document",
   ]
 
   let throttleTimer: any = null
