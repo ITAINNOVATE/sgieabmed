@@ -18,6 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { getDocumentFile, saveDocumentFile, deleteDocumentFile, optimizeFileForUpload, safeSaveDocsToLocalStorage } from "@/utils/idb-docs"
+import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { createClient } from "@/utils/supabase/client"
 
 const STORAGE_KEY = "waste_documents_custom_v1"
 
@@ -31,6 +35,7 @@ export default function WasteDocumentsPage() {
   // États pour la modale de prévisualisation
   const [previewDoc, setPreviewDoc] = useState<WasteArchivedDocument | null>(null)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [isLoadingPreviewFile, setIsLoadingPreviewFile] = useState(false)
 
   // États pour la modale d'ajout manuel de document
   const [showAddModal, setShowAddModal] = useState(false)
@@ -41,19 +46,113 @@ export default function WasteDocumentsPage() {
   const [newDocFile, setNewDocFile] = useState<{ name: string; size: string; type: string; dataUrl: string } | null>(null)
   const [isSubmittingNewDoc, setIsSubmittingNewDoc] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const supabase = createClient()
 
-  // Chargement des documents depuis le LocalStorage
-  const loadDocuments = () => {
+  // Chargement des documents avec récupération automatique de tous les documents passés et réceptions
+  const loadDocuments = async () => {
     try {
+      const docsMap = new Map<string, WasteArchivedDocument>()
+
+      // 1. Charger depuis le stockage direct des documents
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) {
-          setDocuments(parsed)
-          return
-        }
+        try {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed)) {
+            parsed.forEach((d: WasteArchivedDocument) => {
+              if (d && d.id) docsMap.set(d.id, d)
+            })
+          }
+        } catch (e) {}
       }
-      setDocuments([])
+
+      // 2. Extraire les réceptions et documents attachés depuis le registre des lots (waste_batches_custom_v1)
+      const batchesRaw = localStorage.getItem("waste_batches_custom_v1")
+      if (batchesRaw) {
+        try {
+          const batches = JSON.parse(batchesRaw)
+          if (Array.isArray(batches)) {
+            batches.forEach((batch: any) => {
+              const recNum = batch.reception_number || batch.batch_number
+              const slipDocId = `doc-slip-${recNum}`
+
+              // Si le bordereau officiel eGED n'est pas encore présent
+              if (!docsMap.has(slipDocId) && recNum) {
+                docsMap.set(slipDocId, {
+                  id: slipDocId,
+                  reception_number: recNum,
+                  source_structure: batch.source_structure || "Structure Non Précisée",
+                  source_type: batch.source_type || "Officine privée de pharmacie",
+                  city: batch.city || "Cotonou",
+                  depositor_name: batch.depositor_name || "Agent Apporteur",
+                  depositor_phone: batch.depositor_phone,
+                  date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                  reception_date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                  doc_category: "Attestation eGED",
+                  category: "acte_administratif",
+                  doc_type: "Attestation / Bordereau de dépôt eGED officiel",
+                  document_type: "Attestation / Bordereau de dépôt eGED officiel",
+                  title: `Bordereau de Réception ${recNum}`,
+                  file_name: `Bordereau-Reception-${recNum}.pdf`,
+                  file_size: "PDF Officiel eGED",
+                  file_size_formatted: "PDF Officiel eGED",
+                  file_type: "application/pdf",
+                  mime_type: "application/pdf",
+                  created_at: batch.created_at || new Date().toISOString(),
+                })
+              }
+            })
+          }
+        } catch (e) {}
+      }
+
+      // 3. Récupérer également les réceptions depuis Supabase en arrière-plan
+      try {
+        const { data: cloudBatches } = await supabase
+          .from("waste_batches")
+          .select("reception_number, source_structure, source_type, city, depositor_name, depositor_phone, reception_date, created_at")
+          .limit(100)
+
+        if (cloudBatches && Array.isArray(cloudBatches)) {
+          cloudBatches.forEach((batch: any) => {
+            if (!batch.reception_number) return
+            const slipDocId = `doc-slip-${batch.reception_number}`
+            if (!docsMap.has(slipDocId)) {
+              docsMap.set(slipDocId, {
+                id: slipDocId,
+                reception_number: batch.reception_number,
+                source_structure: batch.source_structure || "Structure Non Précisée",
+                source_type: batch.source_type || "Officine privée de pharmacie",
+                city: batch.city || "Cotonou",
+                depositor_name: batch.depositor_name || "Agent Apporteur",
+                depositor_phone: batch.depositor_phone,
+                date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                reception_date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                doc_category: "Attestation eGED",
+                category: "acte_administratif",
+                doc_type: "Attestation / Bordereau de dépôt eGED officiel",
+                document_type: "Attestation / Bordereau de dépôt eGED officiel",
+                title: `Bordereau de Réception ${batch.reception_number}`,
+                file_name: `Bordereau-Reception-${batch.reception_number}.pdf`,
+                file_size: "PDF Officiel eGED",
+                file_size_formatted: "PDF Officiel eGED",
+                file_type: "application/pdf",
+                mime_type: "application/pdf",
+                created_at: batch.created_at || new Date().toISOString(),
+              })
+            }
+          })
+        }
+      } catch (err) {}
+
+      const finalList = Array.from(docsMap.values()).sort((a, b) => {
+        const dateA = new Date(a.created_at || a.date || 0).getTime()
+        const dateB = new Date(b.created_at || b.date || 0).getTime()
+        return dateB - dateA
+      })
+
+      setDocuments(finalList)
+      safeSaveDocsToLocalStorage(STORAGE_KEY, finalList)
     } catch (e) {
       console.error("Erreur lecture documents déchets:", e)
       setDocuments([])
@@ -145,22 +244,95 @@ export default function WasteDocumentsPage() {
   const depositorDocsCount = documents.filter(d => !isOfficialDoc(d)).length
   const egedDocsCount = documents.filter(d => isOfficialDoc(d)).length
 
-  // Action Aperçu
-  const handleOpenPreview = (doc: WasteArchivedDocument) => {
+  // Action Aperçu avec chargement transparent depuis IndexedDB si besoin
+  const handleOpenPreview = async (doc: WasteArchivedDocument) => {
     setPreviewDoc(doc)
     setShowPreviewModal(true)
+
+    // Si le document n'a pas de data_url immédiat, on le récupère d'IndexedDB
+    if (!doc.data_url && !doc.file_data) {
+      setIsLoadingPreviewFile(true)
+      try {
+        const storedBlob = await getDocumentFile(doc.id)
+        if (storedBlob) {
+          setPreviewDoc(prev => prev && prev.id === doc.id ? { ...prev, data_url: storedBlob, file_data: storedBlob } : prev)
+        }
+      } catch (err) {
+        console.warn("Erreur chargement fichier preview:", err)
+      } finally {
+        setIsLoadingPreviewFile(false)
+      }
+    }
   }
 
-  // Action Téléchargement
-  const handleDownload = (doc: WasteArchivedDocument) => {
-    if (!doc.data_url) {
-      toast.error("Fichier non disponible pour le téléchargement immédiat.")
+  // Action Téléchargement (avec génération directe de l'attestation si bordereau officiel)
+  const handleDownload = async (doc: WasteArchivedDocument) => {
+    // 1. Si c'est un bordereau officiel eGED, on le génère proprement
+    if (isOfficialDoc(doc)) {
+      try {
+        // Chercher les informations de la réception dans les lots
+        const batchesRaw = localStorage.getItem("waste_batches_custom_v1")
+        const batches = batchesRaw ? JSON.parse(batchesRaw) : []
+        const matchedBatches = batches.filter((b: any) => b.reception_number === doc.reception_number)
+        const primary = matchedBatches[0] || {}
+
+        exportWasteReceptionSlipPDF({
+          reception_number: doc.reception_number || `BORD-${doc.id}`,
+          reception_date: doc.reception_date || doc.date || new Date().toISOString().split("T")[0],
+          reception_time: primary.reception_time || "",
+          warehouse: primary.warehouse || "Magasin Cotonou",
+          delivery_slip_ref: primary.delivery_slip_ref || "N/A",
+          recipient_agent: primary.recipient_agent || "Agent ABMed",
+          source_structure: doc.source_structure,
+          source_type: doc.source_type || primary.source_type || "Officine de pharmacie",
+          city: doc.city || primary.city || "Cotonou",
+          depositor_name: doc.depositor_name || primary.depositor_name || "N/A",
+          depositor_phone: doc.depositor_phone || primary.depositor_phone || "N/A",
+          general_observations: primary.observations || "Lot réceptionné conformément aux procédures ABMed.",
+          items: matchedBatches.length > 0 ? matchedBatches.map((b: any) => ({
+            batch_number: b.batch_number,
+            waste_type: b.waste_type || "Déchets pharmaceutiques",
+            commercial_name: b.commercial_name || b.waste_type,
+            original_batch: b.original_batch || "-",
+            quantity: Number(b.quantity) || 1,
+            unit: b.unit || "Kg",
+            packaging: b.packaging || "Carton scellé",
+            location: b.current_location || "MAGASIN DES DECHETS",
+            observations: b.observations || "Péremption",
+          })) : [
+            {
+              batch_number: `LOT-${doc.reception_number || 'REC'}`,
+              waste_type: "Déchets Pharmaceutiques déclarés",
+              commercial_name: doc.title || "Déchets périmés",
+              quantity: 1,
+              unit: "Lot",
+              packaging: "Colis scellé",
+              location: "MAGASIN DES DECHETS",
+              observations: "Dépôt officiel",
+            }
+          ]
+        })
+        toast.success(`Attestation ${doc.reception_number || doc.title} téléchargée`)
+        return
+      } catch (err) {
+        console.warn("Échec génération dynamique bordereau:", err)
+      }
+    }
+
+    // 2. Si c'est un document apporteur téléversé : récupérer les données
+    let dataUrl = doc.data_url || doc.file_data
+    if (!dataUrl) {
+      dataUrl = (await getDocumentFile(doc.id)) || undefined
+    }
+
+    if (!dataUrl) {
+      toast.error("Contenu du document indisponible pour le téléchargement immédiat.")
       return
     }
 
     try {
       const link = document.createElement("a")
-      link.href = doc.data_url
+      link.href = dataUrl
       link.download = doc.file_name || `document-dechet-${doc.id}.pdf`
       document.body.appendChild(link)
       link.click()
@@ -172,7 +344,7 @@ export default function WasteDocumentsPage() {
   }
 
   // Action Suppression
-  const handleDeleteDoc = (id: string, fileName: string) => {
+  const handleDeleteDoc = async (id: string, fileName: string) => {
     if (!confirm(`Confirmez-vous la suppression du document « ${fileName} » de la traçabilité ?`)) {
       return
     }
@@ -180,42 +352,36 @@ export default function WasteDocumentsPage() {
     const updated = documents.filter(d => d.id !== id)
     setDocuments(updated)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      safeSaveDocsToLocalStorage(STORAGE_KEY, updated)
+      await deleteDocumentFile(id)
+      broadcastDataMutation({ entity: "waste_documents", action: "delete", id })
       toast.success("Document supprimé avec succès.")
     } catch (e) {
       toast.error("Erreur lors de la mise à jour de la mémoire locale.")
     }
   }
 
-  // Téléversement d'un nouveau document manuel
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Téléversement d'un nouveau document manuel avec optimisation automatique
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Le fichier dépasse la taille maximale autorisée de 10 Mo.")
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const formattedSize = file.size < 1024 * 1024 
-        ? `${(file.size / 1024).toFixed(1)} Ko` 
-        : `${(file.size / (1024 * 1024)).toFixed(2)} Mo`
-
+    toast.info(`Traitement et optimisation de « ${file.name} »...`)
+    try {
+      const optimized = await optimizeFileForUpload(file)
       setNewDocFile({
-        name: file.name,
-        size: formattedSize,
-        type: file.type || "application/octet-stream",
-        dataUrl: reader.result as string
+        name: optimized.name,
+        size: optimized.sizeFormatted + (optimized.isOptimized ? " (optimisé)" : ""),
+        type: optimized.type,
+        dataUrl: optimized.base64
       })
-
-      toast.info(`Fichier prêt : ${file.name}`)
+      toast.success(`Fichier prêt (${optimized.sizeFormatted})`)
+    } catch (err) {
+      toast.error("Erreur lors du traitement du fichier.")
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleSaveNewDoc = () => {
+  const handleSaveNewDoc = async () => {
     if (!newDocApporteur.trim()) {
       toast.error("Veuillez indiquer le nom de la structure apportrice.")
       return
@@ -227,30 +393,38 @@ export default function WasteDocumentsPage() {
 
     setIsSubmittingNewDoc(true)
 
-    const now = new Date()
-    const titleToUse = newDocTitle.trim() || newDocFile.name
-    const newArchivedDoc: WasteArchivedDocument = {
-      id: `W-DOC-MANUAL-${Date.now()}`,
-      file_name: newDocFile.name,
-      file_size_formatted: newDocFile.size,
-      mime_type: newDocFile.type,
-      title: titleToUse,
-      doc_type: titleToUse,
-      document_type: titleToUse,
-      category: "piece_apporteur",
-      data_url: newDocFile.dataUrl,
-      file_data: newDocFile.dataUrl,
-      source_structure: newDocApporteur.trim(),
-      reception_number: newDocReceptionRef.trim() || undefined,
-      reception_date: now.toISOString().split("T")[0],
-      created_at: now.toISOString(),
-      description: newDocDescription.trim() || undefined
-    }
-
-    const updated = [newArchivedDoc, ...documents]
-    setDocuments(updated)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      const now = new Date()
+      const titleToUse = newDocTitle.trim() || newDocFile.name
+      const docId = `W-DOC-MANUAL-${Date.now()}`
+
+      // 1. Sauvegarder le fichier complet dans IndexedDB (haute capacité)
+      await saveDocumentFile(docId, newDocFile.dataUrl)
+
+      // 2. Sauvegarder les métadonnées légères dans le state et localStorage
+      const newArchivedDoc: WasteArchivedDocument = {
+        id: docId,
+        file_name: newDocFile.name,
+        file_size_formatted: newDocFile.size,
+        mime_type: newDocFile.type,
+        title: titleToUse,
+        doc_type: titleToUse,
+        document_type: titleToUse,
+        category: "piece_apporteur",
+        data_url: newDocFile.dataUrl.length < 50000 ? newDocFile.dataUrl : undefined,
+        file_data: newDocFile.dataUrl.length < 50000 ? newDocFile.dataUrl : undefined,
+        source_structure: newDocApporteur.trim(),
+        reception_number: newDocReceptionRef.trim() || undefined,
+        reception_date: now.toISOString().split("T")[0],
+        created_at: now.toISOString(),
+        description: newDocDescription.trim() || undefined
+      }
+
+      const updated = [newArchivedDoc, ...documents]
+      setDocuments(updated)
+      safeSaveDocsToLocalStorage(STORAGE_KEY, updated)
+      broadcastDataMutation({ entity: "waste_documents", action: "create", id: docId })
+
       toast.success("Document archivé avec succès.")
       setShowAddModal(false)
       setNewDocApporteur("")
@@ -824,7 +998,12 @@ export default function WasteDocumentsPage() {
 
               {/* Rendu du contenu du document */}
               <div className="rounded-xl border border-border/80 bg-background overflow-hidden min-h-[300px] max-h-[500px] flex items-center justify-center p-2">
-                {previewDoc.data_url?.startsWith("data:image/") ? (
+                {isLoadingPreviewFile ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-xs text-muted-foreground">
+                    <RefreshCw className="h-6 w-6 animate-spin text-[#1B5C2E] mb-2" />
+                    <span>Chargement du fichier sécurisé en cours...</span>
+                  </div>
+                ) : previewDoc.data_url?.startsWith("data:image/") ? (
                   // Image
                   // eslint-disable-next-line @next/next/no-img-element
                   <img 
@@ -839,6 +1018,26 @@ export default function WasteDocumentsPage() {
                     title={previewDoc.file_name}
                     className="w-full h-[480px] border-none rounded"
                   />
+                ) : isOfficialDoc(previewDoc) ? (
+                  // Bordereau Officiel eGED
+                  <div className="text-center p-8 space-y-3">
+                    <div className="mx-auto w-14 h-14 rounded-2xl bg-[#1B5C2E]/10 text-[#1B5C2E] flex items-center justify-center">
+                      <ShieldCheck className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-foreground">{previewDoc.title || previewDoc.file_name}</p>
+                      <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                        Bordereau / Attestation de réception officielle certifiée eGED. Ce document est généré en temps réel avec signature numérique.
+                      </p>
+                    </div>
+                    <Button 
+                      type="button"
+                      onClick={() => handleDownload(previewDoc)}
+                      className="text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white gap-2 shadow-xs cursor-pointer"
+                    >
+                      <Download className="h-4 w-4" /> Télécharger l&apos;Attestation Officielle (PDF)
+                    </Button>
+                  </div>
                 ) : (
                   // Autre format (Word, Excel, etc.)
                   <div className="text-center p-8 space-y-3">
@@ -854,7 +1053,7 @@ export default function WasteDocumentsPage() {
                     <Button 
                       type="button"
                       onClick={() => handleDownload(previewDoc)}
-                      className="text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white gap-2"
+                      className="text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white gap-2 shadow-xs cursor-pointer"
                     >
                       <Download className="h-4 w-4" /> Télécharger pour l&apos;ouvrir localement
                     </Button>

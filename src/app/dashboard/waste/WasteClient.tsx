@@ -6,7 +6,7 @@ import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Cen
 import { 
   Plus, Trash2, Search, Filter, Eye, Printer, 
   AlertTriangle, ArrowLeftRight, 
-  CheckCircle2, Box, LayoutDashboard, List, FileText, Download
+  CheckCircle2, Box, LayoutDashboard, List, FileText, Download, Pencil
 } from "lucide-react"
 import { toast } from "sonner"
 import { 
@@ -447,6 +447,17 @@ export default function WasteClient({
                           >
                             <Download className="h-3 w-3 text-[#1B5C2E]" />
                             PDF
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            asChild 
+                            className="h-6.5 px-2 text-[10.5px] text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold gap-0.5"
+                            title="Modifier cette réception, rectifier les données ou ajouter des documents"
+                          >
+                            <Link href={`/dashboard/waste/new?edit=${batch.reception_number || batch.batch_number}`}>
+                              <Pencil className="h-3 w-3 mr-0.5 text-amber-600" /> Modifier
+                            </Link>
                           </Button>
                           <Button 
                             variant="ghost" 

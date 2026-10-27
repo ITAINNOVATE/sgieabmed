@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck, Download } from "lucide-react"
+import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck, Download, Pencil } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useEffect, useState, Suspense, useCallback, useRef, useMemo } from "react"
@@ -677,9 +677,9 @@ function ReceptionsContent() {
                                 Valider
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-[#1B5C2E] font-bold hover:bg-[#1B5C2E]/10" asChild>
+                            <Button variant="outline" size="sm" className="h-7 text-xs px-2 sm:px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 font-bold gap-1 shadow-2xs" asChild>
                               <Link href={`/dashboard/receptions/new?id=${rec.rec_number || rec.id}`}>
-                                Ouvrir <ArrowRight className="ml-1 h-3 w-3" />
+                                <Pencil className="h-3 w-3 text-amber-600" /> Modifier
                               </Link>
                             </Button>
                             {!isFinalized && (

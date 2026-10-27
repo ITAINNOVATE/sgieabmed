@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, CheckCircle2, Box, Trash2, Printer, MapPin, Archive, Download, FileText, Scan, Building2, ShieldCheck, Phone, User } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Box, Trash2, Printer, MapPin, Archive, Download, FileText, Scan, Building2, ShieldCheck, Phone, User, Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -174,6 +174,11 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
           <Button variant="outline" onClick={handlePrint} className="gap-2 cursor-pointer"><Printer className="h-4 w-4" /> Imprimer l&apos;étiquette</Button>
           <Button variant="outline" onClick={handleDownloadReceptionSlip} className="gap-2 cursor-pointer text-[#1B5C2E] border-[#1B5C2E]/30 hover:bg-[#1B5C2E]/10">
             <Download className="h-4 w-4" /> Attestation Réception (PDF)
+          </Button>
+          <Button variant="outline" asChild className="gap-2 cursor-pointer text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold">
+            <Link href={`/dashboard/waste/new?edit=${wasteBatch.reception_number || wasteBatch.batch_number}`}>
+              <Pencil className="h-4 w-4 text-amber-600" /> Modifier cette réception
+            </Link>
           </Button>
           {wasteBatch.status === 'Détruit' ? (
             <Button variant="secondary" onClick={() => setShowCertificateModal(true)} className="gap-2 cursor-pointer bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300">

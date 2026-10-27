@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,7 @@ import {
   ArrowLeft, Save, Trash2, Box, Building2, User, Phone, 
   FileText, Printer, Download, CheckCircle2, ShieldCheck, MapPin, 
   Plus, Layers, Scale, Sparkles, Eye, Pencil, Paperclip, FileUp, FileSpreadsheet, FileCheck, X,
-  Warehouse, Calendar, CircleDollarSign, Check, Info
+  Warehouse, Calendar, CircleDollarSign, Check, Info, AlertTriangle, RefreshCw
 } from "lucide-react"
 
 import { createClient } from "@/utils/supabase/client"
@@ -35,6 +35,12 @@ import {
   saveCenter, 
   generateNextCenterCode 
 } from "@/utils/centers-storage"
+import { 
+  saveDocumentFile, 
+  getDocumentFile, 
+  optimizeFileForUpload, 
+  safeSaveDocsToLocalStorage 
+} from "@/utils/idb-docs"
 
 // --- CONSTANTES OFFICIELLES ABMed ---
 export const WASTE_WAREHOUSES = [
@@ -161,7 +167,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export default function NewWasteReceptionPage() {
+function NewWasteReceptionContent() {
   const [isSaving, setIsSaving] = useState(false)
   const [samples, setSamples] = useState<any[]>([])
   const [savedSlipData, setSavedSlipData] = useState<any | null>(null)
@@ -183,6 +189,12 @@ export default function NewWasteReceptionPage() {
   const [selectedCenterCode, setSelectedCenterCode] = useState<string>("")
 
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editParam = searchParams?.get("edit") || searchParams?.get("id") || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("edit") || new URLSearchParams(window.location.search).get("id") : null)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false)
+
   const supabase = createClient()
 
   const currentYearStr = new Date().getFullYear().toString()
@@ -272,14 +284,141 @@ export default function NewWasteReceptionPage() {
   }
 
   useEffect(() => {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000)
-    const year = new Date().getFullYear()
-    const recNum = `REC-DECH-${year}-${randomSuffix}`
-    const prefix = `DEC-${year}-${Math.floor(10000 + Math.random() * 90000)}`
-    
-    setBaseLotPrefix(prefix)
-    form.setValue("reception_number", recNum)
-    form.setValue("waste_items.0.batch_number", `${prefix}-1`)
+    if (editParam) {
+      setIsEditMode(true)
+      setEditingId(editParam)
+      setIsLoadingExisting(true)
+
+      async function loadExistingWasteReception() {
+        try {
+          let matchedBatches: any[] = []
+
+          // 1. Chercher dans localStorage
+          try {
+            const stored = localStorage.getItem("waste_batches_custom_v1")
+            if (stored) {
+              const allBatches = JSON.parse(stored)
+              matchedBatches = allBatches.filter((b: any) => 
+                b.reception_number === editParam || 
+                b.batch_number === editParam ||
+                b.id === editParam
+              )
+            }
+          } catch (e) {}
+
+          // 2. Si non trouvé ou incomplet, chercher dans Supabase
+          if (matchedBatches.length === 0) {
+            try {
+              const { data } = await supabase
+                .from("waste_batches")
+                .select("*")
+                .or(`reception_number.eq.${editParam},batch_number.eq.${editParam},id.eq.${editParam}`)
+              if (data && data.length > 0) {
+                matchedBatches = data
+              }
+            } catch (sErr) {}
+          }
+
+          if (matchedBatches.length > 0) {
+            const primary = matchedBatches[0]
+            const realRecNum = primary.reception_number || editParam
+            const prefix = primary.batch_number ? primary.batch_number.split('-').slice(0, 3).join('-') : `DEC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
+            setBaseLotPrefix(prefix)
+
+            form.reset({
+              reception_number: realRecNum,
+              reception_date: primary.reception_date ? primary.reception_date.split("T")[0] : new Date().toISOString().split("T")[0],
+              reception_time: primary.reception_time || "08:00",
+              warehouse: primary.warehouse || "Magasin Cotonou",
+              warehouse_other: "",
+              delivery_slip_ref: primary.delivery_slip_ref || "",
+              recipient_agent: primary.recipient_agent || "Admin EGED (Agent ABMed)",
+
+              center_mode: "existing",
+              center_code: primary.center_code || "",
+              center_id: primary.center_id || "",
+              source_structure: primary.source_structure || "",
+              source_type: primary.source_type || "Officine privée de pharmacie",
+              city: primary.city || "Cotonou",
+              depositor_name: primary.depositor_name || "",
+              depositor_phone: primary.depositor_phone || "",
+              depositor_id_card: primary.depositor_id_card || "",
+
+              exercise_years: primary.exercise_years && Array.isArray(primary.exercise_years) ? primary.exercise_years : [new Date().getFullYear().toString()],
+              transfer_cost_mode: primary.transfer_cost_mode || "chiffre",
+              transfer_cost_amount: Number(primary.transfer_cost_amount) || 0,
+
+              waste_items: matchedBatches.map((b: any, idx: number) => ({
+                batch_number: b.batch_number || `${prefix}-${idx + 1}`,
+                product_nature: b.product_nature || "médicaments",
+                product_nature_other: b.product_nature_other || "",
+                product_category: b.product_category || PRODUCT_CATEGORIES[0],
+                waste_type: b.waste_type || "Médicaments périmés (Formes solides)",
+                commercial_name: b.commercial_name || "",
+                sample_id: b.sample_id || "none",
+                original_batch: b.original_batch || "",
+                quantity: Number(b.quantity) || 1,
+                unit: b.unit || "Kg",
+                packaging: b.packaging || "Cartons fermés & scotchés",
+                packaging_condition: b.packaging_condition || "Conforme et scellé",
+                current_location: b.current_location || WASTE_ZONES[0].fullLocation,
+                destruction_motive: b.destruction_motive || "Péremption",
+                observations: b.observations || "",
+              }))
+            })
+
+            // 3. Charger les pièces jointes enregistrées pour cette réception
+            try {
+              const storedDocsRaw = localStorage.getItem("waste_documents_custom_v1")
+              if (storedDocsRaw) {
+                const storedDocs: any[] = JSON.parse(storedDocsRaw)
+                const recDocs = storedDocs.filter(d => 
+                  d.reception_number === realRecNum && 
+                  d.doc_category !== "Attestation eGED" &&
+                  !d.id?.startsWith("doc-slip-")
+                )
+                const loadedDocs: AttachedWasteDocument[] = []
+                for (const d of recDocs) {
+                  const content = await getDocumentFile(d.id) || d.data_url || d.file_data || ""
+                  loadedDocs.push({
+                    id: d.id,
+                    file_name: d.file_name,
+                    file_size: d.file_size_formatted || d.file_size || "Fichier",
+                    file_size_formatted: d.file_size_formatted || d.file_size || "Fichier",
+                    file_type: d.file_type || d.mime_type || "Fichier",
+                    title: d.title || d.file_name,
+                    doc_type: d.doc_type || d.document_type || d.title,
+                    document_type: d.document_type || d.doc_type || d.title,
+                    description: d.description,
+                    file_data: content,
+                    data_url: content,
+                    uploaded_at: d.created_at || new Date().toISOString(),
+                  })
+                }
+                setAttachedDocs(loadedDocs)
+              }
+            } catch (dErr) {}
+
+            toast.success(`Réception ${realRecNum} chargée pour modification. Vous pouvez corriger les informations et ajouter des pièces.`)
+          }
+        } catch (err) {
+          console.error("Erreur chargement réception déchet existante:", err)
+        } finally {
+          setIsLoadingExisting(false)
+        }
+      }
+
+      loadExistingWasteReception()
+    } else {
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000)
+      const year = new Date().getFullYear()
+      const recNum = `REC-DECH-${year}-${randomSuffix}`
+      const prefix = `DEC-${year}-${Math.floor(10000 + Math.random() * 90000)}`
+      
+      setBaseLotPrefix(prefix)
+      form.setValue("reception_number", recNum)
+      form.setValue("waste_items.0.batch_number", `${prefix}-1`)
+    }
 
     try {
       const u = getCurrentUser()
@@ -388,55 +527,70 @@ export default function NewWasteReceptionPage() {
   const watchedItems = form.watch("waste_items") || []
   const totalQuantity = watchedItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
 
-  // Sélection et lecture du fichier d'une pièce justificative
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Sélection et lecture optimisée de multiples pièces justificatives
+  const handleMultipleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    const file = files[0]
-    // Limite de taille max : 10 Mo
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Le fichier sélectionné dépasse la taille limite autorisée de 10 Mo.")
-      if (fileInputRef.current) fileInputRef.current.value = ""
-      return
-    }
-
     setIsUploadingDoc(true)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const base64Data = reader.result as string
-      const sizeFormatted = file.size > 1024 * 1024 
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} Mo` 
-        : `${Math.round(file.size / 1024)} Ko`
+    const newAttached: AttachedWasteDocument[] = []
+    toast.info(`Traitement et optimisation de ${files.length} document(s)...`)
 
-      setPendingFile({
-        name: file.name,
-        size: sizeFormatted,
-        type: file.type || file.name.split('.').pop()?.toUpperCase() || "Fichier",
-        base64: base64Data,
-      })
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      try {
+        const optimized = await optimizeFileForUpload(file)
+        const docId = `att-doc-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`
 
-      setIsUploadingDoc(false)
-      toast.info(`Fichier sélectionné : ${file.name}`)
+        // Sauvegarde immédiate dans IndexedDB (haute capacité)
+        await saveDocumentFile(docId, optimized.base64)
+
+        const titleToUse = (files.length === 1 && docTitle.trim())
+          ? docTitle.trim()
+          : file.name.replace(/\.[^/.]+$/, "")
+
+        newAttached.push({
+          id: docId,
+          file_name: optimized.name,
+          file_size: optimized.sizeFormatted + (optimized.isOptimized ? " (optimisé)" : ""),
+          file_size_formatted: optimized.sizeFormatted + (optimized.isOptimized ? " (optimisé)" : ""),
+          file_type: optimized.type,
+          title: titleToUse,
+          doc_type: titleToUse,
+          document_type: titleToUse,
+          description: docDescription.trim() || undefined,
+          file_data: optimized.base64.length < 50000 ? optimized.base64 : undefined,
+          data_url: optimized.base64.length < 50000 ? optimized.base64 : undefined,
+          uploaded_at: new Date().toISOString(),
+        })
+      } catch (fileErr) {
+        console.warn("Erreur traitement document", file.name, fileErr)
+      }
     }
-    reader.onerror = () => {
-      setIsUploadingDoc(false)
-      toast.error("Erreur lors de la lecture du fichier.")
-    }
-    reader.readAsDataURL(file)
+
+    setAttachedDocs(prev => [...prev, ...newAttached])
+    setDocTitle("")
+    setDocDescription("")
+    setPendingFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+    setIsUploadingDoc(false)
+    toast.success(`${newAttached.length} document(s) joint(s) avec succès`)
   }
 
-  // Ajout du document à la liste des pièces rattachées
-  const handleAddAttachedDoc = () => {
+  // Ajout manuel d'un document pré-sélectionné
+  const handleAddAttachedDoc = async () => {
     if (!pendingFile) {
       fileInputRef.current?.click()
       return
     }
 
     const titleToUse = docTitle.trim() || pendingFile.name
+    const docId = `att-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+
+    await saveDocumentFile(docId, pendingFile.base64)
 
     const newDoc: AttachedWasteDocument = {
-      id: `att-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: docId,
       file_name: pendingFile.name,
       file_size: pendingFile.size,
       file_size_formatted: pendingFile.size,
@@ -445,8 +599,8 @@ export default function NewWasteReceptionPage() {
       doc_type: titleToUse,
       document_type: titleToUse,
       description: docDescription.trim() || undefined,
-      file_data: pendingFile.base64,
-      data_url: pendingFile.base64,
+      file_data: pendingFile.base64.length < 50000 ? pendingFile.base64 : undefined,
+      data_url: pendingFile.base64.length < 50000 ? pendingFile.base64 : undefined,
       uploaded_at: new Date().toISOString(),
     }
 
@@ -455,7 +609,7 @@ export default function NewWasteReceptionPage() {
     setDocDescription("")
     setPendingFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
-    toast.success(`Document « ${titleToUse} » ajouté. Vous pouvez en ajouter d'autres.`)
+    toast.success(`Document « ${titleToUse} » ajouté.`)
   }
 
   const handleRemoveDoc = (id: string) => {
@@ -638,14 +792,32 @@ export default function NewWasteReceptionPage() {
         localStorage.removeItem('all_data_wiped')
         const stored = localStorage.getItem("waste_batches_custom_v1")
         const currentList = stored ? JSON.parse(stored) : []
-        localStorage.setItem("waste_batches_custom_v1", JSON.stringify([...newBatches, ...currentList]))
+        const updatedList = isEditMode
+          ? [...newBatches, ...currentList.filter((b: any) => b.reception_number !== values.reception_number && b.batch_number !== editingId)]
+          : [...newBatches, ...currentList]
+        localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedList))
 
         // Journal des mouvements de déchets
         const currentMvts = JSON.parse(localStorage.getItem("waste_movements_custom_v1") || "[]")
-        localStorage.setItem("waste_movements_custom_v1", JSON.stringify([...newMvts, ...currentMvts]))
+        const updatedMvts = isEditMode
+          ? [...newMvts, ...currentMvts.filter((m: any) => m.reception_number !== values.reception_number)]
+          : [...newMvts, ...currentMvts]
+        localStorage.setItem("waste_movements_custom_v1", JSON.stringify(updatedMvts))
+
+        // Sauvegarder les documents joints dans IndexedDB
+        for (const doc of attachedDocs) {
+          const fileData = doc.data_url || doc.file_data
+          if (fileData) {
+            await saveDocumentFile(doc.id, fileData)
+          }
+        }
 
         // Enregistrement des documents pour la traçabilité dans le sous-module Documentation Déchets
         const storedDocs: WasteArchivedDocument[] = JSON.parse(localStorage.getItem("waste_documents_custom_v1") || "[]")
+        const filteredDocs = isEditMode
+          ? storedDocs.filter(d => d.reception_number !== values.reception_number)
+          : storedDocs
+
         const newArchivedDocs: WasteArchivedDocument[] = [
           // A. Attestation / Bordereau officiel de réception eGED
           {
@@ -657,12 +829,17 @@ export default function NewWasteReceptionPage() {
             depositor_name: values.depositor_name,
             depositor_phone: values.depositor_phone,
             date: values.reception_date,
+            reception_date: values.reception_date,
             doc_category: "Attestation eGED",
+            category: "acte_administratif",
             doc_type: "Attestation / Bordereau de dépôt eGED officiel",
+            document_type: "Attestation / Bordereau de dépôt eGED officiel",
             title: `Bordereau de Réception ${values.reception_number}`,
             file_name: `Bordereau-Reception-${values.reception_number}.pdf`,
             file_size: "PDF Officiel eGED",
+            file_size_formatted: "PDF Officiel eGED",
             file_type: "application/pdf",
+            mime_type: "application/pdf",
             created_at: new Date().toISOString(),
           },
           // B. Documents apportés téléversés
@@ -677,6 +854,7 @@ export default function NewWasteReceptionPage() {
             date: values.reception_date,
             reception_date: values.reception_date,
             doc_category: "Document apporteur" as const,
+            category: "piece_apporteur" as const,
             doc_type: doc.title || doc.doc_type || doc.file_name,
             document_type: doc.title || doc.document_type || doc.file_name,
             title: doc.title || doc.file_name,
@@ -685,12 +863,13 @@ export default function NewWasteReceptionPage() {
             file_size: doc.file_size,
             file_size_formatted: doc.file_size_formatted || doc.file_size,
             file_type: doc.file_type,
-            file_data: doc.file_data,
-            data_url: doc.file_data,
+            mime_type: doc.file_type,
+            file_data: doc.file_data && doc.file_data.length < 50000 ? doc.file_data : undefined,
+            data_url: doc.data_url && doc.data_url.length < 50000 ? doc.data_url : undefined,
             created_at: doc.uploaded_at || new Date().toISOString(),
           })),
         ]
-        localStorage.setItem("waste_documents_custom_v1", JSON.stringify([...newArchivedDocs, ...storedDocs]))
+        safeSaveDocsToLocalStorage("waste_documents_custom_v1", [...newArchivedDocs, ...filteredDocs])
       } catch (localErr) {
         console.warn("Erreur sauvegarde locale déchets et documents:", localErr)
       }
@@ -755,15 +934,18 @@ export default function NewWasteReceptionPage() {
       }
 
       broadcastDataMutation({
-        entity: "waste_batches,waste_movements",
-        action: "create",
+        entity: "waste_batches,waste_movements,waste_documents",
+        action: isEditMode ? "update" : "create",
         id: values.reception_number,
       })
 
       setSavedSlipData(previewData)
       setShowPreviewModal(false)
       setShowSlipModal(true)
-      toast.success(`${values.waste_items.length} déchet(s) enregistré(s) avec succès pour ${values.source_structure} !`)
+      toast.success(isEditMode 
+        ? `Réception ${values.reception_number} mise à jour avec succès (${values.waste_items.length} déchet(s)) !`
+        : `${values.waste_items.length} déchet(s) enregistré(s) avec succès pour ${values.source_structure} !`
+      )
     } catch (error: any) {
       console.error(error)
       toast.error(`Erreur: ${error.message}`)
@@ -819,6 +1001,25 @@ export default function NewWasteReceptionPage() {
           </Button>
         </div>
       </div>
+
+      {isEditMode && (
+        <div className="p-3.5 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <Pencil className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-400">
+                Mode Modification Activé — Réception N° {form.watch("reception_number")}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Vous apportez des corrections à cette réception. Vous pouvez modifier les quantités, dates, lots ou rajouter des documents omis.
+              </p>
+            </div>
+          </div>
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-bold shrink-0">
+            Modification de Réception
+          </Badge>
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={(e) => { e.preventDefault(); handleOpenPreview() }} className="space-y-4 print:hidden">
@@ -1691,46 +1892,32 @@ export default function NewWasteReceptionPage() {
                       <input 
                         type="file" 
                         ref={fileInputRef} 
-                        onChange={handleFileChange} 
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*" 
+                        onChange={handleMultipleFilesChange} 
+                        multiple
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,image/*" 
                         className="hidden" 
                       />
                       <Button
                         type="button"
-                        variant="outline"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploadingDoc}
-                        className="flex-1 h-9 text-xs font-semibold gap-1.5 bg-background truncate border-border/80"
-                        title={pendingFile ? pendingFile.name : "Sélectionner un fichier"}
+                        className="flex-1 h-9 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#144723] text-white truncate shadow-xs cursor-pointer"
+                        title="Sélectionner un ou plusieurs fichiers (PDF, photos, etc.)"
                       >
-                        <FileUp className="h-4 w-4 text-[#1B5C2E] shrink-0" />
-                        <span className="truncate">
-                          {isUploadingDoc ? "Chargement..." : pendingFile ? pendingFile.name : "Parcourir le fichier"}
-                        </span>
-                      </Button>
-
-                      <Button
-                        type="button"
-                        onClick={handleAddAttachedDoc}
-                        className="h-9 px-3.5 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#144723] text-white shrink-0 shadow-xs cursor-pointer"
-                        title="Ajouter ce document à la liste"
-                      >
-                        <Plus className="h-4 w-4 stroke-[3]" />
-                        <span>Ajouter</span>
+                        {isUploadingDoc ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin text-white shrink-0" />
+                            <span className="truncate">Optimisation en cours...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 stroke-[3] shrink-0" />
+                            <span className="truncate">Ajouter des documents (+)</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
-
-                  {pendingFile && (
-                    <div className="flex items-center justify-between text-xs p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200 border border-emerald-300 rounded-lg">
-                      <div className="flex items-center gap-2 truncate">
-                        <CheckCircle2 className="h-4 w-4 text-[#1B5C2E] shrink-0" />
-                        <span className="font-semibold truncate">{pendingFile.name}</span>
-                        <span className="text-[10px] text-muted-foreground">({pendingFile.size})</span>
-                      </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#1B5C2E]">Prêt à être ajouté avec « + Ajouter »</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Liste des documents joints */}
@@ -1745,9 +1932,9 @@ export default function NewWasteReceptionPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => fileInputRef.current?.click()}
-                        className="h-7 text-xs font-bold text-[#1B5C2E] hover:text-[#144723] hover:bg-[#1B5C2E]/10 gap-1"
+                        className="h-7 text-xs font-bold text-[#1B5C2E] hover:text-[#144723] hover:bg-[#1B5C2E]/10 gap-1 cursor-pointer"
                       >
-                        <Plus className="h-3.5 w-3.5" /> Ajouter un autre document
+                        <Plus className="h-3.5 w-3.5" /> + Ajouter encore d&apos;autres documents
                       </Button>
                     </div>
 
@@ -2397,5 +2584,13 @@ export default function NewWasteReceptionPage() {
       </Dialog>
 
     </div>
+  )
+}
+
+export default function NewWasteReceptionPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Chargement de la réception des déchets...</div>}>
+      <NewWasteReceptionContent />
+    </Suspense>
   )
 }

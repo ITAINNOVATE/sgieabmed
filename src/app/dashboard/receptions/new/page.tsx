@@ -32,6 +32,12 @@ import {
   saveCenter, 
   generateNextCenterCode 
 } from "@/utils/centers-storage"
+import { 
+  saveDocumentFile, 
+  getDocumentFile, 
+  optimizeFileForUpload, 
+  safeSaveDocsToLocalStorage 
+} from "@/utils/idb-docs"
 import React from 'react'
 
 // --- ZOD SCHEMA ---
@@ -583,8 +589,9 @@ function NewReceptionContent() {
     name: "samples",
   })
 
-  // ─── Chargement d'une réception existante ──────────────────────────────
-  const editId = nextSearchParams.get("id") || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get("id") : null)
+  // ─── Chargement d'une réception existante / Mode Modification ───────────
+  const editId = nextSearchParams.get("id") || nextSearchParams.get("edit") || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get("id") || new URLSearchParams(window.location.search).get("edit") : null)
+  const isEditMode = Boolean(editId)
   const watchedStatus = form.watch("status")
   const isValidated = ["Validée", "Finalisé", "Finalisée"].includes(receptionStatus) || ["Validée", "Finalisé", "Finalisée"].includes(watchedStatus)
 
@@ -686,20 +693,40 @@ function NewReceptionContent() {
             type_reception: sourceData.type_reception || "",
             inspector: sourceData.inspector || "Admin EGED",
             status: finalStatus,
+            center_mode: sourceData.center_id ? "existing" : (sourceData.center_mode || "new"),
+            center_code: sourceData.center_code || "",
+            center_id: sourceData.center_id || "",
+            center_type: sourceData.center_type || "Officine privée de pharmacie",
             supplier: sourceData.supplier || "",
             manufacturer: sourceData.manufacturer || "",
-            country: sourceData.country || "",
+            country: sourceData.country || "Bénin",
+            city: sourceData.city || "Cotonou",
             contact_person: sourceData.contact_person || "",
             phone: sourceData.phone || "",
+            email: sourceData.email || "",
+            carrier: sourceData.carrier || "",
+            package_number: sourceData.package_number || "",
+            total_packages: sourceData.total_packages || 0,
+            received_packages: sourceData.received_packages || 0,
+            shipping_date: sourceData.shipping_date || "",
+            arrival_date: sourceData.arrival_date || "",
+            transport_mode: sourceData.transport_mode || "",
             check_packaging: !!sourceData.check_packaging,
             check_boxes: !!sourceData.check_boxes,
             check_seals: !!sourceData.check_seals,
             check_qty: !!sourceData.check_qty,
+            check_docs: !!sourceData.check_docs,
+            check_damage: !!sourceData.check_damage,
             check_conform: !!sourceData.check_conform,
+            obs_general: sourceData.obs_general || "",
             anomalies: sourceData.anomalies || "",
             measures: sourceData.measures || "",
             validator_name: localValidatorName || sourceData.validator_name || "",
+            validator_role: sourceData.validator_role || "",
             validation_date: localValidationDate || sourceData.validation_date || "",
+            decision: sourceData.decision || "",
+            decision_reason: sourceData.decision_reason || "",
+            global_comments: sourceData.global_comments || "",
             samples: sourceData.samples && sourceData.samples.length > 0
               ? sourceData.samples
               : [{ commercial_name: "", dci: "", form: "", category: "", batch: "", exp_date: "", qty: 1 }],
@@ -719,7 +746,53 @@ function NewReceptionContent() {
             setDciLists(rebuilt)
           }
 
-          toast.success(`Réception ${editId} chargée`)
+          // 4. Restaurer les pièces justificatives et documents attachés
+          let filesToRestore: any[] = []
+          if (Array.isArray(sourceData.attachedFiles) && sourceData.attachedFiles.length > 0) {
+            filesToRestore = [...sourceData.attachedFiles]
+          }
+
+          // Vérifier également dans sample_documents_custom_v1
+          try {
+            const storedSampleDocs = JSON.parse(localStorage.getItem("sample_documents_custom_v1") || "[]")
+            const matchingDocs = storedSampleDocs.filter((d: any) => 
+              (d.reception_number === editId || d.reception_ref === editId || d.id?.includes(editId)) &&
+              d.doc_category !== "Attestation eGED" &&
+              d.category !== "acte_administratif"
+            )
+            for (const mDoc of matchingDocs) {
+              if (!filesToRestore.some((f: any) => f.id === mDoc.id || f.name === (mDoc.file_name || mDoc.title))) {
+                filesToRestore.push({
+                  id: mDoc.id,
+                  name: mDoc.file_name || mDoc.title || "Document",
+                  title: mDoc.title || mDoc.doc_type || mDoc.file_name,
+                  description: mDoc.description || "",
+                  url: mDoc.data_url || mDoc.file_data || "",
+                  type: mDoc.file_type || "application/pdf",
+                  size: mDoc.file_size_formatted || "Document joint",
+                })
+              }
+            }
+          } catch (e) {}
+
+          // Récupérer le contenu binaire depuis IndexedDB si manquant
+          for (let i = 0; i < filesToRestore.length; i++) {
+            const f = filesToRestore[i]
+            if ((!f.url || f.url === "") && f.id) {
+              try {
+                const idbData = await getDocumentFile(f.id)
+                if (idbData) {
+                  f.url = idbData
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (filesToRestore.length > 0) {
+            setAttachedFiles(filesToRestore)
+          }
+
+          toast.success(`Réception ${editId} chargée en mode modification`)
         }
       } catch (err) {
         console.warn("Erreur chargement réception à modifier:", err)
@@ -816,8 +889,17 @@ function NewReceptionContent() {
       console.warn("Erreur sauvegarde locale historique:", e)
     }
 
-    // ─── Enregistrement dans la documentation des échantillons ─────────────────
+    // ─── Enregistrement dans la documentation des échantillons & IndexedDB ────
     try {
+      // Sauvegarder d'abord tous les fichiers volumineux dans IndexedDB
+      for (const file of attachedFiles) {
+        if (file.url && file.url.startsWith("data:")) {
+          try {
+            await saveDocumentFile(file.id || `doc-att-${values.rec_number}`, file.url)
+          } catch (e) {}
+        }
+      }
+
       const storedSampleDocs = JSON.parse(localStorage.getItem("sample_documents_custom_v1") || "[]")
       const supplierName = values.supplier || values.manufacturer || "DEMANDEUR NON PRÉCISÉ"
       const recDate = values.date_reception || new Date().toISOString().split("T")[0]
@@ -864,14 +946,14 @@ function NewReceptionContent() {
           file_name: file.name,
           file_size_formatted: file.size,
           file_type: file.type,
-          data_url: file.url,
-          file_data: file.url,
+          data_url: file.url && file.url.length < 50000 ? file.url : undefined,
+          file_data: file.url && file.url.length < 50000 ? file.url : undefined,
           created_at: new Date().toISOString(),
         }))
       ]
 
       const filteredExisting = storedSampleDocs.filter((d: any) => d.reception_number !== values.rec_number)
-      localStorage.setItem("sample_documents_custom_v1", JSON.stringify([...newSampleDocs, ...filteredExisting]))
+      safeSaveDocsToLocalStorage("sample_documents_custom_v1", [...newSampleDocs, ...filteredExisting])
     } catch (docErr) {
       console.warn("Erreur sauvegarde locale documentation échantillons:", docErr)
     }
@@ -994,22 +1076,23 @@ function NewReceptionContent() {
     // Diffusion instantanée multi-postes et multi-niveaux (< 50ms)
     broadcastDataMutation({
       entity: "receptions,samples,movements",
-      action: status,
+      action: isEditMode ? "update" : status,
       id: values.rec_number,
     })
   }
 
-  // ─── Sauvegarder (En instance de validation) ──────────────────────────────
+  // ─── Sauvegarder (En instance de validation ou Modifications) ─────────────
   const onDraft = async () => {
-    if (isValidated) {
-      toast.info("Cette réception est déjà validée et ne peut plus être modifiée.")
+    if (isValidated && !isEditMode) {
+      toast.info("Cette réception est déjà validée.")
       return
     }
     setIsDrafting(true)
     try {
-      await saveReceptionToSupabase("En attente de validation")
+      const statusToSave = isEditMode ? (receptionStatus || "En attente de validation") : "En attente de validation"
+      await saveReceptionToSupabase(statusToSave)
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception enregistrée avec succès !", { duration: 2500 })
+      toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Réception enregistrée avec succès !", { duration: 2500 })
       router.push("/dashboard/receptions?status=en_attente")
     } catch (err: any) {
       console.error(err)
@@ -1019,18 +1102,19 @@ function NewReceptionContent() {
     }
   }
 
-  // ─── Soumettre la réception pour validation ───────────────────────────────
+  // ─── Soumettre la réception pour validation / Enregistrer modifications ───
   const onSubmit = async () => {
-    if (isValidated) {
-      toast.info("Cette réception est déjà validée et ne peut plus être soumise à nouveau.")
+    if (isValidated && !isEditMode) {
+      toast.info("Cette réception est déjà validée.")
       return
     }
     setIsSaving(true)
     try {
-      await saveReceptionToSupabase("En attente de validation")
+      const statusToSave = isEditMode ? (receptionStatus || "En attente de validation") : "En attente de validation"
+      await saveReceptionToSupabase(statusToSave)
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception soumise avec succès !", { duration: 2500 })
-      router.push("/dashboard/receptions?status=en_attente")
+      toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Réception soumise avec succès !", { duration: 2500 })
+      router.push("/dashboard/receptions")
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur : ${err.message || "Impossible de soumettre la réception."}`)
@@ -1041,7 +1125,7 @@ function NewReceptionContent() {
 
   // ─── Validation officielle par le responsable ──────────────────────────────
   const onValidateByValidator = async () => {
-    if (isValidated) {
+    if (isValidated && !isEditMode) {
       toast.info("Cette réception est déjà validée.")
       return
     }
@@ -1059,52 +1143,80 @@ function NewReceptionContent() {
     }
   }
 
-  // ─── Upload / Attachement de fichier ──────────────────────────────────────
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ─── Upload / Attachement de fichiers multiples & optimisés ─────────────────
+  const handleMultipleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
-    const file = e.target.files[0]
-    
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Le fichier sélectionné dépasse la taille limite autorisée de 10 Mo.")
-      if (fileInputRef.current) fileInputRef.current.value = ""
-      return
-    }
-
+    const fileList = Array.from(e.target.files)
     setIsUploadingFile(true)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const base64Data = reader.result as string
-      const sizeFormatted = file.size > 1024 * 1024 
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} Mo` 
-        : `${Math.round(file.size / 1024)} Ko`
+    toast.info(`Optimisation de ${fileList.length} fichier(s)...`)
 
-      setPendingFile({
-        name: file.name,
-        size: sizeFormatted,
-        type: file.type || file.name.split('.').pop()?.toUpperCase() || "Fichier",
-        base64: base64Data,
-      })
+    try {
+      const newItems: Array<{
+        id: string
+        name: string
+        title: string
+        description?: string
+        url: string
+        type: string
+        size: string
+      }> = []
 
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i]
+        try {
+          const optimized = await optimizeFileForUpload(file)
+          const docId = `att-doc-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`
+
+          // Sauvegarde immédiate dans IndexedDB (haute capacité)
+          await saveDocumentFile(docId, optimized.base64)
+
+          const titleToUse = (fileList.length === 1 && docTitle.trim())
+            ? docTitle.trim()
+            : file.name.replace(/\.[^/.]+$/, "")
+
+          newItems.push({
+            id: docId,
+            name: optimized.name,
+            title: titleToUse,
+            description: docDescription.trim() || undefined,
+            url: optimized.base64,
+            type: optimized.type,
+            size: optimized.sizeFormatted + (optimized.isOptimized ? " (optimisé)" : ""),
+          })
+        } catch (fileErr) {
+          console.warn("Erreur traitement document", file.name, fileErr)
+        }
+      }
+
+      setAttachedFiles(prev => [...prev, ...newItems])
+      setDocTitle("")
+      setDocDescription("")
+      setPendingFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
       setIsUploadingFile(false)
-      toast.info(`Fichier sélectionné : ${file.name}`)
-    }
-    reader.onerror = () => {
+      toast.success(`${newItems.length} document(s) joint(s) avec succès`)
+    } catch (err: any) {
+      console.error("Erreur ajout documents:", err)
       setIsUploadingFile(false)
-      toast.error("Erreur lors de la lecture du fichier.")
+      toast.error("Erreur lors de l'optimisation des fichiers : " + (err.message || "inconnue"))
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleAddAttachedDoc = () => {
+  const handleAddAttachedDoc = async () => {
     if (!pendingFile) {
       fileInputRef.current?.click()
       return
     }
 
     const titleToUse = docTitle.trim() || pendingFile.name
+    const docId = `att-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+
+    try {
+      await saveDocumentFile(docId, pendingFile.base64)
+    } catch (e) {}
 
     const newDoc = {
-      id: `att-doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: docId,
       name: pendingFile.name,
       title: titleToUse,
       description: docDescription.trim() || undefined,
@@ -1118,7 +1230,7 @@ function NewReceptionContent() {
     setDocDescription("")
     setPendingFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
-    toast.success(`Document « ${titleToUse} » ajouté. Vous pouvez en ajouter d'autres.`)
+    toast.success(`Document « ${titleToUse} » ajouté.`)
   }
 
   // ─── Export PDF ───────────────────────────────────────────────────────────
@@ -1147,16 +1259,25 @@ function NewReceptionContent() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold tracking-tight">
-                {editId ? `Réception ${form.watch("rec_number") || editId}` : "Nouvelle Réception"}
+                {isEditMode ? `Modification Réception ${form.watch("rec_number") || editId}` : "Nouvelle Réception"}
               </h2>
               {isValidated && (
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 text-xs font-bold">
                   Validée / Finalisée
                 </Badge>
               )}
+              {isEditMode && (
+                <Badge className="bg-amber-500 text-white text-xs font-bold">
+                  Mode Modification
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground text-xs">
-              {isValidated ? "Consultation d'une réception déjà validée (lecture seule)" : "Formulaire de contrôle et d'enregistrement"}
+              {isEditMode
+                ? "Formulaire d'édition : apportez vos corrections et ajoutez des pièces justificatives manquantes"
+                : isValidated
+                ? "Consultation d'une réception validée (lecture seule)"
+                : "Formulaire de contrôle et d'enregistrement"}
             </p>
           </div>
         </div>
@@ -1176,25 +1297,25 @@ function NewReceptionContent() {
             type="button"
             variant="secondary"
             onClick={onDraft}
-            disabled={isDrafting || isValidated}
-            className={`flex-1 sm:flex-initial text-xs h-9 ${isValidated ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
-            title={isValidated ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
+            disabled={isDrafting || (isValidated && !isEditMode)}
+            className={`flex-1 sm:flex-initial text-xs h-9 ${isValidated && !isEditMode ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
+            title={isValidated && !isEditMode ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
           >
             <Save className="mr-1.5 h-4 w-4" />
-            {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
+            {isDrafting ? "Sauvegarde..." : isEditMode ? "Enregistrer corrections" : "Sauvegarder"}
           </Button>
           <Button
             type="button"
             onClick={() => onSubmit()}
-            disabled={isSaving || isValidated}
+            disabled={isSaving || (isValidated && !isEditMode)}
             className={`w-full sm:w-auto text-xs h-9 font-bold ${
-              isValidated
+              isValidated && !isEditMode
                 ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
                 : "shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white"
             }`}
-            title={isValidated ? "Cette réception est déjà validée et ne peut plus être soumise à nouveau." : ""}
+            title={isValidated && !isEditMode ? "Cette réception est déjà validée." : ""}
           >
-            {isSaving ? "Soumission..." : <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Soumettre la réception</>}
+            {isSaving ? "Enregistrement..." : isEditMode ? <><Save className="mr-1.5 h-4 w-4" /> Enregistrer les modifications</> : <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Soumettre la réception</>}
           </Button>
           {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
             <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="w-full sm:w-auto text-xs h-9 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
@@ -1208,8 +1329,28 @@ function NewReceptionContent() {
         </div>
       </div>
 
+      {/* BANNIÈRE MODE MODIFICATION */}
+      {isEditMode && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/20 rounded-lg">
+              <FileSignature className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">Mode Modification Activé — Réception N° {form.watch("rec_number") || editId}</h4>
+              <p className="text-xs text-muted-foreground">
+                Vous pouvez corriger toutes les informations saisies, modifier les échantillons et rajouter les pièces justificatives ou documents omis.
+              </p>
+            </div>
+          </div>
+          <Badge className="bg-amber-600 text-white font-bold text-xs uppercase px-2.5 py-1">
+            Correction / Ajout de pièces
+          </Badge>
+        </div>
+      )}
+
       <Form {...form}>
-        <form onSubmit={(e) => { if (isValidated) { e.preventDefault(); return; } form.handleSubmit(onSubmit)(e) }} className="space-y-8">
+        <form onSubmit={(e) => { if (isValidated && !isEditMode) { e.preventDefault(); return; } form.handleSubmit(onSubmit)(e) }} className="space-y-8">
           
           <div className="grid lg:grid-cols-2 gap-6">
             
@@ -1767,8 +1908,9 @@ function NewReceptionContent() {
                       <input 
                         type="file" 
                         ref={fileInputRef} 
-                        onChange={handleFileChange} 
+                        onChange={handleMultipleFilesChange} 
                         accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*" 
+                        multiple
                         className="hidden" 
                       />
                       <Button
@@ -1776,12 +1918,12 @@ function NewReceptionContent() {
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploadingFile}
-                        className="flex-1 h-9 text-xs font-semibold gap-1.5 bg-background truncate border-border/80"
-                        title={pendingFile ? pendingFile.name : "Sélectionner un fichier"}
+                        className="flex-1 h-9 text-xs font-semibold gap-1.5 bg-background truncate border-border/80 cursor-pointer"
+                        title="Sélectionner un ou plusieurs fichiers"
                       >
                         <FileUp className="h-4 w-4 text-[#1B5C2E] shrink-0" />
                         <span className="truncate">
-                          {isUploadingFile ? "Chargement..." : pendingFile ? pendingFile.name : "Parcourir le fichier"}
+                          {isUploadingFile ? "Traitement..." : pendingFile ? pendingFile.name : "Parcourir des fichiers..."}
                         </span>
                       </Button>
 
@@ -1909,25 +2051,25 @@ function NewReceptionContent() {
               type="button"
               variant="secondary"
               onClick={onDraft}
-              disabled={isDrafting || isValidated}
-              className={`gap-2 ${isValidated ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
-              title={isValidated ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
+              disabled={isDrafting || (isValidated && !isEditMode)}
+              className={`gap-2 ${isValidated && !isEditMode ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
+              title={isValidated && !isEditMode ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
             >
               <Save className="h-4 w-4" />
-              {isDrafting ? "Sauvegarde..." : "Sauvegarder"}
+              {isDrafting ? "Sauvegarde..." : isEditMode ? "Enregistrer corrections" : "Sauvegarder"}
             </Button>
             <Button
               type="button"
               onClick={() => onSubmit()}
-              disabled={isSaving || isValidated}
+              disabled={isSaving || (isValidated && !isEditMode)}
               className={
-                isValidated
+                isValidated && !isEditMode
                   ? "gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
-                  : "gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white"
+                  : "gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white cursor-pointer"
               }
-              title={isValidated ? "Cette réception est déjà validée et ne peut plus être soumise à nouveau." : ""}
+              title={isValidated && !isEditMode ? "Cette réception est déjà validée." : ""}
             >
-              {isSaving ? "Soumission..." : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
+              {isSaving ? "Enregistrement..." : isEditMode ? <><Save className="h-4 w-4" /> Enregistrer les modifications</> : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
             </Button>
             {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
               <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">

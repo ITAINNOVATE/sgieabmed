@@ -18,6 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { SampleArchivedDocument, SAMPLE_DOCUMENT_TYPES } from "@/types/sample-documents"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { getDocumentFile, saveDocumentFile, deleteDocumentFile, optimizeFileForUpload, safeSaveDocsToLocalStorage } from "@/utils/idb-docs"
+import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
+import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { createClient } from "@/utils/supabase/client"
 
 const STORAGE_KEY = "sample_documents_custom_v1"
 
@@ -36,6 +40,7 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   // Modale de prévisualisation
   const [previewDoc, setPreviewDoc] = useState<SampleArchivedDocument | null>(null)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [isLoadingPreviewFile, setIsLoadingPreviewFile] = useState(false)
 
   // Modale d'ajout manuel de document
   const [showAddModal, setShowAddModal] = useState(false)
@@ -46,98 +51,154 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   const [newDocFile, setNewDocFile] = useState<{ name: string; size: string; type: string; dataUrl: string } | null>(null)
   const [isSubmittingNewDoc, setIsSubmittingNewDoc] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const supabase = createClient()
 
-  // Chargement et synchronisation des documents échantillons
-  const loadDocuments = () => {
+  // Chargement et synchronisation exhaustifs des documents échantillons
+  const loadDocuments = async () => {
     try {
       if (typeof window !== "undefined" && localStorage.getItem('all_data_wiped') === 'true') {
         setDocuments([])
         return
       }
 
+      const docsMap = new Map<string, SampleArchivedDocument>()
+
+      // 1. Charger depuis le stockage direct des documents échantillons
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setDocuments(parsed)
-          return
-        }
+        try {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed)) {
+            parsed.forEach((d: SampleArchivedDocument) => {
+              if (d && d.id) docsMap.set(d.id, d)
+            })
+          }
+        } catch (e) {}
       }
 
-      // Si le stockage est vide, on extrait les réceptions d'échantillons existantes
+      // 2. Extraire systématiquement toutes les réceptions d'échantillons de l'historique
       const historyRaw = localStorage.getItem("reception_history_records")
-      const extractedDocs: SampleArchivedDocument[] = []
-
       if (historyRaw) {
-        const history = JSON.parse(historyRaw)
-        if (Array.isArray(history)) {
-          history.forEach((rec: any) => {
-            const supplier = rec.supplier || "Fournisseur / Demandeur"
-            const recNum = rec.rec_number || rec.id
-            const date = rec.date_reception || rec.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
-            
-            // Bordereau officiel de réception d'échantillons
-            extractedDocs.push({
-              id: `doc-slip-sample-${recNum}`,
-              reception_number: recNum,
-              source_structure: supplier,
-              source_type: "Structure déposante d'échantillons",
-              depositor_name: rec.inspector || "Agent ABMed",
-              date: date,
-              reception_date: date,
-              doc_category: "Attestation eGED",
-              category: "acte_administratif",
-              doc_type: "Bordereau de réception officiel eGED",
-              document_type: "Bordereau de réception officiel eGED",
-              title: `Bordereau de Réception ${recNum}`,
-              file_name: `Bordereau-Reception-${recNum}.pdf`,
-              file_size_formatted: "PDF Officiel eGED",
-              file_type: "application/pdf",
-              created_at: rec.created_at || new Date().toISOString(),
-            })
+        try {
+          const history = JSON.parse(historyRaw)
+          if (Array.isArray(history)) {
+            history.forEach((rec: any) => {
+              const supplier = rec.supplier || rec.manufacturer || "Fournisseur / Demandeur"
+              const recNum = rec.rec_number || rec.id
+              if (!recNum) return
+              const date = rec.date_reception || rec.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
+              const slipId = `doc-slip-sample-${recNum}`
 
-            // Vérifier si des fichiers joints étaient enregistrés dans le brouillon
-            const draftRaw = localStorage.getItem("reception_draft_details_" + recNum)
-            if (draftRaw) {
-              try {
-                const draft = JSON.parse(draftRaw)
-                if (draft.formData?.attachedFiles && Array.isArray(draft.formData.attachedFiles)) {
-                  draft.formData.attachedFiles.forEach((f: any, fIdx: number) => {
-                    extractedDocs.push({
-                      id: `doc-att-${recNum}-${fIdx}`,
-                      reception_number: recNum,
-                      source_structure: supplier,
-                      source_type: "Structure déposante d'échantillons",
-                      depositor_name: rec.inspector || "Agent ABMed",
-                      date: date,
-                      reception_date: date,
-                      doc_category: "Document apporteur",
-                      category: "piece_apporteur",
-                      doc_type: f.title || f.name,
-                      document_type: f.title || f.name,
-                      title: f.title || f.name,
-                      description: f.description,
-                      file_name: f.name,
-                      file_size_formatted: f.size || "Fichier joint",
-                      file_type: f.type || "Fichier",
-                      data_url: f.url,
-                      file_data: f.url,
-                      created_at: new Date().toISOString(),
+              // Bordereau officiel de réception d'échantillons
+              if (!docsMap.has(slipId)) {
+                docsMap.set(slipId, {
+                  id: slipId,
+                  reception_number: recNum,
+                  source_structure: supplier,
+                  source_type: "Structure déposante d'échantillons",
+                  depositor_name: rec.inspector || rec.contact_person || "Agent ABMed",
+                  date: date,
+                  reception_date: date,
+                  doc_category: "Attestation eGED",
+                  category: "acte_administratif",
+                  doc_type: "Bordereau de réception officiel eGED",
+                  document_type: "Bordereau de réception officiel eGED",
+                  title: `Bordereau de Réception ${recNum}`,
+                  file_name: `Bordereau-Reception-${recNum}.pdf`,
+                  file_size_formatted: "PDF Officiel eGED",
+                  file_type: "application/pdf",
+                  created_at: rec.created_at || new Date().toISOString(),
+                })
+              }
+
+              // Extraire les pièces jointes enregistrées dans le brouillon ou les détails
+              const draftRaw = localStorage.getItem("reception_draft_details_" + recNum)
+              if (draftRaw) {
+                try {
+                  const draft = JSON.parse(draftRaw)
+                  const files = draft.formData?.attachedFiles || draft.attachedFiles
+                  if (Array.isArray(files)) {
+                    files.forEach((f: any, fIdx: number) => {
+                      const fileId = f.id || `doc-att-${recNum}-${fIdx}`
+                      if (!docsMap.has(fileId)) {
+                        docsMap.set(fileId, {
+                          id: fileId,
+                          reception_number: recNum,
+                          source_structure: supplier,
+                          source_type: "Structure déposante d'échantillons",
+                          depositor_name: rec.inspector || rec.contact_person || "Agent ABMed",
+                          date: date,
+                          reception_date: date,
+                          doc_category: "Document apporteur",
+                          category: "piece_apporteur",
+                          doc_type: f.title || f.name,
+                          document_type: f.title || f.name,
+                          title: f.title || f.name,
+                          description: f.description,
+                          file_name: f.name,
+                          file_size_formatted: f.size || "Fichier joint",
+                          file_type: f.type || "Fichier",
+                          data_url: f.url || f.data_url,
+                          file_data: f.url || f.data_url,
+                          created_at: new Date().toISOString(),
+                        })
+                      }
                     })
-                  })
-                }
-              } catch (e) {}
+                  }
+                } catch (e) {}
+              }
+            })
+          }
+        } catch (e) {}
+      }
+
+      // 3. Récupérer également les réceptions d'échantillons depuis Supabase
+      try {
+        const { data: cloudRecs } = await supabase
+          .from("receptions")
+          .select("*")
+          .limit(100)
+
+        if (cloudRecs && Array.isArray(cloudRecs)) {
+          cloudRecs.forEach((rec: any) => {
+            const recNum = rec.rec_number || rec.id
+            if (!recNum) return
+            const slipId = `doc-slip-sample-${recNum}`
+            const supplier = rec.supplier || rec.manufacturer || "Fournisseur / Demandeur"
+            const date = rec.date_reception || rec.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
+
+            if (!docsMap.has(slipId)) {
+              docsMap.set(slipId, {
+                id: slipId,
+                reception_number: recNum,
+                source_structure: supplier,
+                source_type: "Structure déposante d'échantillons",
+                depositor_name: rec.inspector || rec.contact_person || "Agent ABMed",
+                date: date,
+                reception_date: date,
+                doc_category: "Attestation eGED",
+                category: "acte_administratif",
+                doc_type: "Bordereau de réception officiel eGED",
+                document_type: "Bordereau de réception officiel eGED",
+                title: `Bordereau de Réception ${recNum}`,
+                file_name: `Bordereau-Reception-${recNum}.pdf`,
+                file_size_formatted: "PDF Officiel eGED",
+                file_type: "application/pdf",
+                created_at: rec.created_at || new Date().toISOString(),
+              })
             }
           })
         }
-      }
+      } catch (err) {}
 
-      if (extractedDocs.length > 0) {
-        setDocuments(extractedDocs)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(extractedDocs))
-      } else {
-        setDocuments([])
-      }
+      const finalList = Array.from(docsMap.values()).sort((a, b) => {
+        const dateA = new Date(a.created_at || a.date || 0).getTime()
+        const dateB = new Date(b.created_at || b.date || 0).getTime()
+        return dateB - dateA
+      })
+
+      setDocuments(finalList)
+      safeSaveDocsToLocalStorage(STORAGE_KEY, finalList)
     } catch (e) {
       console.error("Erreur lecture documents échantillons:", e)
       setDocuments([])
@@ -237,19 +298,86 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   const depositorDocsCount = documents.filter(d => !isOfficialDoc(d)).length
   const egedDocsCount = documents.filter(d => isOfficialDoc(d)).length
 
-  // Action Aperçu
-  const handleOpenPreview = (doc: SampleArchivedDocument) => {
+  // Action Aperçu avec chargement transparent depuis IndexedDB si besoin
+  const handleOpenPreview = async (doc: SampleArchivedDocument) => {
     setPreviewDoc(doc)
     setShowPreviewModal(true)
+
+    if (!doc.data_url && !doc.file_data) {
+      setIsLoadingPreviewFile(true)
+      try {
+        const storedBlob = await getDocumentFile(doc.id)
+        if (storedBlob) {
+          setPreviewDoc(prev => prev && prev.id === doc.id ? { ...prev, data_url: storedBlob, file_data: storedBlob } : prev)
+        }
+      } catch (err) {
+        console.warn("Erreur chargement fichier preview:", err)
+      } finally {
+        setIsLoadingPreviewFile(false)
+      }
+    }
   }
 
-  // Action Téléchargement
-  const handleDownload = (doc: SampleArchivedDocument) => {
-    const url = doc.data_url || doc.file_data
+  // Action Téléchargement avec support des bordereaux officiels et IndexedDB
+  const handleDownload = async (doc: SampleArchivedDocument) => {
+    // 1. Si c'est un bordereau officiel eGED, on le génère avec exportReceptionVoucherPDF
+    if (isOfficialDoc(doc)) {
+      try {
+        const historyRaw = localStorage.getItem("reception_history_records")
+        const history = historyRaw ? JSON.parse(historyRaw) : []
+        const matched = history.find((r: any) => r.rec_number === doc.reception_number || r.id === doc.reception_number)
+        
+        let draftSamples: any[] = []
+        let fullData: any = matched || {}
+        if (doc.reception_number) {
+          const draftRaw = localStorage.getItem("reception_draft_details_" + doc.reception_number)
+          if (draftRaw) {
+            try {
+              const draft = JSON.parse(draftRaw)
+              fullData = { ...fullData, ...(draft.formData || {}) }
+              draftSamples = draft.formData?.samples || []
+            } catch (e) {}
+          }
+        }
+
+        exportReceptionVoucherPDF(
+          {
+            rec_number: doc.reception_number || `REC-${doc.id}`,
+            date_reception: doc.reception_date || doc.date || new Date().toISOString().split("T")[0],
+            supplier: doc.source_structure || "Fournisseur",
+            inspector: doc.depositor_name || "Agent ABMed",
+            status: fullData.status || "Validée",
+            city: doc.city || fullData.city || "Cotonou",
+            contact_person: doc.depositor_name || fullData.contact_person || "N/A",
+            phone: doc.depositor_phone || fullData.phone || "N/A",
+            ...fullData,
+          },
+          draftSamples.length > 0 ? draftSamples : [
+            {
+              commercial_name: doc.title || "Échantillon pharmaceutique",
+              dci: "Produit déclaré",
+              form: "Boîte / Flacon",
+              batch: "N/A",
+              exp_date: "N/A",
+              qty: 1,
+            }
+          ]
+        )
+        toast.success(`Attestation ${doc.reception_number || doc.title} téléchargée (PDF)`)
+        return
+      } catch (err) {
+        console.warn("Échec génération dynamique bordereau échantillon:", err)
+      }
+    }
+
+    // 2. Si c'est un document apporteur téléversé : récupérer les données
+    let url = doc.data_url || doc.file_data
     if (!url || url === "#") {
-      toast.info(`Affichage de la pièce : ${doc.title || doc.file_name}`)
-      setPreviewDoc(doc)
-      setShowPreviewModal(true)
+      url = (await getDocumentFile(doc.id)) || undefined
+    }
+
+    if (!url) {
+      toast.error("Contenu du document indisponible pour le téléchargement immédiat.")
       return
     }
 
@@ -267,7 +395,7 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   }
 
   // Action Suppression
-  const handleDeleteDoc = (id: string, fileName: string) => {
+  const handleDeleteDoc = async (id: string, fileName: string) => {
     if (!confirm(`Confirmez-vous la suppression du document « ${fileName} » de la traçabilité des échantillons ?`)) {
       return
     }
@@ -275,42 +403,36 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
     const updated = documents.filter(d => d.id !== id)
     setDocuments(updated)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      safeSaveDocsToLocalStorage(STORAGE_KEY, updated)
+      await deleteDocumentFile(id)
+      broadcastDataMutation({ entity: "sample_documents", action: "delete", id })
       toast.success("Document supprimé avec succès.")
     } catch (e) {
       toast.error("Erreur lors de la mise à jour de la mémoire locale.")
     }
   }
 
-  // Téléversement d'un nouveau document manuel
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Téléversement d'un nouveau document manuel avec optimisation
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Le fichier dépasse la taille maximale autorisée de 10 Mo.")
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const formattedSize = file.size < 1024 * 1024 
-        ? `${(file.size / 1024).toFixed(1)} Ko` 
-        : `${(file.size / (1024 * 1024)).toFixed(2)} Mo`
-
+    toast.info(`Traitement et optimisation de « ${file.name} »...`)
+    try {
+      const optimized = await optimizeFileForUpload(file)
       setNewDocFile({
-        name: file.name,
-        size: formattedSize,
-        type: file.type || "application/octet-stream",
-        dataUrl: reader.result as string
+        name: optimized.name,
+        size: optimized.sizeFormatted + (optimized.isOptimized ? " (optimisé)" : ""),
+        type: optimized.type,
+        dataUrl: optimized.base64
       })
-
-      toast.info(`Fichier prêt : ${file.name}`)
+      toast.success(`Fichier prêt (${optimized.sizeFormatted})`)
+    } catch (err) {
+      toast.error("Erreur lors du traitement du fichier.")
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleSaveNewDoc = () => {
+  const handleSaveNewDoc = async () => {
     if (!newDocApporteur.trim()) {
       toast.error("Veuillez indiquer le nom de la structure apportrice.")
       return
@@ -322,30 +444,38 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
 
     setIsSubmittingNewDoc(true)
 
-    const now = new Date()
-    const titleToUse = newDocTitle.trim() || newDocFile.name
-    const newArchivedDoc: SampleArchivedDocument = {
-      id: `S-DOC-MANUAL-${Date.now()}`,
-      file_name: newDocFile.name,
-      file_size_formatted: newDocFile.size,
-      mime_type: newDocFile.type,
-      title: titleToUse,
-      doc_type: titleToUse,
-      document_type: titleToUse,
-      category: "piece_apporteur",
-      data_url: newDocFile.dataUrl,
-      file_data: newDocFile.dataUrl,
-      source_structure: newDocApporteur.trim(),
-      reception_number: newDocReceptionRef.trim() || undefined,
-      reception_date: now.toISOString().split("T")[0],
-      created_at: now.toISOString(),
-      description: newDocDescription.trim() || undefined
-    }
-
-    const updated = [newArchivedDoc, ...documents]
-    setDocuments(updated)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      const now = new Date()
+      const titleToUse = newDocTitle.trim() || newDocFile.name
+      const docId = `S-DOC-MANUAL-${Date.now()}`
+
+      // 1. Sauvegarder dans IndexedDB
+      await saveDocumentFile(docId, newDocFile.dataUrl)
+
+      // 2. Sauvegarder dans state et localStorage
+      const newArchivedDoc: SampleArchivedDocument = {
+        id: docId,
+        file_name: newDocFile.name,
+        file_size_formatted: newDocFile.size,
+        mime_type: newDocFile.type,
+        title: titleToUse,
+        doc_type: titleToUse,
+        document_type: titleToUse,
+        category: "piece_apporteur",
+        data_url: newDocFile.dataUrl.length < 50000 ? newDocFile.dataUrl : undefined,
+        file_data: newDocFile.dataUrl.length < 50000 ? newDocFile.dataUrl : undefined,
+        source_structure: newDocApporteur.trim(),
+        reception_number: newDocReceptionRef.trim() || undefined,
+        reception_date: now.toISOString().split("T")[0],
+        created_at: now.toISOString(),
+        description: newDocDescription.trim() || undefined
+      }
+
+      const updated = [newArchivedDoc, ...documents]
+      setDocuments(updated)
+      safeSaveDocsToLocalStorage(STORAGE_KEY, updated)
+      broadcastDataMutation({ entity: "sample_documents", action: "create", id: docId })
+
       toast.success("Document archivé avec succès.")
       setShowAddModal(false)
       setNewDocApporteur("")
@@ -901,7 +1031,12 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
 
               {/* Rendu du contenu du document */}
               <div className="rounded-xl border border-border/80 bg-background overflow-hidden min-h-[300px] max-h-[500px] flex items-center justify-center p-2">
-                {(previewDoc.data_url || previewDoc.file_data)?.startsWith("data:image/") ? (
+                {isLoadingPreviewFile ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-xs text-muted-foreground">
+                    <RefreshCw className="h-6 w-6 animate-spin text-[#1B5C2E] mb-2" />
+                    <span>Chargement du fichier sécurisé en cours...</span>
+                  </div>
+                ) : (previewDoc.data_url || previewDoc.file_data)?.startsWith("data:image/") ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img 
                     src={previewDoc.data_url || previewDoc.file_data} 
@@ -914,6 +1049,26 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                     title={previewDoc.file_name}
                     className="w-full h-[480px] border-none rounded"
                   />
+                ) : isOfficialDoc(previewDoc) ? (
+                  // Bordereau Officiel eGED
+                  <div className="text-center p-8 space-y-3">
+                    <div className="mx-auto w-14 h-14 rounded-2xl bg-[#1B5C2E]/10 text-[#1B5C2E] flex items-center justify-center">
+                      <ShieldCheck className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-foreground">{previewDoc.title || previewDoc.file_name}</p>
+                      <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                        Bordereau / Attestation officielle de réception d&apos;échantillons certifiée eGED.
+                      </p>
+                    </div>
+                    <Button 
+                      type="button"
+                      onClick={() => handleDownload(previewDoc)}
+                      className="text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white gap-2 shadow-xs cursor-pointer"
+                    >
+                      <Download className="h-4 w-4" /> Télécharger le Bordereau Officiel (PDF)
+                    </Button>
+                  </div>
                 ) : (
                   <div className="text-center p-8 space-y-3">
                     <div className="mx-auto w-14 h-14 rounded-2xl bg-[#1B5C2E]/10 text-[#1B5C2E] flex items-center justify-center">
@@ -928,7 +1083,7 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                     <Button 
                       type="button"
                       onClick={() => handleDownload(previewDoc)}
-                      className="text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white gap-2"
+                      className="text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white gap-2 shadow-xs cursor-pointer"
                     >
                       <Download className="h-4 w-4" /> Télécharger pour l&apos;ouvrir localement
                     </Button>
