@@ -44,7 +44,7 @@ export default function VerifyPortalPage() {
               Portail Public de Vérification
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Traçabilité officielle des Déchets et Échantillons Pharmaceutiques (eGED-SGIE)
+              Traçabilité officielle des Déchets et Échantillons Pharmaceutiques (eGED)
             </p>
           </div>
         </div>

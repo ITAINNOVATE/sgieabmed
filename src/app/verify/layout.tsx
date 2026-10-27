@@ -2,7 +2,7 @@ import React from "react"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Vérification Officielle de Traçabilité — ABMed eGED-SGIE",
+  title: "Vérification Officielle de Traçabilité — ABMed eGED",
   description: "Portail public d'authentification et de traçabilité des lots pharmaceutiques et déchets — République du Bénin, ABMed",
 }
 
@@ -32,7 +32,7 @@ export default function VerifyLayout({
             RÉPUBLIQUE DU BÉNIN — Agence Béninoise du Médicament et des autres Produits de Santé (ABMed)
           </p>
           <p className="text-[11px] leading-relaxed">
-            Système National Sécurisé de Traçabilité des Échantillons et des Déchets Pharmaceutiques (eGED-SGIE).
+            Système National Sécurisé de Traçabilité des Échantillons et des Déchets Pharmaceutiques (eGED).
             Document public officiel délivré sous l&apos;autorité du Ministère de la Santé du Bénin.
           </p>
           <p className="text-[10px] text-muted-foreground/80 pt-1">

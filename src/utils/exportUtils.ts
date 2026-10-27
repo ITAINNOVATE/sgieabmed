@@ -68,7 +68,7 @@ export function exportToPDF(title: string, headers: string[], rows: any[][], fil
   // ABMed Header branding
   doc.setFontSize(16)
   doc.setTextColor(30, 41, 59) // slate-800
-  doc.text("ABMed - SGIE", 14, 20)
+  doc.text("ABMed - eGED", 14, 20)
   
   doc.setFontSize(10)
   doc.setTextColor(100, 116, 139) // slate-500
@@ -113,7 +113,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   doc.setFont("helvetica", "normal")
   doc.setTextColor(220, 252, 231)
   doc.text("AUTORITÉ BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed)", 14, 22)
-  doc.text("Système de Gestion Intégrée des Échantillons (SGIE) — Certificat Officiel de Réception", 14, 28)
+  doc.text("Système de Gestion Intégrée des Échantillons (eGED) — Certificat Officiel de Réception", 14, 28)
 
   // Reference Badge in Header
   doc.setFillColor(255, 255, 255)
@@ -253,7 +253,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
     finalY + 6
   )
   doc.text(
-    "dans le Système de Gestion Intégrée des Échantillons (SGIE) conformément aux procédures réglementaires en vigueur.",
+    "dans le Système de Gestion Intégrée des Échantillons (eGED) conformément aux procédures réglementaires en vigueur.",
     18,
     finalY + 11.5
   )
@@ -287,7 +287,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   doc.setFontSize(7)
   doc.setTextColor(148, 163, 184)
   doc.text(
-    `Document généré électroniquement via ABMed-SGIE le ${nowStr} — Réf : ${reception.rec_number || "N/A"}`,
+    `Document généré électroniquement via ABMed-eGED le ${nowStr} — Réf : ${reception.rec_number || "N/A"}`,
     105,
     287,
     { align: "center" }
@@ -536,7 +536,7 @@ export function exportWasteReceptionSlipPDF(slipData: {
   // Pied de page
   doc.setFontSize(7)
   doc.setTextColor(148, 163, 184)
-  doc.text("Document généré par le Système de Gestion de l'Échantillothèque et des Déchets (SGIE - ABMed) — République du Bénin", 14, 290)
+  doc.text("Document généré par le Système de Gestion de l'Échantillothèque et des Déchets (eGED - ABMed) — République du Bénin", 14, 290)
 
   doc.save(`${slipData.reception_number || 'attestation-dechets'}.pdf`)
 }
@@ -718,7 +718,7 @@ export function exportDestructionCertificatePDF(certData: {
   // Pied de page
   doc.setFontSize(7)
   doc.setTextColor(148, 163, 184)
-  doc.text("Document officiel délivré par le Système de Gestion de l'Échantillothèque et des Déchets (SGIE - ABMed) — République du Bénin", 14, 290)
+  doc.text("Document officiel délivré par le Système de Gestion de l'Échantillothèque et des Déchets (eGED - ABMed) — République du Bénin", 14, 290)
 
   doc.save(`${certData.certificate_number || 'certificat-destruction'}.pdf`)
 }
@@ -761,7 +761,7 @@ export function exportWasteInventoryReportPDF(inventoryData: {
   doc.setFont("helvetica", "normal")
   doc.text("MINISTÈRE DE LA SANTÉ", 14, 16)
   doc.text("AGENCE BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed)", 14, 20)
-  doc.text("SYSTÈME INTÉGRÉ DE GESTION DES ÉCHANTILLONS & DÉCHETS (SGIE)", 14, 24)
+  doc.text("SYSTÈME INTÉGRÉ DE GESTION DES ÉCHANTILLONS & DÉCHETS (eGED)", 14, 24)
 
   // Bandeau titre bordeaux / rouge déchet
   doc.setFillColor(185, 28, 28) // red-700
@@ -942,7 +942,7 @@ export function exportWasteInventoryReportPDF(inventoryData: {
   // Footer
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text("SGIE ABMed — PV Officiel de Contrôle d'Inventaire Déchets — République du Bénin", 14, 290)
+  doc.text("eGED ABMed — PV Officiel de Contrôle d'Inventaire Déchets — République du Bénin", 14, 290)
 
   doc.save(`${inventoryData.inv_number || "inventaire-dechets"}.pdf`)
 }
@@ -984,7 +984,7 @@ export function exportOfficialReportPDF(params: {
   doc.setFont("helvetica", "normal")
   doc.setTextColor(220, 252, 231)
   doc.text(
-    params.subtitle || "AUTORITÉ BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed) — SGIE",
+    params.subtitle || "AUTORITÉ BÉNINOISE DU MÉDICAMENT ET DES AUTRES PRODUITS DE SANTÉ (ABMed) — eGED",
     margin,
     25
   )
@@ -1069,7 +1069,7 @@ export function exportOfficialReportPDF(params: {
       doc.setFontSize(6.5)
       doc.setTextColor(148, 163, 184)
       doc.text(
-        `Système de Gestion Intégrée des Échantillons & Déchets (SGIE - ABMed) — Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`,
+        `Système de Gestion Intégrée des Échantillons & Déchets (eGED - ABMed) — Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}`,
         margin,
         pageHeight - 8
       )
@@ -1094,7 +1094,7 @@ export function exportOfficialReportPDF(params: {
   doc.setDrawColor(203, 213, 225)
   doc.setFillColor(255, 255, 255)
 
-  // Bloc 1: Responsable SGIE / Échantillothèque & Déchets
+  // Bloc 1: Responsable eGED / Échantillothèque & Déchets
   doc.roundedRect(margin, finalY, sigBoxWidth, sigBoxHeight, 2, 2, "D")
   doc.setFontSize(7.5)
   doc.setFont("helvetica", "bold")

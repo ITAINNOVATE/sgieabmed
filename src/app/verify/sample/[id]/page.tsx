@@ -189,7 +189,7 @@ export default function PublicSampleVerifyPage({
                   Agence Béninoise du Médicament
                 </h1>
                 <p className="text-[11px] text-white/80">
-                  Système eGED-SGIE | Fiche d&apos;Échantillon Pharmaceutique
+                  Système eGED | Fiche d&apos;Échantillon Pharmaceutique
                 </p>
               </div>
             </div>

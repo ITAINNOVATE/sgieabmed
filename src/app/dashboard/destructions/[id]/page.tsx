@@ -719,7 +719,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
               {/* PIED DE PAGE */}
               <div className="text-[9px] text-center text-slate-400 pt-2 border-t border-slate-200">
-                Document officiel délivré par le Système de Gestion de l&apos;Échantillothèque et des Déchets (SGIE - ABMed) — République du Bénin
+                Document officiel délivré par le Système de Gestion de l&apos;Échantillothèque et des Déchets (eGED - ABMed) — République du Bénin
               </div>
 
             </div>

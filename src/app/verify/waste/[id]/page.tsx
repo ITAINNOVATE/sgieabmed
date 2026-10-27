@@ -408,7 +408,7 @@ export default function PublicWasteVerifyPage({
                     Agence Béninoise du Médicament
                   </h1>
                   <p className="text-[11px] text-white/80">
-                    Système eGED-SGIE | Certificat de Traçabilité Colis Groupé
+                    Système eGED | Certificat de Traçabilité Colis Groupé
                   </p>
                 </div>
               </div>
@@ -698,7 +698,7 @@ export default function PublicWasteVerifyPage({
                   Agence Béninoise du Médicament
                 </h1>
                 <p className="text-[11px] text-white/80">
-                  Système eGED-SGIE | Certificat Officiel de Traçabilité Déchet
+                  Système eGED | Certificat Officiel de Traçabilité Déchet
                 </p>
               </div>
             </div>

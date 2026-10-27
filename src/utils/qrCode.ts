@@ -73,7 +73,7 @@ export function formatSampleQRText(sample: Partial<SampleQRData> & { id: string 
 export function formatSampleSummaryText(sample: Partial<SampleQRData> & { id: string }, origin = 'https://eged-abmed.gov.bj'): string {
   const lines = [
     'RÉPUBLIQUE DU BÉNIN — ABMed',
-    'eGED-SGIE | ÉCHANTILLON PHARMACEUTIQUE',
+    'eGED | ÉCHANTILLON PHARMACEUTIQUE',
     '----------------------------------------',
     `N° Échantillon : ${sample.sample_number || sample.id}`,
     sample.reception_ref ? `Réf. Réception : ${sample.reception_ref}` : null,
@@ -111,7 +111,7 @@ export function formatWasteQRText(waste: Partial<WasteQRData> & { id: string }, 
 export function formatWasteSummaryText(waste: Partial<WasteQRData> & { id: string }, origin = 'https://eged-abmed.gov.bj'): string {
   const lines = [
     'RÉPUBLIQUE DU BÉNIN — ABMed',
-    'eGED-SGIE | DÉCHET PHARMACEUTIQUE',
+    'eGED | DÉCHET PHARMACEUTIQUE',
     '----------------------------------------',
     `N° Lot Déchet  : ${waste.batch_number || waste.id}`,
     waste.reception_number ? `Réf. Réception : ${waste.reception_number}` : null,
@@ -157,7 +157,7 @@ export interface GroupedPackageQRData {
 export function formatGroupedPackageQRText(pkg: GroupedPackageQRData, origin = 'https://eged-abmed.gov.bj'): string {
   const lines = [
     'RÉPUBLIQUE DU BÉNIN — ABMed',
-    'eGED-SGIE | COLIS GROUPÉ DE DÉCHETS',
+    'eGED | COLIS GROUPÉ DE DÉCHETS',
     '----------------------------------------',
     `N° Colis / Sac : ${pkg.package_number}`,
     `Désignation    : ${pkg.package_name}`,

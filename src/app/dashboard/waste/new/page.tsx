@@ -2578,7 +2578,7 @@ function NewWasteReceptionContent() {
 
                 {/* PIED DE PAGE */}
                 <div className="text-[9px] text-center text-slate-400 pt-2 border-t border-slate-200">
-                  Système de Gestion de l&apos;Échantillothèque et des Déchets (SGIE) — République du Bénin — Document généré électroniquement
+                  Système de Gestion de l&apos;Échantillothèque et des Déchets (eGED) — République du Bénin — Document généré électroniquement
                 </div>
 
               </div>

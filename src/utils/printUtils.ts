@@ -539,7 +539,7 @@ export function printLabels(items: LabelData[], type: 'sample' | 'waste', qrCode
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Impression Étiquettes SGIE ABMed</title>
+        <title>Impression Étiquettes eGED ABMed</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
           ${styleString}
@@ -645,7 +645,7 @@ function drawWasteA4PagePDF(doc: jsPDF, item: LabelData, qrCodeDataUrl: string, 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
-  doc.text("eGED-ABMed • SGIE", 192, 19, { align: 'right' });
+  doc.text("eGED-ABMed", 192, 19, { align: 'right' });
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
@@ -827,7 +827,7 @@ function drawWasteA4PagePDF(doc: jsPDF, item: LabelData, qrCodeDataUrl: string, 
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text("AUTORITÉ BÉNINOISE DU MÉDICAMENT (ABMed) • eGED-SGIE", 15, 248);
+  doc.text("AUTORITÉ BÉNINOISE DU MÉDICAMENT (ABMed) • eGED", 15, 248);
   doc.text("PLATEFORME NATIONALE DE TRAÇABILITÉ • WWW.ABMED.BJ", 192, 248, { align: 'right' });
 }
 
