@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "eGED - ABMed",
@@ -22,7 +16,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${inter.variable} h-full antialiased`}
+      className="h-full antialiased font-sans"
       suppressHydrationWarning
     >
       <head>
