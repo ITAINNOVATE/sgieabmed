@@ -72,6 +72,22 @@ export type WasteStockItem = {
 
 const DEFAULT_INITIAL_PACKAGES: GroupedWastePackage[] = []
 
+/**
+ * Détermine si un lot de déchet est déjà regroupé dans un colis ou sac
+ */
+export function isItemAlreadyGrouped(item: WasteStockItem, packagesList: GroupedWastePackage[] = []): boolean {
+  if (!item) return false
+  if (item.grouped_package_id || item.package_number) return true
+  if (packagesList && packagesList.length > 0) {
+    return packagesList.some(
+      (pkg) =>
+        pkg.item_ids?.includes(item.id) ||
+        (pkg.items && pkg.items.some((it) => it.batch_number === item.batch_number || it.id === item.id))
+    )
+  }
+  return false
+}
+
 export default function WasteStockPage() {
   const [activeTab, setActiveTab] = useState<"detail" | "grouped">("detail")
   const [sorting, setSorting] = useState<SortingState>([])
@@ -328,11 +344,13 @@ export default function WasteStockPage() {
     return Array.from(set)
   }, [data])
 
-  // Lots sélectionnés pour le regroupement
+  // Lots sélectionnés pour le regroupement (uniquement les lots libres non regroupés)
   const selectedItemsForGrouping = useMemo(() => {
     const selectedIndexes = Object.keys(rowSelection).filter(k => rowSelection[k])
-    return selectedIndexes.map(idx => filteredDetailData[Number(idx)]).filter(Boolean)
-  }, [rowSelection, filteredDetailData])
+    return selectedIndexes
+      .map(idx => filteredDetailData[Number(idx)])
+      .filter((item): item is WasteStockItem => Boolean(item && !isItemAlreadyGrouped(item, packages)))
+  }, [rowSelection, filteredDetailData, packages])
 
   // GESTION DU REGROUPEMENT VALIDÉ (NOUVEAU COLIS OU AJOUT À UN COLIS EXISTANT)
   const handleGroupingSuccess = (newPkg: GroupedWastePackage, isUpdate?: boolean) => {
@@ -519,16 +537,35 @@ export default function WasteStockPage() {
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Sélectionner tout"
+          aria-label="Sélectionner tous les lots libres"
+          title="Sélectionner tous les lots libres (non regroupés) de cette page"
         />
       ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Sélectionner la ligne"
-        />
-      ),
+      cell: ({ row }) => {
+        const isGrouped = isItemAlreadyGrouped(row.original, packages)
+        if (isGrouped) {
+          return (
+            <div 
+              className="flex items-center justify-center cursor-not-allowed" 
+              title={`Ce lot est déjà regroupé (${row.original.package_number || 'Colis groupé'}) et ne peut plus être sélectionné.`}
+            >
+              <Checkbox
+                checked={false}
+                disabled={true}
+                className="opacity-30 cursor-not-allowed border-muted-foreground/30 bg-muted/40 data-[state=checked]:bg-transparent"
+                aria-label="Lot déjà regroupé (sélection désactivée)"
+              />
+            </div>
+          )
+        }
+        return (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Sélectionner la ligne"
+          />
+        )
+      },
       enableSorting: false,
       enableHiding: false,
     },
@@ -792,6 +829,7 @@ export default function WasteStockPage() {
     data: filteredDetailData,
     columns: detailColumns,
     autoResetPageIndex: false,
+    enableRowSelection: (row) => !isItemAlreadyGrouped(row.original, packages),
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
