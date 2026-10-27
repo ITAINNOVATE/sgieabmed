@@ -5,7 +5,7 @@ import Link from "next/link"
 import { 
   FileText, Download, Eye, Plus, Search, Filter, Trash2, 
   Building2, Calendar, HardDrive, CheckCircle2, User, Phone, 
-  Layers, ArrowLeft, RefreshCw, FileUp, ShieldCheck, Tag, X, FileCheck
+  Layers, ArrowLeft, RefreshCw, FileUp, ShieldCheck, Tag, X, FileCheck, Paperclip
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -35,6 +35,7 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedApporteur, setSelectedApporteur] = useState<string>("ALL")
   const [selectedDocType, setSelectedDocType] = useState<string>("ALL")
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | "PIECES_APPORTEUR" | "OFFICIEL">("ALL")
   const [viewMode, setViewMode] = useState<"by_structure" | "all_list">("by_structure")
 
   // Modale de prévisualisation
@@ -152,6 +153,81 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
         } catch (e) {}
       }
 
+      // 2b. Balayer systématiquement toutes les clés localStorage de brouillons de réceptions d'échantillons
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.startsWith("reception_draft_details_") || key.startsWith("sample_draft_") || key.startsWith("reception_draft_"))) {
+            try {
+              const val = localStorage.getItem(key)
+              if (val) {
+                const parsed = JSON.parse(val)
+                const recNum = parsed.reception_number || parsed.formData?.reception_number || parsed.formData?.rec_number || key.replace("reception_draft_details_", "")
+                const files = parsed.attachedFiles || parsed.attached_files || parsed.formData?.attachedFiles || parsed.attachedDocs || parsed.formData?.attachedDocs
+                const supplier = parsed.formData?.supplier || parsed.formData?.source_structure || parsed.supplier || "Structure Déposante"
+                const date = parsed.formData?.date_reception || parsed.date_reception || new Date().toISOString().split("T")[0]
+                
+                if (Array.isArray(files)) {
+                  files.forEach((f: any, fIdx: number) => {
+                    const fileId = f.id || `doc-draft-sample-${recNum}-${fIdx}`
+                    if (!docsMap.has(fileId)) {
+                      docsMap.set(fileId, {
+                        id: fileId,
+                        reception_number: recNum,
+                        source_structure: supplier,
+                        source_type: "Structure déposante d'échantillons",
+                        depositor_name: parsed.formData?.inspector || parsed.inspector || "Agent ABMed",
+                        date: date,
+                        reception_date: date,
+                        doc_category: "Document apporteur",
+                        category: "piece_apporteur",
+                        doc_type: f.title || f.name || "Pièce apporteur",
+                        document_type: f.title || f.name || "Pièce apporteur",
+                        title: f.title || f.name || "Pièce justificative apporteur",
+                        description: f.description,
+                        file_name: f.name || `Piece-${recNum}-${fIdx + 1}.pdf`,
+                        file_size_formatted: f.size || "Fichier joint",
+                        file_type: f.type || "Fichier",
+                        data_url: f.url || f.data_url || f.dataUrl,
+                        file_data: f.url || f.data_url || f.dataUrl,
+                        created_at: new Date().toISOString(),
+                      })
+                    }
+                  })
+                }
+
+                // Référencer le bordereau de livraison apporteur (BL) s'il est renseigné
+                const blRef = parsed.formData?.delivery_slip_ref || parsed.delivery_slip_ref || parsed.formData?.bl_number
+                if (blRef) {
+                  const blId = `doc-bl-sample-${recNum}`
+                  if (!docsMap.has(blId)) {
+                    docsMap.set(blId, {
+                      id: blId,
+                      reception_number: recNum,
+                      source_structure: supplier,
+                      source_type: "Structure déposante d'échantillons",
+                      depositor_name: parsed.formData?.inspector || parsed.inspector || "Agent ABMed",
+                      date: date,
+                      reception_date: date,
+                      doc_category: "Document apporteur",
+                      category: "piece_apporteur",
+                      doc_type: "Bordereau de livraison apporteur (BL)",
+                      document_type: "Bordereau de livraison apporteur (BL)",
+                      title: `Bordereau de Livraison N° ${blRef}`,
+                      description: `Référence apporteur : ${blRef}`,
+                      file_name: `BL-${blRef}.pdf`,
+                      file_size_formatted: "Déclaré apporteur",
+                      file_type: "application/pdf",
+                      created_at: new Date().toISOString(),
+                    })
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+        }
+      } catch (err) {}
+
       // 3. Récupérer également les réceptions d'échantillons depuis Supabase
       try {
         const { data: cloudRecs } = await supabase
@@ -221,6 +297,12 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
     return list.sort((a, b) => a.localeCompare(b))
   }, [documents])
 
+  // Helper pour identifier les actes officiels eGED
+  const isOfficialDoc = (d: SampleArchivedDocument) => {
+    const type = d.document_type || d.doc_type || d.title || ""
+    return d.category === "acte_administratif" || type.includes("eGED") || type.includes("Bordereau de réception officiel") || type.includes("Bordereau de Réception")
+  }
+
   // Filtrage des documents
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -246,9 +328,15 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
       const matchesDocType = 
         selectedDocType === "ALL" || (doc.title === selectedDocType || doc.document_type === selectedDocType)
 
-      return matchesSearch && matchesApporteur && matchesDocType
+      const isOfficial = isOfficialDoc(doc)
+      const matchesCategory = 
+        categoryFilter === "ALL" ||
+        (categoryFilter === "PIECES_APPORTEUR" && !isOfficial) ||
+        (categoryFilter === "OFFICIEL" && isOfficial)
+
+      return matchesSearch && matchesApporteur && matchesDocType && matchesCategory
     })
-  }, [documents, searchTerm, selectedApporteur, selectedDocType])
+  }, [documents, searchTerm, selectedApporteur, selectedDocType, categoryFilter])
 
   // Regroupement par structure apportrice pour la vue dédiée
   const groupedByApporteur = useMemo(() => {
@@ -285,12 +373,6 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
 
     return Array.from(map.values()).sort((a, b) => b.docs.length - a.docs.length)
   }, [filteredDocuments])
-
-  // Helper pour identifier les actes officiels eGED
-  const isOfficialDoc = (d: SampleArchivedDocument) => {
-    const type = d.document_type || d.doc_type || d.title || ""
-    return d.category === "acte_administratif" || type.includes("eGED") || type.includes("Bordereau de réception officiel") || type.includes("Bordereau de Réception")
-  }
 
   // KPIs
   const totalDocsCount = documents.length
@@ -547,9 +629,14 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
         </div>
       </div>
 
-      {/* KPI CARDS */}
+      {/* KPI CARDS (INTERACTIFS) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card className="border-border/70 shadow-xs">
+        <Card 
+          onClick={() => setCategoryFilter("ALL")}
+          className={`border-border/70 shadow-xs cursor-pointer transition-all hover:border-primary/50 ${
+            categoryFilter === "ALL" ? "ring-2 ring-primary border-primary bg-primary/5" : ""
+          }`}
+        >
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
               <HardDrive className="h-5 w-5" />
@@ -573,26 +660,36 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-xs">
+        <Card 
+          onClick={() => setCategoryFilter("PIECES_APPORTEUR")}
+          className={`border-border/70 shadow-xs cursor-pointer transition-all hover:border-amber-500/50 ${
+            categoryFilter === "PIECES_APPORTEUR" ? "ring-2 ring-amber-500 border-amber-500 bg-amber-50/20" : ""
+          }`}
+        >
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-              <Tag className="h-5 w-5" />
+              <Paperclip className="h-5 w-5" />
             </div>
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground">Pièces Apporteurs (CoA, BL)</p>
-              <h3 className="text-xl font-black text-foreground">{depositorDocsCount}</h3>
+              <h3 className="text-xl font-black text-amber-900 dark:text-amber-200">{depositorDocsCount}</h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-xs">
+        <Card 
+          onClick={() => setCategoryFilter("OFFICIEL")}
+          className={`border-border/70 shadow-xs cursor-pointer transition-all hover:border-[#1B5C2E]/50 ${
+            categoryFilter === "OFFICIEL" ? "ring-2 ring-[#1B5C2E] border-[#1B5C2E] bg-[#1B5C2E]/10" : ""
+          }`}
+        >
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-[#1B5C2E]/10 text-[#1B5C2E]">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground">Actes Officiels eGED</p>
-              <h3 className="text-xl font-black text-foreground">{egedDocsCount}</h3>
+              <h3 className="text-xl font-black text-[#1B5C2E]">{egedDocsCount}</h3>
             </div>
           </CardContent>
         </Card>
@@ -660,6 +757,48 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                 <Layers className="h-3.5 w-3.5" /> Liste Globale ({filteredDocuments.length})
               </Button>
             </div>
+          </div>
+
+          {/* FILTRES RAPIDES PAR NATURE DE DOCUMENT */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
+            <span className="text-xs font-semibold text-muted-foreground mr-1">Filtrer par nature :</span>
+            <Button
+              type="button"
+              variant={categoryFilter === "ALL" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("ALL")}
+              className={`h-7 text-xs font-semibold rounded-full ${categoryFilter === "ALL" ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
+            >
+              Tous les documents ({documents.length})
+            </Button>
+            <Button
+              type="button"
+              variant={categoryFilter === "PIECES_APPORTEUR" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("PIECES_APPORTEUR")}
+              className={`h-7 text-xs font-semibold rounded-full gap-1.5 ${
+                categoryFilter === "PIECES_APPORTEUR" 
+                  ? "bg-amber-600 hover:bg-amber-700 text-white" 
+                  : "text-amber-800 border-amber-300 bg-amber-50/60 hover:bg-amber-100 dark:bg-amber-950/20 dark:text-amber-300"
+              }`}
+            >
+              <Paperclip className="h-3 w-3" />
+              Justifs & Pièces Apportés par le Centre ({depositorDocsCount})
+            </Button>
+            <Button
+              type="button"
+              variant={categoryFilter === "OFFICIEL" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("OFFICIEL")}
+              className={`h-7 text-xs font-semibold rounded-full gap-1.5 ${
+                categoryFilter === "OFFICIEL" 
+                  ? "bg-emerald-700 hover:bg-emerald-800 text-white" 
+                  : "text-emerald-800 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300"
+              }`}
+            >
+              <ShieldCheck className="h-3 w-3" />
+              Actes & Attestations Officiels eGED ({egedDocsCount})
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -770,13 +909,20 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                         return (
                           <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
                             <TableCell className="pl-4">
-                              <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"}`}>
-                                <FileText className="h-4 w-4" />
+                              <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                                {isOfficial ? <ShieldCheck className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
                               </div>
                             </TableCell>
 
                             <TableCell>
-                              <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                                {!isOfficial && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300">
+                                    Apporteur
+                                  </Badge>
+                                )}
+                              </div>
                               {doc.description && (
                                 <p className="text-[11px] text-muted-foreground italic line-clamp-1">{doc.description}</p>
                               )}
@@ -786,12 +932,22 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                             </TableCell>
 
                             <TableCell>
-                              <Badge 
-                                variant={isOfficial ? "default" : "secondary"} 
-                                className={`text-[10px] font-semibold ${isOfficial ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
-                              >
-                                {doc.title || doc.document_type || "Pièce apporteur"}
-                              </Badge>
+                              <div className="flex flex-col gap-1 items-start">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-[10px] font-bold flex items-center gap-1 ${
+                                    isOfficial 
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300" 
+                                      : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {isOfficial ? <ShieldCheck className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+                                  {isOfficial ? "Acte Officiel eGED" : "Pièce / Justif Centre"}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground font-medium">
+                                  {doc.document_type || doc.doc_type || "Pièce apporteur"}
+                                </span>
+                              </div>
                             </TableCell>
 
                             <TableCell className="font-mono text-[11px] font-semibold text-muted-foreground">
@@ -890,13 +1046,20 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                     return (
                       <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
                         <TableCell className="pl-4">
-                          <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"}`}>
-                            <FileText className="h-4 w-4" />
+                          <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                            {isOfficial ? <ShieldCheck className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
                           </div>
                         </TableCell>
 
                         <TableCell>
-                          <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                            {!isOfficial && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300">
+                                Apporteur
+                              </Badge>
+                            )}
+                          </div>
                           {doc.description && (
                             <p className="text-[11px] text-muted-foreground italic line-clamp-1">{doc.description}</p>
                           )}
@@ -910,12 +1073,22 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                         </TableCell>
 
                         <TableCell>
-                          <Badge 
-                            variant={isOfficial ? "default" : "secondary"} 
-                            className={`text-[10px] font-semibold ${isOfficial ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
-                          >
-                            {doc.title || doc.document_type || "Pièce apporteur"}
-                          </Badge>
+                          <div className="flex flex-col gap-1 items-start">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] font-bold flex items-center gap-1 ${
+                                isOfficial 
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300" 
+                                  : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                              }`}
+                            >
+                              {isOfficial ? <ShieldCheck className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+                              {isOfficial ? "Acte Officiel eGED" : "Pièce / Justif Centre"}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {doc.document_type || doc.doc_type || "Pièce apporteur"}
+                            </span>
+                          </div>
                         </TableCell>
 
                         <TableCell className="font-mono text-[11px] font-semibold text-muted-foreground">

@@ -764,6 +764,7 @@ function NewWasteReceptionContent() {
           current_location: item.current_location || "MAGASIN DES DECHETS",
           status: "Déclaré",
           observations: item.observations || "",
+          attached_docs: attachedDocs,
           created_at: new Date().toISOString(),
           creator: { first_name: "Agent", last_name: "ABMed" },
         }
@@ -796,6 +797,16 @@ function NewWasteReceptionContent() {
           ? [...newBatches, ...currentList.filter((b: any) => b.reception_number !== values.reception_number && b.batch_number !== editingId)]
           : [...newBatches, ...currentList]
         localStorage.setItem("waste_batches_custom_v1", JSON.stringify(updatedList))
+
+        // Sauvegarder les détails complets de la réception pour restauration et documentation
+        try {
+          localStorage.setItem("waste_reception_draft_details_" + values.reception_number, JSON.stringify({
+            formData: { ...values, attachedDocs },
+            attachedDocs,
+            reception_number: values.reception_number,
+            status: "Déclaré",
+          }))
+        } catch (e) {}
 
         // Journal des mouvements de déchets
         const currentMvts = JSON.parse(localStorage.getItem("waste_movements_custom_v1") || "[]")
@@ -842,7 +853,31 @@ function NewWasteReceptionContent() {
             mime_type: "application/pdf",
             created_at: new Date().toISOString(),
           },
-          // B. Documents apportés téléversés
+          // B. Bordereau de livraison apporteur (si référence déclarée et pas déjà un fichier joint dédié)
+          ...(values.delivery_slip_ref && values.delivery_slip_ref.trim() !== "" && !attachedDocs.some(d => d.title?.includes(values.delivery_slip_ref!) || d.file_name?.includes(values.delivery_slip_ref!)) ? [{
+            id: `doc-bl-${values.reception_number}`,
+            reception_number: values.reception_number,
+            source_structure: values.source_structure,
+            source_type: values.source_type,
+            city: values.city || "Cotonou",
+            depositor_name: values.depositor_name,
+            depositor_phone: values.depositor_phone,
+            date: values.reception_date,
+            reception_date: values.reception_date,
+            doc_category: "Document apporteur" as const,
+            category: "piece_apporteur" as const,
+            doc_type: "Bordereau de livraison apporteur",
+            document_type: "Bordereau de livraison apporteur",
+            title: `Bordereau de Livraison Apporteur N° ${values.delivery_slip_ref}`,
+            description: `Bordereau de livraison / déclaration déposé par ${values.source_structure} (Réf : ${values.delivery_slip_ref})`,
+            file_name: `BL-${values.delivery_slip_ref}.pdf`,
+            file_size: "Référencé au dépôt",
+            file_size_formatted: "Référencé au dépôt",
+            file_type: "application/pdf",
+            mime_type: "application/pdf",
+            created_at: new Date().toISOString(),
+          }] : []),
+          // C. Documents et pièces justificatives apportés téléversés
           ...attachedDocs.map((doc) => ({
             id: doc.id,
             reception_number: values.reception_number,

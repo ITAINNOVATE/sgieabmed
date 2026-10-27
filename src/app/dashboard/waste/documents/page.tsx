@@ -5,7 +5,7 @@ import Link from "next/link"
 import { 
   FileText, Download, Eye, Plus, Search, Filter, Trash2, 
   Building2, Calendar, HardDrive, CheckCircle2, User, Phone, 
-  Layers, ArrowLeft, RefreshCw, FileUp, ShieldCheck, Tag, ExternalLink, X
+  Layers, ArrowLeft, RefreshCw, FileUp, ShieldCheck, Tag, ExternalLink, X, Paperclip
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -30,6 +30,7 @@ export default function WasteDocumentsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedApporteur, setSelectedApporteur] = useState<string>("ALL")
   const [selectedDocType, setSelectedDocType] = useState<string>("ALL")
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | "PIECES_APPORTEUR" | "OFFICIEL">("ALL")
   const [viewMode, setViewMode] = useState<"by_structure" | "all_list">("by_structure")
 
   // États pour la modale de prévisualisation
@@ -66,7 +67,7 @@ export default function WasteDocumentsPage() {
         } catch (e) {}
       }
 
-      // 2. Extraire les réceptions et documents attachés depuis le registre des lots (waste_batches_custom_v1)
+      // 2. Extraire les réceptions et pièces apportées depuis le registre des lots (waste_batches_custom_v1)
       const batchesRaw = localStorage.getItem("waste_batches_custom_v1")
       if (batchesRaw) {
         try {
@@ -76,7 +77,7 @@ export default function WasteDocumentsPage() {
               const recNum = batch.reception_number || batch.batch_number
               const slipDocId = `doc-slip-${recNum}`
 
-              // Si le bordereau officiel eGED n'est pas encore présent
+              // A. Bordereau officiel eGED
               if (!docsMap.has(slipDocId) && recNum) {
                 docsMap.set(slipDocId, {
                   id: slipDocId,
@@ -101,16 +102,135 @@ export default function WasteDocumentsPage() {
                   created_at: batch.created_at || new Date().toISOString(),
                 })
               }
+
+              // B. Bordereau de livraison apporteur (référencé par le centre)
+              if (batch.delivery_slip_ref && batch.delivery_slip_ref.trim() !== "" && recNum) {
+                const blDocId = `doc-bl-${recNum}`
+                if (!docsMap.has(blDocId)) {
+                  docsMap.set(blDocId, {
+                    id: blDocId,
+                    reception_number: recNum,
+                    source_structure: batch.source_structure || "Structure Non Précisée",
+                    source_type: batch.source_type || "Officine privée de pharmacie",
+                    city: batch.city || "Cotonou",
+                    depositor_name: batch.depositor_name || "Agent Apporteur",
+                    depositor_phone: batch.depositor_phone,
+                    date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                    reception_date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                    doc_category: "Document apporteur",
+                    category: "piece_apporteur",
+                    doc_type: "Bordereau de livraison apporteur",
+                    document_type: "Bordereau de livraison apporteur",
+                    title: `Bordereau de Livraison Apporteur N° ${batch.delivery_slip_ref}`,
+                    description: `Bordereau / Bon de livraison papier déposé par ${batch.source_structure || 'le centre'} (Réf : ${batch.delivery_slip_ref})`,
+                    file_name: `BL-${batch.delivery_slip_ref}.pdf`,
+                    file_size: "Référencé au dépôt",
+                    file_size_formatted: "Référencé au dépôt",
+                    file_type: "application/pdf",
+                    mime_type: "application/pdf",
+                    created_at: batch.created_at || new Date().toISOString(),
+                  })
+                }
+              }
+
+              // C. Pièces et documents joints au lot lors de la saisie
+              const batchAttached = batch.attached_docs || batch.attachedFiles
+              if (Array.isArray(batchAttached) && recNum) {
+                batchAttached.forEach((doc: any, docIdx: number) => {
+                  const attId = doc.id || `doc-att-b-${recNum}-${docIdx}`
+                  if (!docsMap.has(attId)) {
+                    docsMap.set(attId, {
+                      id: attId,
+                      reception_number: recNum,
+                      source_structure: batch.source_structure || "Structure Non Précisée",
+                      source_type: batch.source_type || "Officine privée de pharmacie",
+                      city: batch.city || "Cotonou",
+                      depositor_name: batch.depositor_name || "Agent Apporteur",
+                      depositor_phone: batch.depositor_phone,
+                      date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                      reception_date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                      doc_category: "Document apporteur",
+                      category: "piece_apporteur",
+                      doc_type: doc.title || doc.doc_type || doc.file_name,
+                      document_type: doc.title || doc.document_type || doc.file_name,
+                      title: doc.title || doc.file_name,
+                      description: doc.description,
+                      file_name: doc.file_name || doc.name,
+                      file_size: doc.file_size_formatted || doc.file_size || doc.size || "Fichier joint",
+                      file_size_formatted: doc.file_size_formatted || doc.file_size || doc.size || "Fichier joint",
+                      file_type: doc.file_type || doc.type || "application/pdf",
+                      mime_type: doc.file_type || doc.type || "application/pdf",
+                      data_url: doc.data_url || doc.url,
+                      file_data: doc.file_data || doc.data_url || doc.url,
+                      created_at: doc.uploaded_at || batch.created_at || new Date().toISOString(),
+                    })
+                  }
+                })
+              }
             })
           }
         } catch (e) {}
       }
 
-      // 3. Récupérer également les réceptions depuis Supabase en arrière-plan
+      // 3. Scanner systématiquement les brouillons et détails complets de réceptions déchets
+      if (typeof window !== "undefined") {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && (key.startsWith("waste_reception_draft_details_") || key.startsWith("waste_draft_"))) {
+              try {
+                const raw = localStorage.getItem(key)
+                if (raw) {
+                  const parsed = JSON.parse(raw)
+                  const files = parsed.formData?.attachedDocs || parsed.attachedDocs || parsed.formData?.attachedFiles || parsed.attachedFiles || []
+                  const recNum = parsed.formData?.reception_number || parsed.reception_number || key.replace("waste_reception_draft_details_", "")
+                  const structure = parsed.formData?.source_structure || parsed.source_structure || "Structure Non Précisée"
+                  const date = parsed.formData?.reception_date || parsed.reception_date || new Date().toISOString().split("T")[0]
+
+                  if (Array.isArray(files)) {
+                    files.forEach((f: any, fIdx: number) => {
+                      const fileId = f.id || `doc-att-w-${recNum}-${fIdx}`
+                      if (!docsMap.has(fileId)) {
+                        docsMap.set(fileId, {
+                          id: fileId,
+                          reception_number: recNum,
+                          source_structure: structure,
+                          source_type: parsed.formData?.source_type || "Officine privée de pharmacie",
+                          city: parsed.formData?.city || "Cotonou",
+                          depositor_name: parsed.formData?.depositor_name || "Agent Apporteur",
+                          depositor_phone: parsed.formData?.depositor_phone,
+                          date: date,
+                          reception_date: date,
+                          doc_category: "Document apporteur",
+                          category: "piece_apporteur",
+                          doc_type: f.title || f.doc_type || f.file_name,
+                          document_type: f.title || f.document_type || f.file_name,
+                          title: f.title || f.file_name,
+                          description: f.description,
+                          file_name: f.file_name || f.name,
+                          file_size: f.file_size_formatted || f.file_size || f.size || "Fichier joint",
+                          file_size_formatted: f.file_size_formatted || f.file_size || f.size || "Fichier joint",
+                          file_type: f.file_type || f.type || "application/pdf",
+                          mime_type: f.file_type || f.type || "application/pdf",
+                          data_url: f.data_url || f.url,
+                          file_data: f.file_data || f.data_url || f.url,
+                          created_at: f.uploaded_at || new Date().toISOString(),
+                        })
+                      }
+                    })
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 4. Récupérer également les réceptions depuis Supabase en arrière-plan
       try {
         const { data: cloudBatches } = await supabase
           .from("waste_batches")
-          .select("reception_number, source_structure, source_type, city, depositor_name, depositor_phone, reception_date, created_at")
+          .select("reception_number, source_structure, source_type, city, depositor_name, depositor_phone, reception_date, created_at, delivery_slip_ref")
           .limit(100)
 
         if (cloudBatches && Array.isArray(cloudBatches)) {
@@ -140,6 +260,35 @@ export default function WasteDocumentsPage() {
                 mime_type: "application/pdf",
                 created_at: batch.created_at || new Date().toISOString(),
               })
+            }
+
+            if (batch.delivery_slip_ref && batch.delivery_slip_ref.trim() !== "") {
+              const blDocId = `doc-bl-${batch.reception_number}`
+              if (!docsMap.has(blDocId)) {
+                docsMap.set(blDocId, {
+                  id: blDocId,
+                  reception_number: batch.reception_number,
+                  source_structure: batch.source_structure || "Structure Non Précisée",
+                  source_type: batch.source_type || "Officine privée de pharmacie",
+                  city: batch.city || "Cotonou",
+                  depositor_name: batch.depositor_name || "Agent Apporteur",
+                  depositor_phone: batch.depositor_phone,
+                  date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                  reception_date: batch.reception_date || batch.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                  doc_category: "Document apporteur",
+                  category: "piece_apporteur",
+                  doc_type: "Bordereau de livraison apporteur",
+                  document_type: "Bordereau de livraison apporteur",
+                  title: `Bordereau de Livraison Apporteur N° ${batch.delivery_slip_ref}`,
+                  description: `Bordereau / Bon de livraison papier déposé par ${batch.source_structure || 'le centre'} (Réf : ${batch.delivery_slip_ref})`,
+                  file_name: `BL-${batch.delivery_slip_ref}.pdf`,
+                  file_size: "Référencé au dépôt",
+                  file_size_formatted: "Référencé au dépôt",
+                  file_type: "application/pdf",
+                  mime_type: "application/pdf",
+                  created_at: batch.created_at || new Date().toISOString(),
+                })
+              }
             }
           })
         }
@@ -175,26 +324,45 @@ export default function WasteDocumentsPage() {
     return list.sort((a, b) => a.localeCompare(b))
   }, [documents])
 
+  // Helper pour identifier les actes officiels eGED
+  const isOfficialDoc = (d: WasteArchivedDocument) => {
+    const type = d.document_type || d.doc_type || d.title || ""
+    return d.category === "acte_administratif" || d.doc_category === "Attestation eGED" || type.includes("eGED") || type.includes("Bordereau de Réception Officiel") || type.includes("Bordereau de Réception")
+  }
+
   // Filtrage des documents
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
+      const title = doc.title || ""
+      const fileName = doc.file_name || ""
+      const structure = doc.source_structure || ""
+      const recNum = doc.reception_number || ""
+      const depositor = doc.depositor_name || ""
+      const desc = doc.description || ""
+
       const matchesSearch = 
         !searchTerm.trim() ||
-        doc.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.source_structure.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (doc.reception_number && doc.reception_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (doc.depositor_name && doc.depositor_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (doc.description && doc.description.toLowerCase().includes(searchTerm.toLowerCase()))
+        title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        structure.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        recNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        depositor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        desc.toLowerCase().includes(searchTerm.toLowerCase())
 
       const matchesApporteur = 
         selectedApporteur === "ALL" || doc.source_structure === selectedApporteur
 
       const matchesDocType = 
-        selectedDocType === "ALL" || doc.document_type === selectedDocType
+        selectedDocType === "ALL" || doc.document_type === selectedDocType || doc.title === selectedDocType || doc.doc_type === selectedDocType
 
-      return matchesSearch && matchesApporteur && matchesDocType
+      const matchesCategory =
+        categoryFilter === "ALL" ||
+        (categoryFilter === "PIECES_APPORTEUR" && !isOfficialDoc(doc)) ||
+        (categoryFilter === "OFFICIEL" && isOfficialDoc(doc))
+
+      return matchesSearch && matchesApporteur && matchesDocType && matchesCategory
     })
-  }, [documents, searchTerm, selectedApporteur, selectedDocType])
+  }, [documents, searchTerm, selectedApporteur, selectedDocType, categoryFilter])
 
   // Regroupement par apporteur / structure pour la vue dédiée
   const groupedByApporteur = useMemo(() => {
@@ -231,12 +399,6 @@ export default function WasteDocumentsPage() {
 
     return Array.from(map.values()).sort((a, b) => b.docs.length - a.docs.length)
   }, [filteredDocuments])
-
-  // Helper pour identifier les actes officiels eGED
-  const isOfficialDoc = (d: WasteArchivedDocument) => {
-    const type = d.document_type || d.doc_type || ""
-    return d.category === "acte_administratif" || type.includes("eGED") || type.includes("Bordereau de Réception Officiel")
-  }
 
   // KPIs
   const totalDocsCount = documents.length
@@ -496,9 +658,12 @@ export default function WasteDocumentsPage() {
         </div>
       </div>
 
-      {/* KPI CARDS */}
+      {/* KPI CARDS (INTERACTIFS) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card className="border-border/70 shadow-xs">
+        <Card 
+          onClick={() => setCategoryFilter("ALL")}
+          className={`border-border/70 shadow-xs cursor-pointer transition-all hover:scale-[1.01] ${categoryFilter === "ALL" ? "ring-2 ring-blue-500 bg-blue-50/20 dark:bg-blue-950/20" : ""}`}
+        >
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
               <HardDrive className="h-5 w-5" />
@@ -522,19 +687,25 @@ export default function WasteDocumentsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-xs">
+        <Card 
+          onClick={() => setCategoryFilter("PIECES_APPORTEUR")}
+          className={`border-border/70 shadow-xs cursor-pointer transition-all hover:scale-[1.01] ${categoryFilter === "PIECES_APPORTEUR" ? "ring-2 ring-amber-500 bg-amber-50/20 dark:bg-amber-950/20" : ""}`}
+        >
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-              <Tag className="h-5 w-5" />
+              <Paperclip className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Pièces Apporteurs</p>
+              <p className="text-[11px] font-semibold text-muted-foreground">Justifs & Pièces Apporteurs</p>
               <h3 className="text-xl font-black text-foreground">{depositorDocsCount}</h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-xs">
+        <Card 
+          onClick={() => setCategoryFilter("OFFICIEL")}
+          className={`border-border/70 shadow-xs cursor-pointer transition-all hover:scale-[1.01] ${categoryFilter === "OFFICIEL" ? "ring-2 ring-[#1B5C2E] bg-emerald-50/20 dark:bg-emerald-950/20" : ""}`}
+        >
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-[#1B5C2E]/10 text-[#1B5C2E]">
               <ShieldCheck className="h-5 w-5" />
@@ -626,6 +797,38 @@ export default function WasteDocumentsPage() {
                 <Layers className="h-3.5 w-3.5" /> Liste Globale ({filteredDocuments.length})
               </Button>
             </div>
+          </div>
+
+          {/* Onglets rapides de filtrage par nature : Justifs Apporteurs vs Actes eGED */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mr-1">Nature des documents :</span>
+            <Button
+              type="button"
+              variant={categoryFilter === "ALL" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("ALL")}
+              className={`h-7 text-xs font-bold gap-1.5 rounded-full ${categoryFilter === "ALL" ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
+            >
+              Tous les documents ({totalDocsCount})
+            </Button>
+            <Button
+              type="button"
+              variant={categoryFilter === "PIECES_APPORTEUR" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("PIECES_APPORTEUR")}
+              className={`h-7 text-xs font-bold gap-1.5 rounded-full ${categoryFilter === "PIECES_APPORTEUR" ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"}`}
+            >
+              <Paperclip className="h-3.5 w-3.5" /> Justifs & Pièces Apportés par le Centre ({depositorDocsCount})
+            </Button>
+            <Button
+              type="button"
+              variant={categoryFilter === "OFFICIEL" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("OFFICIEL")}
+              className={`h-7 text-xs font-bold gap-1.5 rounded-full ${categoryFilter === "OFFICIEL" ? "bg-emerald-700 hover:bg-emerald-800 text-white" : "border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"}`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Actes & Attestations Officiels eGED ({egedDocsCount})
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -737,13 +940,20 @@ export default function WasteDocumentsPage() {
                         return (
                           <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
                             <TableCell className="pl-4">
-                              <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"}`}>
-                                <FileText className="h-4 w-4" />
+                              <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                                {isOfficial ? <ShieldCheck className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
                               </div>
                             </TableCell>
 
                             <TableCell>
-                              <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                                {!isOfficial && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300">
+                                    Apporteur
+                                  </Badge>
+                                )}
+                              </div>
                               {doc.description && (
                                 <p className="text-[11px] text-muted-foreground italic line-clamp-1">{doc.description}</p>
                               )}
@@ -753,12 +963,22 @@ export default function WasteDocumentsPage() {
                             </TableCell>
 
                             <TableCell>
-                              <Badge 
-                                variant={isOfficial ? "default" : "secondary"} 
-                                className={`text-[10px] font-semibold ${isOfficial ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
-                              >
-                                {doc.title || doc.document_type || "Pièce apporteur"}
-                              </Badge>
+                              <div className="flex flex-col gap-1 items-start">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-[10px] font-bold flex items-center gap-1 ${
+                                    isOfficial 
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300" 
+                                      : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {isOfficial ? <ShieldCheck className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+                                  {isOfficial ? "Acte Officiel eGED" : "Pièce / Justif Centre"}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground font-medium">
+                                  {doc.document_type || doc.doc_type || "Pièce apporteur"}
+                                </span>
+                              </div>
                             </TableCell>
 
                             <TableCell className="font-mono text-[11px] font-semibold text-muted-foreground">
@@ -857,13 +1077,20 @@ export default function WasteDocumentsPage() {
                     return (
                       <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
                         <TableCell className="pl-4">
-                          <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"}`}>
-                            <FileText className="h-4 w-4" />
+                          <div className={`p-1.5 rounded ${isOfficial ? "bg-[#1B5C2E]/10 text-[#1B5C2E]" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+                            {isOfficial ? <ShieldCheck className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
                           </div>
                         </TableCell>
 
                         <TableCell>
-                          <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-foreground">{doc.title || doc.file_name}</p>
+                            {!isOfficial && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300">
+                                Apporteur
+                              </Badge>
+                            )}
+                          </div>
                           {doc.description && (
                             <p className="text-[11px] text-muted-foreground italic line-clamp-1">{doc.description}</p>
                           )}
@@ -877,12 +1104,22 @@ export default function WasteDocumentsPage() {
                         </TableCell>
 
                         <TableCell>
-                          <Badge 
-                            variant={isOfficial ? "default" : "secondary"} 
-                            className={`text-[10px] font-semibold ${isOfficial ? "bg-[#1B5C2E] hover:bg-[#144723] text-white" : ""}`}
-                          >
-                            {doc.title || doc.document_type || "Pièce apporteur"}
-                          </Badge>
+                          <div className="flex flex-col gap-1 items-start">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] font-bold flex items-center gap-1 ${
+                                isOfficial 
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300" 
+                                  : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                              }`}
+                            >
+                              {isOfficial ? <ShieldCheck className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+                              {isOfficial ? "Acte Officiel eGED" : "Pièce / Justif Centre"}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-medium">
+                              {doc.document_type || doc.doc_type || "Pièce apporteur"}
+                            </span>
+                          </div>
                         </TableCell>
 
                         <TableCell className="font-mono text-[11px] font-semibold text-muted-foreground">
