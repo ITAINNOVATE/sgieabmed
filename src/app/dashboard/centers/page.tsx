@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, useCallback } from "react"
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { 
   Building2, Plus, Search, Filter, Phone, Mail, MapPin, 
   Trash2, Package, Boxes, Eye, Download, Copy, Check, Calendar,
@@ -37,6 +37,7 @@ export default function CentersPage() {
   const [receptions, setReceptions] = useState<any[]>([])
   const [wasteBatches, setWasteBatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const hasLoadedOnceRef = useRef(false)
 
   // Filtres
   const [searchQuery, setSearchQuery] = useState("")
@@ -55,8 +56,10 @@ export default function CentersPage() {
   const supabase = createClient()
 
   // ─── Chargement des données ────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (isInitial = false) => {
+    if (isInitial || !hasLoadedOnceRef.current) {
+      setLoading(true)
+    }
     try {
       // 1. Charger centres
       const fetchedCenters = await getRegisteredCenters()
@@ -104,16 +107,18 @@ export default function CentersPage() {
       console.warn("Erreur chargement centres & données:", err)
     } finally {
       setLoading(false)
+      hasLoadedOnceRef.current = true
     }
   }, [supabase])
 
   useEffect(() => {
-    loadData()
+    loadData(true)
   }, [loadData])
 
   useRealtimeSync({
     tables: ["centers", "receptions", "waste_batches"],
-    onSync: loadData,
+    onSync: () => loadData(false),
+    pollIntervalMs: 5000,
   })
 
   // ─── Consolidation des statistiques par centre ─────────────────────────────

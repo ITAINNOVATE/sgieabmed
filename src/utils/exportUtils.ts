@@ -142,8 +142,8 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8)
-  doc.setTextColor(15, 23, 42)
-  doc.text(`Demandeur : ${(reception.supplier || "N/A").substring(0, 34)}`, 18, 58)
+  const supplierDisplay = reception.center_code ? `${reception.supplier || "N/A"} [${reception.center_code}]` : (reception.supplier || "N/A")
+  doc.text(`Demandeur : ${supplierDisplay.substring(0, 42)}`, 18, 58)
   doc.text(`Fabricant : ${(reception.manufacturer || "N/A").substring(0, 34)}`, 18, 64)
   doc.text(`Pays / Transport : ${reception.country || "Bénin"} (${reception.transport_mode || "Standard"})`, 18, 70)
   doc.text(`Type demande : ${reception.type_reception || "Enregistrement / Contrôle"}`, 18, 76)
@@ -309,6 +309,7 @@ export function exportWasteReceptionSlipPDF(slipData: {
   delivery_slip_ref?: string
   recipient_agent?: string
   source_structure: string
+  center_code?: string
   source_type?: string
   city?: string
   depositor_name?: string
@@ -375,7 +376,8 @@ export function exportWasteReceptionSlipPDF(slipData: {
 
   doc.setFontSize(7.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Établissement : ${slipData.source_structure || 'Non précisé'}`, 18, 64)
+  const centerDisplay = slipData.center_code ? `${slipData.source_structure} [${slipData.center_code}]` : (slipData.source_structure || 'Non précisé')
+  doc.text(`Établissement : ${centerDisplay}`, 18, 64)
   doc.text(`Type : ${slipData.source_type || 'Officine / Établissement'}`, 18, 70)
   doc.text(`Localité : ${slipData.city || 'Cotonou / Bénin'}`, 18, 76)
   doc.text(`Déposant : ${slipData.depositor_name || 'Non précisé'}`, 18, 82)

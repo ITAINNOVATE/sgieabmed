@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
+import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
 import { 
   Plus, Trash2, Search, Filter, Eye, Printer, 
   AlertTriangle, ArrowLeftRight, 
@@ -41,7 +42,14 @@ export default function WasteClient({
   const [batches, setBatches] = useState<any[]>(() => {
     return initialBatches && initialBatches.length > 0 ? initialBatches : []
   })
+  const [registeredCenters, setRegisteredCenters] = useState<Center[]>(() => getRegisteredCentersSync())
   const hasLoadedOnceRef = useRef(false)
+
+  useEffect(() => {
+    getRegisteredCenters().then(setRegisteredCenters)
+  }, [])
+
+  const centerCodeMap = useMemo(() => buildCenterCodeMap(registeredCenters), [registeredCenters])
 
   const fetchBatches = async () => {
     let localBatches: any[] = []
@@ -152,10 +160,11 @@ export default function WasteClient({
   const [printDialogItems, setPrintDialogItems] = useState<any[]>([])
 
   const filteredBatches = batches.filter(batch => {
+    const resolvedCode = batch.center_code || (batch.source_structure ? centerCodeMap.get(batch.source_structure.trim().toUpperCase()) : null)
     const matchesSearch = 
       batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       batch.waste_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (batch.center_code && batch.center_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (resolvedCode && resolvedCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.source_structure && batch.source_structure.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.depositor_name && batch.depositor_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (batch.current_location && batch.current_location.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -344,23 +353,28 @@ export default function WasteClient({
                       </TableCell>
                       <TableCell className="px-2 py-2 min-w-0">
                         {batch.source_structure ? (
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-semibold text-foreground truncate block" title={batch.source_structure}>
-                                {batch.source_structure}
-                              </span>
-                              {batch.center_code && (
-                                <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 bg-emerald-50 text-emerald-800 border-emerald-300">
-                                  {batch.center_code}
-                                </Badge>
-                              )}
-                            </div>
-                            {batch.depositor_name && (
-                              <span className="block text-[10px] text-muted-foreground truncate" title={`Apporté par : ${batch.depositor_name}`}>
-                                Apporté par : {batch.depositor_name}
-                              </span>
-                            )}
-                          </div>
+                          (() => {
+                            const resolvedCode = batch.center_code || centerCodeMap.get(batch.source_structure.trim().toUpperCase())
+                            return (
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-foreground truncate block" title={batch.source_structure}>
+                                    {batch.source_structure}
+                                  </span>
+                                  {resolvedCode && (
+                                    <Badge variant="secondary" className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border-emerald-300">
+                                      {resolvedCode}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {batch.depositor_name && (
+                                  <span className="block text-[10px] text-muted-foreground truncate" title={`Apporté par : ${batch.depositor_name}`}>
+                                    Apporté par : {batch.depositor_name}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()
                         ) : (
                           <span className="text-muted-foreground italic truncate block">Interne ABMed</span>
                         )}
@@ -406,6 +420,7 @@ export default function WasteClient({
                                 delivery_slip_ref: batch.delivery_slip_ref || "N/A",
                                 recipient_agent: batch.recipient_agent || "Agent ABMed",
                                 source_structure: batch.source_structure || "Interne ABMed",
+                                center_code: batch.center_code || (batch.source_structure ? centerCodeMap.get(batch.source_structure.trim().toUpperCase()) : undefined),
                                 source_type: batch.source_type || "Établissement Pharmaceutique",
                                 city: batch.city || "Cotonou",
                                 depositor_name: batch.depositor_name || "N/A",

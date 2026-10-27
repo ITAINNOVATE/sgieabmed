@@ -40,6 +40,7 @@ import { WastePackageDetailDialog } from "@/components/waste-package-detail-dial
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { syncLocalAndCloudPackages, deleteGroupedPackageFromCloud, getLocalDissolvedPackageNumbers } from "@/utils/waste-packages-sync"
+import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
 
 export type WasteStockItem = {
   id: string
@@ -47,6 +48,7 @@ export type WasteStockItem = {
   reception_number?: string
   reception_date?: string
   source_structure: string
+  center_code?: string
   source_type?: string
   depositor_name?: string
   depositor_phone?: string
@@ -76,7 +78,14 @@ export default function WasteStockPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [data, setData] = useState<WasteStockItem[]>([])
   const [packages, setPackages] = useState<GroupedWastePackage[]>([])
+  const [registeredCenters, setRegisteredCenters] = useState<Center[]>(() => getRegisteredCentersSync())
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    getRegisteredCenters().then(setRegisteredCenters)
+  }, [])
+
+  const centerCodeMap = useMemo(() => buildCenterCodeMap(registeredCenters), [registeredCenters])
 
   // Filtres
   const [globalSearch, setGlobalSearch] = useState("")
@@ -258,19 +267,23 @@ export default function WasteStockPage() {
     // Recherche globale
     if (globalSearch.trim() !== "") {
       const q = globalSearch.toUpperCase()
-      list = list.filter((item) =>
-        (item.batch_number || "").toUpperCase().includes(q) ||
-        (item.waste_type || "").toUpperCase().includes(q) ||
-        (item.commercial_name || "").toUpperCase().includes(q) ||
-        (item.source_structure || "").toUpperCase().includes(q) ||
-        (item.depositor_name || "").toUpperCase().includes(q) ||
-        (item.current_location || "").toUpperCase().includes(q) ||
-        (item.package_number || "").toUpperCase().includes(q)
-      )
+      list = list.filter((item) => {
+        const resolvedCode = item.center_code || (item.source_structure ? centerCodeMap.get(item.source_structure.trim().toUpperCase()) : null)
+        return (
+          (item.batch_number || "").toUpperCase().includes(q) ||
+          (item.waste_type || "").toUpperCase().includes(q) ||
+          (resolvedCode && resolvedCode.toUpperCase().includes(q)) ||
+          (item.commercial_name || "").toUpperCase().includes(q) ||
+          (item.source_structure || "").toUpperCase().includes(q) ||
+          (item.depositor_name || "").toUpperCase().includes(q) ||
+          (item.current_location || "").toUpperCase().includes(q) ||
+          (item.package_number || "").toUpperCase().includes(q)
+        )
+      })
     }
 
     return list
-  }, [data, globalSearch, statusFilter, typeFilter, groupingFilter])
+  }, [data, globalSearch, statusFilter, typeFilter, groupingFilter, centerCodeMap])
 
   // 3. Filtrage pour Stocks Groupés
   const filteredPackages = useMemo(() => {
@@ -582,15 +595,30 @@ export default function WasteStockPage() {
     },
     {
       accessorKey: "source_structure",
-      header: "Provenance",
-      cell: ({ row }) => (
-        <div className="flex flex-col min-w-[120px]">
-          <span className="font-medium text-xs text-foreground truncate max-w-[160px]">{row.original.source_structure || "Interne ABMed"}</span>
-          {row.original.depositor_name && (
-            <span className="text-[10px] text-muted-foreground truncate max-w-[160px]">{row.original.depositor_name}</span>
-          )}
-        </div>
-      ),
+      header: "Provenance / Centre",
+      cell: ({ row }) => {
+        const name = row.original.source_structure || "Interne ABMed"
+        const resolvedCode = row.original.center_code || (name ? centerCodeMap.get(name.trim().toUpperCase()) : null)
+        return (
+          <div className="flex flex-col min-w-[130px]">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-xs text-foreground truncate max-w-[170px]" title={name}>
+                {name}
+              </span>
+              {resolvedCode && (
+                <Badge variant="secondary" className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border-emerald-300">
+                  {resolvedCode}
+                </Badge>
+              )}
+            </div>
+            {row.original.depositor_name && (
+              <span className="text-[10px] text-muted-foreground truncate max-w-[170px]" title={`Apporté par : ${row.original.depositor_name}`}>
+                Apporteur : {row.original.depositor_name}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       accessorKey: "quantity",
@@ -757,7 +785,7 @@ export default function WasteStockPage() {
         )
       },
     },
-  ], [packages])
+  ], [packages, centerCodeMap])
 
   // TABLE REACT POUR STOCKS EN DÉTAIL
   const table = useReactTable({

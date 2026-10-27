@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
 import { Sample } from "../page"
+import { resolveCenterCode } from "@/utils/centers-storage"
 
 export type DetailedSample = Sample & {
   form?: string
@@ -281,6 +282,46 @@ export default function SampleDetailPage({ params }: { params: Promise<{ id: str
                         <p className="text-xs text-muted-foreground font-medium mb-1 flex items-center"><Calendar className="h-3 w-3 mr-1"/> Date de Péremption</p>
                         <p className="text-sm font-semibold text-destructive">{new Date(sample.expiry_date).toLocaleDateString("fr-FR")}</p>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border-border/50 md:col-span-2">
+                  <CardHeader className="bg-[#1B5C2E]/5 pb-3 border-b border-border/50">
+                    <CardTitle className="text-base flex items-center text-[#1B5C2E]">
+                      <Building2 className="mr-2 h-5 w-5" /> Centre Apporteur & Provenance
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Structure ayant déposé l&apos;échantillon auprès de l&apos;ABMed.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-1">Structure / Centre</p>
+                      {(() => {
+                        const supplierName = sample.supplier_name || (sample as any).manufacturer || "ABMed"
+                        const resolvedCode = sample.center_code || resolveCenterCode(supplierName)
+                        return (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-bold text-foreground">{supplierName}</p>
+                            {resolvedCode && (
+                              <Badge variant="secondary" className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 border-emerald-300">
+                                {resolvedCode}
+                              </Badge>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-1">Bordereau Réception Source</p>
+                      <p className="text-sm font-semibold font-mono text-foreground">{sample.reception_ref || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-1">Statut en Stock</p>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 text-xs font-bold">
+                        {sample.status || "Disponible"}
+                      </Badge>
                     </div>
                   </CardContent>
                 </Card>

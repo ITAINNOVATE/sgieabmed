@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
 
 export type Sample = {
   id: string
@@ -43,6 +44,8 @@ export type Sample = {
   expiry_date: string
   current_location: string
   shelf_id?: string | null
+  supplier_name?: string
+  center_code?: string
 }
 
 export const columns: ColumnDef<Sample>[] = [
@@ -85,6 +88,33 @@ export const columns: ColumnDef<Sample>[] = [
         <span className="text-[11px] text-muted-foreground leading-tight">{row.original.dci || "—"}</span>
       </div>
     )
+  },
+  {
+    accessorKey: "supplier_name",
+    header: "Centre Apporteur",
+    cell: ({ row }) => {
+      const name = row.original.supplier_name || "ABMed"
+      const code = row.original.center_code
+      return (
+        <div className="flex flex-col min-w-[130px]">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-xs text-foreground truncate max-w-[170px]" title={name}>
+              {name}
+            </span>
+            {code && (
+              <Badge variant="secondary" className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border-emerald-300">
+                {code}
+              </Badge>
+            )}
+          </div>
+          {row.original.reception_ref && (
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {row.original.reception_ref}
+            </span>
+          )}
+        </div>
+      )
+    }
   },
   {
     accessorKey: "batch_number",
@@ -180,12 +210,19 @@ export default function SamplesDataTable() {
     setPagination(prev => ({ ...prev, pageIndex: 0 }))
   }, [globalSearch])
 
+  const [registeredCenters, setRegisteredCenters] = useState<Center[]>(() => getRegisteredCentersSync())
   const [rowSelection, setRowSelection] = useState({})
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
   const [printDialogItems, setPrintDialogItems] = useState<Sample[]>([])
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
   const [locationSample, setLocationSample] = useState<Sample | null>(null)
   const hasLoadedOnceRef = useRef(false)
+
+  useEffect(() => {
+    getRegisteredCenters().then(setRegisteredCenters)
+  }, [])
+
+  const centerCodeMap = useMemo(() => buildCenterCodeMap(registeredCenters), [registeredCenters])
 
   const fetchData = useCallback(async () => {
     const isWiped = typeof window !== 'undefined' && localStorage.getItem('all_data_wiped') === 'true'
@@ -203,6 +240,9 @@ export default function SamplesDataTable() {
         if (rawDetails) {
           const parsed = JSON.parse(rawDetails)
           if (parsed.formData && parsed.formData.samples) {
+            const supplierName = parsed.formData.supplier || rec.supplier || 'ABMed'
+            const centerCode = parsed.formData.center_code || rec.center_code || (supplierName ? centerCodeMap.get(supplierName.trim().toUpperCase()) : undefined)
+
             parsed.formData.samples.forEach((s: any, idx: number) => {
               if (s.commercial_name && s.commercial_name.trim() !== '') {
                 const dciStr = Array.isArray(s.dci_list)
@@ -220,6 +260,8 @@ export default function SamplesDataTable() {
                   status: rec.status === 'Finalisé' || rec.status === 'Validée' ? 'Disponible' : (rec.status || 'Disponible'),
                   expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
                   current_location: s.location || 'Magasin Central (Zone A)',
+                  supplier_name: supplierName,
+                  center_code: centerCode,
                 })
               }
             })
@@ -330,11 +372,26 @@ export default function SamplesDataTable() {
       ])
 
       const sMap = new Map<string, Sample>()
+      const rMap = new Map<string, any>()
+      if (rRes.data && rRes.data.length > 0) {
+        rRes.data.forEach((r: any) => {
+          rMap.set(r.rec_number || r.id, r)
+        })
+      }
 
       if (sRes.data && sRes.data.length > 0) {
         sRes.data.forEach((s: any) => {
           const key = s.sample_number || s.id
-          if (key) sMap.set(key, s)
+          if (key) {
+            const linkedRec = s.reception_ref ? rMap.get(s.reception_ref) : null
+            const supplierName = s.supplier_name || linkedRec?.supplier || 'ABMed'
+            const centerCode = s.center_code || linkedRec?.center_code || (supplierName ? centerCodeMap.get(supplierName.trim().toUpperCase()) : undefined)
+            sMap.set(key, {
+              ...s,
+              supplier_name: supplierName,
+              center_code: centerCode,
+            })
+          }
         })
       }
 
@@ -342,6 +399,9 @@ export default function SamplesDataTable() {
       if (rRes.data && rRes.data.length > 0) {
         rRes.data.forEach((r: any) => {
           const rKey = r.rec_number || r.id
+          const supplierName = r.supplier || 'ABMed'
+          const centerCode = r.center_code || (supplierName ? centerCodeMap.get(supplierName.trim().toUpperCase()) : undefined)
+
           if (Array.isArray(r.samples_data)) {
             r.samples_data.forEach((s: any, idx: number) => {
               if (!s.commercial_name) return
@@ -362,6 +422,8 @@ export default function SamplesDataTable() {
                   status: r.status === 'Finalisé' || r.status === 'Validée' ? 'Disponible' : (r.status || 'Disponible'),
                   expiry_date: s.expiry_date || s.expiryDate || s.exp_date || '2028-12-31',
                   current_location: s.location || 'Magasin Central (Zone A)',
+                  supplier_name: supplierName,
+                  center_code: centerCode,
                 })
               }
             })
@@ -376,7 +438,7 @@ export default function SamplesDataTable() {
 
     hasLoadedOnceRef.current = true
     applyOverridesAndSet(remoteSamples)
-  }, [])
+  }, [centerCodeMap])
 
   useEffect(() => {
     fetchData()
@@ -397,6 +459,8 @@ export default function SamplesDataTable() {
       (item.dci || "").toUpperCase().includes(q) ||
       (item.sample_number || "").toUpperCase().includes(q) ||
       (item.batch_number || "").toUpperCase().includes(q) ||
+      (item.supplier_name || "").toUpperCase().includes(q) ||
+      (item.center_code || "").toUpperCase().includes(q) ||
       (item.current_location || "").toUpperCase().includes(q)
     )
   }, [data, globalSearch])
@@ -456,13 +520,14 @@ export default function SamplesDataTable() {
       "Nom Commercial": item.commercial_name,
       "DCI": item.dci,
       "Lot": item.batch_number,
+      "Centre Apporteur": item.supplier_name ? `${item.supplier_name}${item.center_code ? ` [${item.center_code}]` : ''}` : "ABMed",
       "Quantité": item.quantity,
       "Péremption": new Date(item.expiry_date).toLocaleDateString("fr-FR"),
       "Emplacement": item.current_location || "Non défini",
       "Statut": item.status
     }))
     
-    exportToExcel(excelData, ["N° Échantillon", "Réf Réception", "Nom Commercial", "DCI", "Lot", "Quantité", "Péremption", "Emplacement", "Statut"], "liste_echantillons")
+    exportToExcel(excelData, ["N° Échantillon", "Réf Réception", "Nom Commercial", "DCI", "Lot", "Centre Apporteur", "Quantité", "Péremption", "Emplacement", "Statut"], "liste_echantillons")
     toast.success("Fichier Excel exporté avec succès !")
   }
 
@@ -471,13 +536,13 @@ export default function SamplesDataTable() {
       toast.warning("Aucun échantillon à exporter.")
       return
     }
-    const headers = ["N° Échantillon", "Réf Réception", "Nom Commercial", "DCI", "Lot", "Qté", "Péremption", "Statut"]
+    const headers = ["N° Échantillon", "Réf Réception", "Nom Commercial", "Lot", "Centre Apporteur", "Qté", "Péremption", "Statut"]
     const rows = data.map(item => [
       item.sample_number,
       item.reception_ref || "N/A",
       item.commercial_name,
-      item.dci,
       item.batch_number,
+      item.supplier_name ? `${item.supplier_name}${item.center_code ? ` [${item.center_code}]` : ''}` : "ABMed",
       String(item.quantity),
       new Date(item.expiry_date).toLocaleDateString("fr-FR"),
       item.status

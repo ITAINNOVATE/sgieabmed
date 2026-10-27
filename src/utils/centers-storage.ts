@@ -57,13 +57,75 @@ export function generateNextCenterCode(existingCenters: Center[], customYear?: n
   return `${prefix}${nextSeq.toString().padStart(4, "0")}`
 }
 
+// Cache en mémoire pour éliminer les latences et les sauts d'affichage
+let memoryCentersCache: Center[] | null = null
+
+/**
+ * Récupère instantanément les centres depuis la mémoire ou le localStorage (synchrone)
+ */
+export function getRegisteredCentersSync(): Center[] {
+  if (memoryCentersCache && memoryCentersCache.length > 0) {
+    return memoryCentersCache
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_CENTERS_KEY)
+      if (stored) {
+        const parsed: Center[] = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          memoryCentersCache = parsed
+          return parsed
+        }
+      }
+    } catch (e) {}
+  }
+  return []
+}
+
+/**
+ * Construit une table de correspondance Nom normalisé -> Code CTR
+ */
+export function buildCenterCodeMap(centers: Center[]): Map<string, string> {
+  const map = new Map<string, string>()
+  centers.forEach((c) => {
+    if (c.center_code && c.name) {
+      map.set(c.name.trim().toUpperCase(), c.center_code)
+      if (c.id) map.set(c.id, c.center_code)
+    }
+  })
+  return map
+}
+
+/**
+ * Résout le code CTR d'un centre à partir de son nom ou de son code
+ */
+export function resolveCenterCode(nameOrCode?: string | null, centers?: Center[]): string | null {
+  if (!nameOrCode) return null
+  const clean = nameOrCode.trim()
+  if (clean.startsWith("CTR-")) return clean
+  const list = centers || getRegisteredCentersSync()
+  const found = list.find(
+    (c) => c.center_code === clean || c.name.trim().toUpperCase() === clean.toUpperCase() || c.id === clean
+  )
+  return found?.center_code || null
+}
+
 /**
  * Récupère tous les centres répertoriés (Supabase + localStorage avec synchronisation transparente)
  */
 export async function getRegisteredCenters(): Promise<Center[]> {
   const centerMap = new Map<string, Center>()
 
-  // 1. Lire depuis le stockage local (immédiat)
+  // 1. Lire depuis le cache mémoire (immédiat 0ms)
+  if (memoryCentersCache && memoryCentersCache.length > 0) {
+    memoryCentersCache.forEach((c) => {
+      if (c.center_code || c.id) {
+        centerMap.set(c.center_code || c.id, c)
+      }
+    })
+  }
+
+  // 2. Compléter depuis le stockage local (immédiat)
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_CENTERS_KEY)
@@ -82,7 +144,7 @@ export async function getRegisteredCenters(): Promise<Center[]> {
     }
   }
 
-  // 2. Synchroniser avec Supabase Cloud si disponible
+  // 3. Synchroniser avec Supabase Cloud si disponible
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -114,17 +176,23 @@ export async function getRegisteredCenters(): Promise<Center[]> {
     console.warn("Notice fetch centers Supabase:", err)
   }
 
-  // 3. Découverte automatique à partir des enregistrements existants si la base de centres est encore vide
-  if (centerMap.size === 0 && typeof window !== "undefined") {
-    const autoDiscovered = autoDiscoverCentersFromExistingData()
-    autoDiscovered.forEach((c) => centerMap.set(c.center_code, c))
+  // 4. Découverte automatique additive à partir des réceptions et lots existants
+  if (typeof window !== "undefined") {
+    const existingList = Array.from(centerMap.values())
+    const autoDiscovered = autoDiscoverCentersFromExistingData(existingList)
+    autoDiscovered.forEach((c) => {
+      if (!centerMap.has(c.center_code)) {
+        centerMap.set(c.center_code, c)
+      }
+    })
   }
 
   const list = Array.from(centerMap.values()).sort((a, b) => {
     return (b.center_code || "").localeCompare(a.center_code || "")
   })
 
-  // Mettre en cache local
+  // Mettre à jour les caches
+  memoryCentersCache = list
   if (typeof window !== "undefined" && list.length > 0) {
     try {
       localStorage.setItem(LOCAL_STORAGE_CENTERS_KEY, JSON.stringify(list))
@@ -137,10 +205,15 @@ export async function getRegisteredCenters(): Promise<Center[]> {
 /**
  * Découvre automatiquement les centres déjà saisis dans les réceptions ou lots de déchets passés
  */
-export function autoDiscoverCentersFromExistingData(): Center[] {
+export function autoDiscoverCentersFromExistingData(existingList: Center[] = []): Center[] {
   if (typeof window === "undefined") return []
   const discovered: Center[] = []
   const seenNames = new Set<string>()
+
+  // Ignorer les centres déjà connus
+  existingList.forEach((e) => {
+    if (e.name) seenNames.add(e.name.trim().toUpperCase())
+  })
 
   try {
     // A. Depuis les réceptions d'échantillons
@@ -152,7 +225,7 @@ export function autoDiscoverCentersFromExistingData(): Center[] {
           const name = (r.supplier || "").trim()
           if (name && name !== "DEMANDEUR NON PRÉCISÉ" && !seenNames.has(name.toUpperCase())) {
             seenNames.add(name.toUpperCase())
-            const code = generateNextCenterCode(discovered)
+            const code = generateNextCenterCode([...existingList, ...discovered])
             discovered.push({
               id: `ctr-auto-${Date.now()}-${discovered.length}`,
               center_code: r.center_code || code,
@@ -179,7 +252,7 @@ export function autoDiscoverCentersFromExistingData(): Center[] {
           const name = (b.source_structure || "").trim()
           if (name && name !== "Interne ABMed" && !seenNames.has(name.toUpperCase())) {
             seenNames.add(name.toUpperCase())
-            const code = generateNextCenterCode(discovered)
+            const code = generateNextCenterCode([...existingList, ...discovered])
             discovered.push({
               id: `ctr-auto-${Date.now()}-${discovered.length}`,
               center_code: b.center_code || code,
@@ -237,6 +310,7 @@ export async function saveCenter(centerData: Partial<Center>): Promise<Center> {
   // 1. Sauvegarde locale
   const filtered = existingList.filter((c) => c.center_code !== centerCode && c.id !== id)
   const newList = [updatedCenter, ...filtered]
+  memoryCentersCache = newList
 
   if (typeof window !== "undefined") {
     try {
@@ -283,6 +357,7 @@ export async function deleteCenter(centerIdOrCode: string): Promise<boolean> {
       if (stored) {
         const list: Center[] = JSON.parse(stored)
         const updated = list.filter((c) => c.id !== centerIdOrCode && c.center_code !== centerIdOrCode)
+        memoryCentersCache = updated
         localStorage.setItem(LOCAL_STORAGE_CENTERS_KEY, JSON.stringify(updated))
       }
     } catch (e) {}

@@ -15,6 +15,7 @@ import { createClient } from "@/utils/supabase/client"
 import { generateQRCodeDataUrl, formatWasteQRText } from "@/utils/qrCode"
 import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
+import { resolveCenterCode } from "@/utils/centers-storage"
 
 const MOCK_WASTE_BATCHES_DETAILS: Record<string, any> = {}
 
@@ -266,9 +267,21 @@ export default function WasteDetailPage({ params }: { params: Promise<{ id: stri
               <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-[11px] font-bold text-muted-foreground uppercase">Structure / Établissement</p>
-                  <p className="text-sm font-bold text-foreground">
-                    {wasteBatch.source_structure || "Dépôt direct sur site (Non spécifié)"}
-                  </p>
+                  {(() => {
+                    const resolvedCode = wasteBatch.center_code || resolveCenterCode(wasteBatch.source_structure)
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-foreground">
+                          {wasteBatch.source_structure || "Dépôt direct sur site (Non spécifié)"}
+                        </p>
+                        {resolvedCode && (
+                          <Badge variant="secondary" className="text-xs font-mono font-bold bg-emerald-50 text-emerald-800 border-emerald-300">
+                            {resolvedCode}
+                          </Badge>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {wasteBatch.source_type && (
                     <Badge variant="outline" className="text-[10px] bg-background">
                       {wasteBatch.source_type}

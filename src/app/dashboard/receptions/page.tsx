@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PackageCheck, Plus, Clock, CheckCircle2, ArrowRight, Search, Filter, Trash2, ShieldCheck, Download } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { useEffect, useState, Suspense, useCallback, useRef } from "react"
+import { useEffect, useState, Suspense, useCallback, useRef, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
 
 function ReceptionsContent() {
   const router = useRouter()
@@ -25,8 +26,15 @@ function ReceptionsContent() {
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [registeredCenters, setRegisteredCenters] = useState<Center[]>(() => getRegisteredCentersSync())
   const hasLoadedOnceRef = useRef(false)
   const supabase = createClient()
+
+  useEffect(() => {
+    getRegisteredCenters().then(setRegisteredCenters)
+  }, [])
+
+  const centerCodeMap = useMemo(() => buildCenterCodeMap(registeredCenters), [registeredCenters])
 
   const handleDownloadAttestation = (rec: any) => {
     try {
@@ -445,9 +453,10 @@ function ReceptionsContent() {
   })
 
   const filteredReceptions = receptions.filter(rec => {
+    const resolvedCode = rec.center_code || (rec.supplier ? centerCodeMap.get(rec.supplier.trim().toUpperCase()) : null)
     const matchesSearch = 
       rec.rec_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (rec.center_code && rec.center_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (resolvedCode && resolvedCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (rec.supplier && rec.supplier.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (rec.inspector && rec.inspector.toLowerCase().includes(searchTerm.toLowerCase()))
     
@@ -617,19 +626,24 @@ function ReceptionsContent() {
                           {rec.date_reception ? new Date(rec.date_reception).toLocaleDateString("fr-FR") : '-'}
                         </TableCell>
                         <TableCell className="py-2">
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-semibold text-foreground">{rec.supplier || 'N/A'}</span>
-                              {rec.center_code && (
-                                <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 bg-emerald-50 text-emerald-800 border-emerald-300">
-                                  {rec.center_code}
-                                </Badge>
-                              )}
-                            </div>
-                            {rec.inspector && (
-                              <span className="text-[10px] text-muted-foreground font-medium">Soumis par : {rec.inspector}</span>
-                            )}
-                          </div>
+                          {(() => {
+                            const resolvedCode = rec.center_code || (rec.supplier ? centerCodeMap.get(rec.supplier.trim().toUpperCase()) : null)
+                            return (
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-foreground">{rec.supplier || 'N/A'}</span>
+                                  {resolvedCode && (
+                                    <Badge variant="secondary" className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border-emerald-300">
+                                      {resolvedCode}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {rec.inspector && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">Soumis par : {rec.inspector}</span>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="py-2 text-center font-bold">
                           {Array.isArray(rec.samples) ? (rec.samples[0]?.count ?? rec.samples.length) : (rec.samples?.count ?? (typeof rec.samples === 'number' ? rec.samples : 1))}
