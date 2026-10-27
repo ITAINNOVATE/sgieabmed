@@ -43,7 +43,7 @@ export interface WasteGroupingDialogProps {
   onSuccess: (pkg: GroupedWastePackage, isUpdate?: boolean) => void
 }
 
-const PACKAGE_CONTAINERS = [
+export const PACKAGE_CONTAINERS = [
   { id: "sac", label: "Grand sac hermétique étanche (DASRI / Solides)" },
   { id: "fut_200", label: "Fût plastique étanche PEHD (200 Litres)" },
   { id: "fut_60", label: "Fût plastique étanche (60 Litres)" },

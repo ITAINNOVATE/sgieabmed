@@ -173,6 +173,7 @@ export async function fetchCloudGroupedPackages(): Promise<GroupedWastePackage[]
  */
 export async function saveGroupedPackageToCloud(
   pkg: GroupedWastePackage,
+  removedItemIds?: string[],
   updatedBatchesList?: WasteStockItem[]
 ): Promise<boolean> {
   const supabase = createClient()
@@ -228,17 +229,30 @@ export async function saveGroupedPackageToCloud(
       }
       localStorage.setItem("waste_grouped_packages_v1", JSON.stringify(storedPkgs))
 
-      // Mettre à jour les lots locaux
+      // Mettre à jour les lots locaux (lient les lots conservés et libèrent les lots retirés)
       const storedBatchesStr = localStorage.getItem("waste_batches_custom_v1")
       if (storedBatchesStr) {
         const storedBatches: WasteStockItem[] = JSON.parse(storedBatchesStr)
         const updatedBatches = storedBatches.map(b => {
-          if (pkg.item_ids.includes(b.id) || (pkg.items && pkg.items.some(it => it.batch_number === b.batch_number))) {
+          const isNowInPkg = pkg.item_ids.includes(b.id) || (pkg.items && pkg.items.some(it => it.batch_number === b.batch_number))
+          if (isNowInPkg) {
             return {
               ...b,
               grouped_package_id: pkg.id,
               package_number: pkg.package_number,
               current_location: pkg.current_location,
+            }
+          } else if (
+            (removedItemIds && (removedItemIds.includes(b.id) || (b.batch_number && removedItemIds.includes(b.batch_number)))) ||
+            b.grouped_package_id === pkg.id ||
+            b.package_number === pkg.package_number
+          ) {
+            // Ce lot a été retiré de ce colis : il redevient immédiatement un stock de détail autonome
+            return {
+              ...b,
+              grouped_package_id: undefined,
+              package_number: undefined,
+              observations: (b.observations || "").replace(new RegExp(`\\[COLIS:\\s*${pkg.package_number}\\]`, "g"), "").trim(),
             }
           }
           return b
@@ -284,6 +298,17 @@ export async function saveGroupedPackageToCloud(
           observations: `[COLIS: ${pkg.package_number}]`,
         })
         .in("batch_number", batchNumbers)
+    }
+
+    if (removedItemIds && removedItemIds.length > 0) {
+      try {
+        await supabase
+          .from("waste_batches")
+          .update({
+            observations: "",
+          })
+          .in("id", removedItemIds)
+      } catch {}
     }
 
     // 6. Diffusion temps réel instantanée multi-postes

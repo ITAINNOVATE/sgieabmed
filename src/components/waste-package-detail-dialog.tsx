@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Package, Boxes, Scale, MapPin, Printer, Download, 
-  Trash2, Layers, CheckCircle2, Calendar, FileText, ArrowLeftRight 
+  Trash2, Layers, CheckCircle2, Calendar, FileText, ArrowLeftRight, Pencil
 } from "lucide-react"
 import { GroupedWastePackage } from "./waste-grouping-dialog"
 
@@ -18,6 +18,7 @@ export interface WastePackageDetailDialogProps {
   onPrintLabel: (pkg: GroupedWastePackage) => void
   onUngroup: (pkg: GroupedWastePackage) => void
   onAssignLocation: (pkg: GroupedWastePackage) => void
+  onEdit?: (pkg: GroupedWastePackage) => void
 }
 
 export function WastePackageDetailDialog({
@@ -26,7 +27,8 @@ export function WastePackageDetailDialog({
   pkg,
   onPrintLabel,
   onUngroup,
-  onAssignLocation
+  onAssignLocation,
+  onEdit
 }: WastePackageDetailDialogProps) {
   if (!pkg) return null
 
@@ -154,7 +156,23 @@ export function WastePackageDetailDialog({
             Dégrouper le colis (Dissocier les lots)
           </Button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            {onEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false)
+                  onEdit(pkg)
+                }}
+                className="text-xs font-semibold gap-1.5 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/30 cursor-pointer"
+                title="Modifier le conditionnement, le commentaire ou retirer des lots"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Modifier le Colis
+              </Button>
+            )}
+
             <Button
               variant="outline"
               size="sm"

@@ -37,6 +37,7 @@ import { LabelPrintDialog } from "@/components/label-print-dialog"
 import { WasteLocationDialog } from "@/components/waste-location-dialog"
 import { WasteGroupingDialog, GroupedWastePackage } from "@/components/waste-grouping-dialog"
 import { WastePackageDetailDialog } from "@/components/waste-package-detail-dialog"
+import { WastePackageEditDialog } from "@/components/waste-package-edit-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { syncLocalAndCloudPackages, deleteGroupedPackageFromCloud, getLocalDissolvedPackageNumbers } from "@/utils/waste-packages-sync"
@@ -120,6 +121,8 @@ export default function WasteStockPage() {
   const [isGroupingDialogOpen, setIsGroupingDialogOpen] = useState(false)
   const [selectedPackage, setSelectedPackage] = useState<GroupedWastePackage | null>(null)
   const [isPackageDetailOpen, setIsPackageDetailOpen] = useState(false)
+  const [isPackageEditDialogOpen, setIsPackageEditDialogOpen] = useState(false)
+  const [packageToEdit, setPackageToEdit] = useState<GroupedWastePackage | null>(null)
 
   // État de pagination contrôlé pour garantir la stabilité de la navigation
   const [pagination, setPagination] = useState<PaginationState>({
@@ -396,6 +399,51 @@ export default function WasteStockPage() {
 
     setRowSelection({})
     setActiveTab("grouped")
+  }
+
+  // MODIFIER UN COLIS GROUPÉ (CONDITIONNEMENT, COMMENTAIRE, RETRAIT DE LOTS)
+  const handleOpenEditPackage = (pkg: GroupedWastePackage) => {
+    setPackageToEdit(pkg)
+    setIsPackageEditDialogOpen(true)
+  }
+
+  const handlePackageEditSuccess = (updatedPkg: GroupedWastePackage, removedItems: WasteStockItem[]) => {
+    // 1. Mettre à jour la liste des colis groupés
+    setPackages(prev => prev.map(p => (p.id === updatedPkg.id || p.package_number === updatedPkg.package_number) ? updatedPkg : p))
+
+    // 2. Mettre à jour les lots individuels dans data
+    const removedIds = new Set(removedItems.map(i => i.id))
+    const removedBatchNumbers = new Set(removedItems.map(i => i.batch_number))
+
+    setData(prev => prev.map(item => {
+      // Si cet article a été retiré du colis : libération en stock détail autonome
+      if (removedIds.has(item.id) || (item.batch_number && removedBatchNumbers.has(item.batch_number))) {
+        return {
+          ...item,
+          grouped_package_id: undefined,
+          package_number: undefined,
+          observations: (item.observations || "").replace(new RegExp(`\\[COLIS:\\s*${updatedPkg.package_number}\\]`, "g"), "").trim(),
+        }
+      }
+      // S'il est dans le colis mis à jour
+      if (updatedPkg.item_ids.includes(item.id) || (item.batch_number && updatedPkg.items.some(it => it.batch_number === item.batch_number))) {
+        return {
+          ...item,
+          grouped_package_id: updatedPkg.id,
+          package_number: updatedPkg.package_number,
+          current_location: updatedPkg.current_location,
+        }
+      }
+      return item
+    }))
+
+    // Mettre à jour le colis sélectionné si le dialogue de détail est actuellement ouvert
+    if (selectedPackage && (selectedPackage.id === updatedPkg.id || selectedPackage.package_number === updatedPkg.package_number)) {
+      setSelectedPackage(updatedPkg)
+    }
+
+    setIsPackageEditDialogOpen(false)
+    setPackageToEdit(null)
   }
 
   // DISSOUDRE / DÉGROUPER UN COLIS
@@ -1329,6 +1377,17 @@ export default function WasteStockPage() {
                               </Button>
 
                               <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditPackage(pkg)}
+                                className="h-7 text-xs px-2.5 font-semibold gap-1 text-amber-700 border-amber-300 bg-amber-50/60 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/30 cursor-pointer"
+                                title="Modifier le conditionnement, le commentaire ou retirer des lots associés"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                                Modifier
+                              </Button>
+
+                              <Button
                                 size="sm"
                                 onClick={() => handlePrintPackageLabel(pkg)}
                                 className="h-7 text-xs px-2.5 font-bold bg-red-600 hover:bg-red-700 text-white gap-1 cursor-pointer shadow-2xs"
@@ -1344,7 +1403,7 @@ export default function WasteStockPage() {
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuContent align="end" className="w-52">
                                   <DropdownMenuItem 
                                     className="cursor-pointer text-xs"
                                     onClick={() => {
@@ -1353,6 +1412,12 @@ export default function WasteStockPage() {
                                     }}
                                   >
                                     <Eye className="mr-2 h-3.5 w-3.5 text-blue-600" /> Voir composition
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    className="cursor-pointer text-xs text-amber-700 dark:text-amber-400 font-semibold"
+                                    onClick={() => handleOpenEditPackage(pkg)}
+                                  >
+                                    <Edit className="mr-2 h-3.5 w-3.5" /> Modifier le colis (lots, conditionnement...)
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     className="cursor-pointer text-xs"
@@ -1408,6 +1473,7 @@ export default function WasteStockPage() {
         pkg={selectedPackage}
         onPrintLabel={handlePrintPackageLabel}
         onUngroup={handleUngroupPackage}
+        onEdit={handleOpenEditPackage}
         onAssignLocation={(pkg) => {
           const pseudoItem: WasteStockItem = {
             id: pkg.id,
@@ -1423,6 +1489,14 @@ export default function WasteStockPage() {
           setLocationBatch(pseudoItem)
           setIsLocationDialogOpen(true)
         }}
+      />
+
+      {/* DIALOGUE DE MODIFICATION D'UN COLIS GROUPÉ */}
+      <WastePackageEditDialog
+        open={isPackageEditDialogOpen}
+        onOpenChange={setIsPackageEditDialogOpen}
+        pkg={packageToEdit}
+        onSuccess={handlePackageEditSuccess}
       />
 
       {/* DIALOGUE D'IMPRESSION RÉGLEMENTAIRE (A4 DÉCHETS) */}
