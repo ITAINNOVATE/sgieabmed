@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/client"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { DEFAULT_OFFICIAL_CENTERS } from "./centers-seed"
 
 export interface Center {
   id: string
@@ -79,24 +80,43 @@ export function getRegisteredCentersSync(): Center[] {
   if (memoryCentersCache && memoryCentersCache.length > 0) {
     return memoryCentersCache
   }
+
+  // Base officielle garantie (46 structures répertoriées avec mots de passe par défaut)
+  const defaultList: Center[] = DEFAULT_OFFICIAL_CENTERS.map(c => ({
+    ...c,
+    password: c.password || getCenterDefaultPassword(c.center_code),
+    account_status: c.account_status || "Actif"
+  }))
+
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_CENTERS_KEY)
       if (stored) {
         const parsed: Center[] = JSON.parse(stored)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const withAuth = parsed.map(c => ({
-            ...c,
-            password: c.password || getCenterDefaultPassword(c.center_code),
-            account_status: c.account_status || "Actif"
-          }))
-          memoryCentersCache = withAuth
-          return withAuth
+          const centerMap = new Map<string, Center>()
+          defaultList.forEach(c => centerMap.set(c.center_code, c))
+          parsed.forEach(c => {
+            if (c.center_code) {
+              const base = centerMap.get(c.center_code)
+              centerMap.set(c.center_code, {
+                ...(base || c),
+                ...c,
+                password: c.password || base?.password || getCenterDefaultPassword(c.center_code),
+                account_status: c.account_status || base?.account_status || "Actif"
+              })
+            }
+          })
+          const merged = Array.from(centerMap.values())
+          memoryCentersCache = merged
+          return merged
         }
       }
+      localStorage.setItem(LOCAL_STORAGE_CENTERS_KEY, JSON.stringify(defaultList))
     } catch (e) {}
   }
-  return []
+  memoryCentersCache = defaultList
+  return defaultList
 }
 
 /**
@@ -131,37 +151,11 @@ export function resolveCenterCode(nameOrCode?: string | null, centers?: Center[]
  * Récupère tous les centres répertoriés (Supabase + localStorage avec synchronisation transparente)
  */
 export async function getRegisteredCenters(): Promise<Center[]> {
+  const baseList = getRegisteredCentersSync()
   const centerMap = new Map<string, Center>()
+  baseList.forEach(c => centerMap.set(c.center_code, c))
 
-  // 1. Lire depuis le cache mémoire (immédiat 0ms)
-  if (memoryCentersCache && memoryCentersCache.length > 0) {
-    memoryCentersCache.forEach((c) => {
-      if (c.center_code || c.id) {
-        centerMap.set(c.center_code || c.id, c)
-      }
-    })
-  }
-
-  // 2. Compléter depuis le stockage local (immédiat)
-  if (typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_CENTERS_KEY)
-      if (stored) {
-        const parsed: Center[] = JSON.parse(stored)
-        if (Array.isArray(parsed)) {
-          parsed.forEach((c) => {
-            if (c.center_code || c.id) {
-              centerMap.set(c.center_code || c.id, c)
-            }
-          })
-        }
-      }
-    } catch (e) {
-      console.warn("Erreur lecture localStorage registered_centers_v1:", e)
-    }
-  }
-
-  // 3. Synchroniser avec Supabase Cloud si disponible
+  // 1. Synchroniser avec Supabase Cloud si disponible
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -182,6 +176,8 @@ export async function getRegisteredCenters(): Promise<Center[]> {
           contact_person: item.contact_person || "",
           phone: item.phone || "",
           email: item.email || "",
+          password: item.password || getCenterDefaultPassword(item.center_code),
+          account_status: item.account_status || "Actif",
           created_at: item.created_at || new Date().toISOString(),
           updated_at: item.updated_at || item.created_at || new Date().toISOString(),
         }
@@ -189,11 +185,10 @@ export async function getRegisteredCenters(): Promise<Center[]> {
       })
     }
   } catch (err) {
-    // Supabase table peut ne pas exister encore ou hors-ligne
     console.warn("Notice fetch centers Supabase:", err)
   }
 
-  // 4. Découverte automatique additive à partir des réceptions et lots existants
+  // 2. Découverte automatique additive à partir des réceptions et lots existants
   if (typeof window !== "undefined") {
     const existingList = Array.from(centerMap.values())
     const autoDiscovered = autoDiscoverCentersFromExistingData(existingList)
@@ -205,7 +200,7 @@ export async function getRegisteredCenters(): Promise<Center[]> {
   }
 
   const list = Array.from(centerMap.values()).sort((a, b) => {
-    return (b.center_code || "").localeCompare(a.center_code || "")
+    return (a.center_code || "").localeCompare(b.center_code || "")
   })
 
   // Mettre à jour les caches
