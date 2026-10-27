@@ -978,30 +978,32 @@ export default function ReportsClient({
       .filter((d) => (d.status || '').toLowerCase().includes('exé') || (d.status || '').toLowerCase().includes('exec') || (d.status || '').toLowerCase().includes('détruit'))
       .reduce((acc, d) => acc + (Number(d.total_weight) || 0), 0)
 
-    const totalTransferCostFCFA = filteredWaste.reduce((acc, w) => {
-      return acc + (Number(w.transfer_cost_amount) || 0)
-    }, 0)
-
-    const totalAbmedFeeFCFA = filteredWaste.reduce((acc, w) => {
-      if (w.abmed_fee_8_percent !== undefined && w.abmed_fee_8_percent !== null) {
-        return acc + Number(w.abmed_fee_8_percent)
+    // DÉDOUBLONNAGE PAR BORDEREAU DE RÉCEPTION POUR LES MONTANTS FINANCIERS DE CESSION ET REDEVANCE 8%
+    const receptionFinanceMap = new Map<string, { cession: number; fee: number; paid: boolean }>()
+    filteredWaste.forEach((w) => {
+      const recKey = w.reception_number || w.batch_number || w.id
+      if (!receptionFinanceMap.has(recKey)) {
+        const amt = Number(w.transfer_cost_amount) || 0
+        const fee = w.abmed_fee_8_percent !== undefined && w.abmed_fee_8_percent !== null
+          ? Number(w.abmed_fee_8_percent)
+          : Math.round(amt * 0.08)
+        const st = (w.status || '').toLowerCase()
+        const isPaid = st.includes('payé') || st.includes('acquitt') || st.includes('encaiss') || st.includes('exécut')
+        receptionFinanceMap.set(recKey, { cession: amt, fee, paid: isPaid })
       }
-      return acc + Math.round((Number(w.transfer_cost_amount) || 0) * 0.08)
-    }, 0)
+    })
+
+    const totalTransferCostFCFA = Array.from(receptionFinanceMap.values()).reduce((acc, r) => acc + r.cession, 0)
+    const totalAbmedFeeFCFA = Array.from(receptionFinanceMap.values()).reduce((acc, r) => acc + r.fee, 0)
 
     // Estimation des frais de prise en charge et neutralisation (ex: 450 FCFA / kg)
     const totalProcessingFeesFCFA = Math.round(totalWasteKg * 450)
     const grandTotalPayableFCFA = totalAbmedFeeFCFA + totalProcessingFeesFCFA
 
     // Taux de recouvrement (payé vs en attente)
-    const paidBatches = filteredWaste.filter((w) => {
-      const st = (w.status || '').toLowerCase()
-      return st.includes('payé') || st.includes('acquitt') || st.includes('encaiss') || st.includes('exécut')
-    })
-    const paidFeeFCFA = paidBatches.reduce((acc, w) => {
-      const amt = Number(w.transfer_cost_amount) || 0
-      return acc + (w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round(amt * 0.08))
-    }, 0)
+    const paidFeeFCFA = Array.from(receptionFinanceMap.values())
+      .filter((r) => r.paid)
+      .reduce((acc, r) => acc + r.fee, 0)
     const recoveryRate = totalAbmedFeeFCFA > 0 ? Math.round((paidFeeFCFA / totalAbmedFeeFCFA) * 100) : 100
 
     const mvtCount = filteredMovements.length
@@ -1076,46 +1078,67 @@ export default function ReportsClient({
         description: "Contrôle financier exhaustif : montant HT de cession, assiette de redevance (8%), frais de prise en charge et quittance de règlement.",
         getRows: () => {
           const headers = [
-            "N° Récépissé / Lot",
+            "N° Bordereau Réception",
             "Date",
             "Centre Apporteur & CTR",
             "Type Structure",
-            "Nature des Déchets",
-            "Poids (Kg)",
+            "Nb Lots Déchets",
+            "Poids Total (Kg)",
             "Mode de Cession",
             "Cession HT (FCFA)",
-            "Redevance 8% (FCFA)",
+            "Redevance 8% ABMed (FCFA)",
             "Frais Prise Charge (FCFA)",
             "Total Dû (FCFA)",
             "Statut Règlement",
             "Mode de Règlement",
           ]
 
-          const exportData: Record<string, any>[] = filteredWaste.map((w, idx) => {
-            const dateStr = w.reception_date || w.date_reception || w.created_at ? new Date(w.reception_date || w.date_reception || w.created_at || '').toLocaleDateString('fr-FR') : '-'
-            const amt = Number(w.transfer_cost_amount) || 0
-            const fee = w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round(amt * 0.08)
-            const wt = Number(w.quantity) || 0
-            const handlingCost = Math.round(wt * 450) // 450 FCFA/kg pour incinération & logistique
-            const totalDue = fee + handlingCost
-            const code = w.source_structure_code || w.center_code || 'CTR-2026'
-            const mode = w.transfer_cost_mode === 'dons' ? 'Dons (Exonéré)' : w.transfer_cost_mode === 'na' ? 'Non Applicable' : 'À titre onéreux'
-            const isSettled = (w.status || '').toLowerCase().includes('payé') || (w.status || '').toLowerCase().includes('acquitt') || (w.status || '').toLowerCase().includes('exécut')
+          // Dédupliquer et consolider par bordereau de réception officiel
+          const recAuditMap = new Map<string, any>()
+          filteredWaste.forEach((w) => {
+            const recKey = w.reception_number || w.batch_number || w.id
+            if (!recAuditMap.has(recKey)) {
+              const amt = Number(w.transfer_cost_amount) || 0
+              const fee = w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round(amt * 0.08)
+              const code = w.source_structure_code || w.center_code || 'CTR-2026'
+              const mode = w.transfer_cost_mode === 'dons' ? 'Dons (Exonéré)' : w.transfer_cost_mode === 'na' ? 'Non Applicable' : 'À titre onéreux'
+              const isSettled = (w.status || '').toLowerCase().includes('payé') || (w.status || '').toLowerCase().includes('acquitt') || (w.status || '').toLowerCase().includes('exécut')
 
+              recAuditMap.set(recKey, {
+                recKey,
+                dateStr: w.reception_date || w.date_reception || w.created_at ? new Date(w.reception_date || w.date_reception || w.created_at || '').toLocaleDateString('fr-FR') : '-',
+                center: `${w.source_structure || 'Structure'} (${code})`,
+                structureType: w.source_structure_type || "Officine / Grossiste",
+                lotsCount: 0,
+                totalWeight: 0,
+                mode,
+                amt,
+                fee,
+                isSettled,
+              })
+            }
+            const cur = recAuditMap.get(recKey)
+            cur.lotsCount += 1
+            cur.totalWeight += Number(w.quantity) || 0
+          })
+
+          const exportData: Record<string, any>[] = Array.from(recAuditMap.values()).map((r) => {
+            const handlingCost = Math.round(r.totalWeight * 450)
+            const totalDue = r.fee + handlingCost
             return {
-              "N° Récépissé / Lot": w.reception_number || w.batch_number || `REC-2026-${idx + 1}`,
-              "Date": dateStr,
-              "Centre Apporteur & CTR": `${w.source_structure || 'Structure'} (${code})`,
-              "Type Structure": w.source_structure_type || "Officine / Grossiste",
-              "Nature des Déchets": (w.commercial_name || w.product_nature || w.waste_type || "Déchets pharmaceutiques").substring(0, 35),
-              "Poids (Kg)": `${wt.toLocaleString('fr-FR')} kg`,
-              "Mode de Cession": mode,
-              "Cession HT (FCFA)": amt.toLocaleString('fr-FR'),
-              "Redevance 8% (FCFA)": fee.toLocaleString('fr-FR'),
+              "N° Bordereau Réception": r.recKey,
+              "Date": r.dateStr,
+              "Centre Apporteur & CTR": r.center,
+              "Type Structure": r.structureType,
+              "Nb Lots Déchets": `${r.lotsCount} lot(s)`,
+              "Poids Total (Kg)": `${r.totalWeight.toLocaleString('fr-FR')} kg`,
+              "Mode de Cession": r.mode,
+              "Cession HT (FCFA)": r.amt.toLocaleString('fr-FR'),
+              "Redevance 8% ABMed (FCFA)": r.fee.toLocaleString('fr-FR'),
               "Frais Prise Charge (FCFA)": handlingCost.toLocaleString('fr-FR'),
               "Total Dû (FCFA)": totalDue.toLocaleString('fr-FR'),
-              "Statut Règlement": isSettled ? "Acquitté / Payé" : "En attente de paiement",
-              "Mode de Règlement": isSettled ? "Virement Trésor Public" : "Quittance en cours",
+              "Statut Règlement": r.isSettled ? "Acquitté / Payé" : "En attente de paiement",
+              "Mode de Règlement": r.isSettled ? "Virement Trésor Public" : "Quittance en cours",
             }
           })
 
@@ -1137,12 +1160,13 @@ export default function ReportsClient({
         getRows: () => {
           const headers = [
             "N° Lot Déchet",
+            "N° Bordereau",
             "Date Réception",
             "Structure Déposante",
             "Mode de Cession",
             "Poids (Kg)",
-            "Montant Cession (FCFA)",
-            "Redevance 8% ABMed (FCFA)",
+            "Montant Cession Bordereau (FCFA)",
+            "Redevance 8% Bordereau (FCFA)",
             "Statut Décharge",
           ]
           const exportData: Record<string, any>[] = filteredWaste.map((w) => {
@@ -1150,12 +1174,13 @@ export default function ReportsClient({
             const fee = w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round((Number(w.transfer_cost_amount) || 0) * 0.08)
             return {
               "N° Lot Déchet": w.batch_number || w.id,
+              "N° Bordereau": w.reception_number || '-',
               "Date Réception": dateStr,
               "Structure Déposante": w.source_structure || "Officine / Grossiste",
               "Mode de Cession": w.transfer_cost_mode || "À titre onéreux",
               "Poids (Kg)": `${Number(w.quantity) || 0} kg`,
-              "Montant Cession (FCFA)": (Number(w.transfer_cost_amount) || 0).toLocaleString('fr-FR'),
-              "Redevance 8% ABMed (FCFA)": fee.toLocaleString('fr-FR'),
+              "Montant Cession Bordereau (FCFA)": (Number(w.transfer_cost_amount) || 0).toLocaleString('fr-FR'),
+              "Redevance 8% Bordereau (FCFA)": fee.toLocaleString('fr-FR'),
               "Statut Décharge": w.status || "Réceptionné",
             }
           })
@@ -1333,15 +1358,13 @@ export default function ReportsClient({
                 code: w.source_structure_code || w.center_code || "CTR-2026",
                 depositor: `${w.depositor_name || 'Représentant'}${w.depositor_phone ? ` (${w.depositor_phone})` : ''}`,
                 totalWeight: 0,
-                totalFee: 0,
+                totalFee: w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round((Number(w.transfer_cost_amount) || 0) * 0.08),
                 agent: "Agent eGED ABMed",
                 status: w.status || "Validé",
               })
             }
             const cur = slipMap.get(recKey)
             cur.totalWeight += Number(w.quantity) || 0
-            const fee = w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round((Number(w.transfer_cost_amount) || 0) * 0.08)
-            cur.totalFee += fee
           })
 
           const exportData: Record<string, any>[] = Array.from(slipMap.values()).map((s) => ({
