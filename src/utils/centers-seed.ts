@@ -611,5 +611,18 @@ export const DEFAULT_OFFICIAL_CENTERS: Center[] = [
     "email": "ctr-2026-0047@portail-abmed.bj",
     "account_status": "Actif",
     "created_at": "2026-10-27T11:22:00.000Z"
+  },
+  {
+    "id": "center-2026-0048",
+    "center_code": "CTR-2026-0048",
+    "name": "PHARMACIE MOSQUEE CENTRALE DE ZONGO",
+    "center_type": "Officine privée de pharmacie",
+    "city": "COTONOU",
+    "country": "Bénin",
+    "contact_person": "PARAISO FOUAD",
+    "phone": "0166862140",
+    "email": "ctr-2026-0048@portail-abmed.bj",
+    "account_status": "Actif",
+    "created_at": "2026-10-28T13:15:00.000Z"
   }
 ];

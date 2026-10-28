@@ -200,9 +200,19 @@ export async function syncPendingLocalDataToCloud() {
     if (localWasteStr) {
       const localBatches = JSON.parse(localWasteStr)
       if (Array.isArray(localBatches) && localBatches.length > 0) {
-        const { data: remoteBatches } = await supabase.from("waste_batches").select("batch_number")
-        const remoteSet = new Set((remoteBatches || []).map((r: any) => r.batch_number))
-        const unsynced = localBatches.filter((b: any) => b.batch_number && !remoteSet.has(b.batch_number))
+        const { data: remoteBatches } = await supabase.from("waste_batches").select("batch_number, observations")
+        const remoteMap = new Map<string, string>()
+        ;(remoteBatches || []).forEach((r: any) => {
+          if (r.batch_number) remoteMap.set(r.batch_number, r.observations || "")
+        })
+        const unsynced = localBatches.filter((b: any) => {
+          if (!b.batch_number) return false
+          if (!remoteMap.has(b.batch_number)) return true
+          const remoteObs = remoteMap.get(b.batch_number) || ""
+          const localObs = b.observations || ""
+          if (localObs.includes("[FIN:") && !remoteObs.includes("[FIN:")) return true
+          return false
+        })
 
         if (unsynced.length > 0) {
           const payload = unsynced.map((lb: any) => ({
@@ -379,4 +389,13 @@ if (typeof window !== "undefined") {
   setInterval(() => {
     syncPendingLocalDataToCloud()
   }, 60000)
+  // Rattrapage immédiat au retour de connexion Internet ou au retour sur l'onglet
+  window.addEventListener("online", () => {
+    syncPendingLocalDataToCloud()
+  })
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      syncPendingLocalDataToCloud()
+    }
+  })
 }

@@ -263,7 +263,7 @@ function ReceptionsContent() {
     try {
       const { data, error } = await supabase
         .from('receptions')
-        .select('id, rec_number, date_reception, supplier, status, inspector, created_at, samples_data, center_code')
+        .select('id, rec_number, date_reception, supplier, status, inspector, created_at, samples_data')
         .order('created_at', { ascending: false })
       if (!error && Array.isArray(data)) {
         remoteFetchSuccess = true

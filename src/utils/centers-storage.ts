@@ -157,33 +157,40 @@ export async function getRegisteredCenters(): Promise<Center[]> {
   const centerMap = new Map<string, Center>()
   baseList.forEach(c => centerMap.set(c.center_code, c))
 
-  // 1. Synchroniser avec Supabase Cloud si disponible
+  // 1. Synchroniser avec Supabase Cloud via waste_movements (table universelle active)
   try {
     const supabase = createClient()
-    const { data, error } = await supabase
-      .from("centers")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const { data: syncMvts } = await supabase
+      .from("waste_movements")
+      .select("batch, observations, created_at")
+      .eq("type", "Synchronisation Centre")
+      .order("created_at", { ascending: true })
 
-    if (!error && Array.isArray(data) && data.length > 0) {
-      data.forEach((item: any) => {
-        const c: Center = {
-          id: item.id || `center-${Date.now()}-${Math.random()}`,
-          center_code: item.center_code || item.id,
-          name: item.name || "Centre sans nom",
-          center_type: item.center_type || "Officine privée de pharmacie",
-          city: item.city || "Cotonou",
-          country: item.country || "Bénin",
-          address: item.address || "",
-          contact_person: item.contact_person || "",
-          phone: item.phone || "",
-          email: item.email || "",
-          password: item.password || getCenterDefaultPassword(item.center_code),
-          account_status: item.account_status || "Actif",
-          created_at: item.created_at || new Date().toISOString(),
-          updated_at: item.updated_at || item.created_at || new Date().toISOString(),
-        }
-        centerMap.set(c.center_code, c)
+    if (Array.isArray(syncMvts) && syncMvts.length > 0) {
+      syncMvts.forEach((m: any) => {
+        try {
+          const item = JSON.parse(m.observations || "{}")
+          const code = item.center_code || m.batch
+          if (!code) return
+          const existing = centerMap.get(code)
+          const c: Center = {
+            id: item.id || existing?.id || `center-${Date.now()}-${Math.random()}`,
+            center_code: code,
+            name: item.name || existing?.name || "Centre sans nom",
+            center_type: item.center_type || existing?.center_type || "Officine privée de pharmacie",
+            city: item.city || existing?.city || "Cotonou",
+            country: item.country || existing?.country || "Bénin",
+            address: item.address ?? existing?.address ?? "",
+            contact_person: item.contact_person ?? existing?.contact_person ?? "",
+            phone: item.phone ?? existing?.phone ?? "",
+            email: item.email ?? existing?.email ?? "",
+            password: item.password || existing?.password || getCenterDefaultPassword(code),
+            account_status: item.account_status || existing?.account_status || "Actif",
+            created_at: item.created_at || existing?.created_at || m.created_at || new Date().toISOString(),
+            updated_at: item.updated_at || m.created_at || new Date().toISOString(),
+          }
+          centerMap.set(c.center_code, c)
+        } catch {}
       })
     }
   } catch (err) {
@@ -335,24 +342,26 @@ export async function saveCenter(centerData: Partial<Center>): Promise<Center> {
     } catch (e) {}
   }
 
-  // 2. Synchronisation Cloud Supabase
+  // 2. Synchronisation Cloud Supabase (via waste_movements pour compatibilité universelle)
   try {
     const supabase = createClient()
-    await supabase.from("centers").upsert(
-      {
-        id: updatedCenter.id,
-        center_code: updatedCenter.center_code,
-        name: updatedCenter.name,
-        center_type: updatedCenter.center_type,
-        city: updatedCenter.city,
-        country: updatedCenter.country,
-        address: updatedCenter.address,
-        contact_person: updatedCenter.contact_person,
-        phone: updatedCenter.phone,
-        email: updatedCenter.email,
-        updated_at: updatedCenter.updated_at,
-      },
-      { onConflict: "center_code" }
+    await supabase.from("waste_movements").upsert(
+      [
+        {
+          mvt_number: `CTR-SYNC-${updatedCenter.center_code}`,
+          date: updatedCenter.updated_at || new Date().toISOString(),
+          type: "Synchronisation Centre",
+          batch: updatedCenter.center_code,
+          waste_type: updatedCenter.center_type,
+          commercial_name: updatedCenter.name,
+          quantity: "1 Centre",
+          operator: updatedCenter.contact_person || "Admin EGED",
+          source_structure: updatedCenter.name,
+          depositor_name: updatedCenter.contact_person || null,
+          observations: JSON.stringify(updatedCenter),
+        },
+      ],
+      { onConflict: "mvt_number" }
     )
   } catch (err) {
     console.warn("Échec upsert center Supabase:", err)
@@ -382,7 +391,10 @@ export async function deleteCenter(centerIdOrCode: string): Promise<boolean> {
 
   try {
     const supabase = createClient()
-    await supabase.from("centers").delete().or(`id.eq.${centerIdOrCode},center_code.eq.${centerIdOrCode}`)
+    await supabase
+      .from("waste_movements")
+      .delete()
+      .or(`mvt_number.eq.CTR-SYNC-${centerIdOrCode},batch.eq.${centerIdOrCode}`)
   } catch (e) {
     console.warn("Supabase center delete notice:", e)
   }

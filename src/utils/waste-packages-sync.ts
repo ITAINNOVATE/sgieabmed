@@ -288,26 +288,51 @@ export async function saveGroupedPackageToCloud(
       console.warn("[waste-packages-sync] Erreur upsert movement colis:", mvtError)
     }
 
-    // 5. Mettre à jour les lots individuels dans waste_batches Cloud
+    // 5. Mettre à jour les lots individuels dans waste_batches Cloud (en préservant [FIN:...] et les observations existantes)
     const batchNumbers = (pkg.items || []).map(i => i.batch_number).filter(Boolean)
     if (batchNumbers.length > 0) {
-      await supabase
+      const { data: existingRows } = await supabase
         .from("waste_batches")
-        .update({
-          current_location: pkg.current_location,
-          observations: `[COLIS: ${pkg.package_number}]`,
-        })
+        .select("id, batch_number, observations")
         .in("batch_number", batchNumbers)
+
+      if (existingRows && existingRows.length > 0) {
+        await Promise.all(
+          existingRows.map((row: any) => {
+            const cleanedObs = (row.observations || "").replace(/\s*\[COLIS:[^\]]*\]/gi, "").trim()
+            const newObs = cleanedObs
+              ? `${cleanedObs} [COLIS: ${pkg.package_number}]`
+              : `[COLIS: ${pkg.package_number}]`
+            return supabase
+              .from("waste_batches")
+              .update({
+                current_location: pkg.current_location,
+                observations: newObs,
+              })
+              .eq("id", row.id)
+          })
+        )
+      }
     }
 
     if (removedItemIds && removedItemIds.length > 0) {
       try {
-        await supabase
+        const { data: remRows } = await supabase
           .from("waste_batches")
-          .update({
-            observations: "",
-          })
+          .select("id, observations")
           .in("id", removedItemIds)
+
+        if (remRows && remRows.length > 0) {
+          await Promise.all(
+            remRows.map((row: any) => {
+              const cleanedObs = (row.observations || "").replace(/\s*\[COLIS:[^\]]*\]/gi, "").trim()
+              return supabase
+                .from("waste_batches")
+                .update({ observations: cleanedObs })
+                .eq("id", row.id)
+            })
+          )
+        }
       } catch {}
     }
 
@@ -376,24 +401,36 @@ export async function deleteGroupedPackageFromCloud(pkg: GroupedWastePackage): P
         }
       ], { onConflict: "mvt_number" })
 
-    // 5. Libérer tous les lots individuels dans waste_batches Cloud
-    // A) Par balayage textuel de l'étiquette [COLIS: ...] (infaillible même si pkg.items est vide ou incomplet)
-    await supabase
+    // 5. Libérer tous les lots individuels dans waste_batches Cloud (en préservant [FIN:...] et notes)
+    const batchNumbers = (pkg.items || []).map(i => i.batch_number).filter(Boolean)
+    const { data: taggedRows } = await supabase
       .from("waste_batches")
-      .update({
-        observations: "",
-      })
+      .select("id, batch_number, observations")
       .ilike("observations", `%${pkg.package_number}%`)
 
-    // B) Par liste explicite des numéros de lots si disponibles
-    const batchNumbers = (pkg.items || []).map(i => i.batch_number).filter(Boolean)
+    let explicitRows: any[] = []
     if (batchNumbers.length > 0) {
-      await supabase
+      const { data: bRows } = await supabase
         .from("waste_batches")
-        .update({
-          observations: "",
-        })
+        .select("id, batch_number, observations")
         .in("batch_number", batchNumbers)
+      if (bRows) explicitRows = bRows
+    }
+
+    const rowMap = new Map<string, any>()
+    ;(taggedRows || []).forEach((r: any) => rowMap.set(r.id, r))
+    explicitRows.forEach((r: any) => rowMap.set(r.id, r))
+
+    if (rowMap.size > 0) {
+      await Promise.all(
+        Array.from(rowMap.values()).map((row: any) => {
+          const cleanedObs = (row.observations || "").replace(/\s*\[COLIS:[^\]]*\]/gi, "").trim()
+          return supabase
+            .from("waste_batches")
+            .update({ observations: cleanedObs })
+            .eq("id", row.id)
+        })
+      )
     }
 
     // 6. Diffusion temps réel instantanée multi-postes

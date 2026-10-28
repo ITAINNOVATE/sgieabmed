@@ -838,6 +838,8 @@ function NewReceptionContent() {
       }
     }
 
+    // NB : la table Cloud receptions ne possède PAS de colonnes center_code / center_id.
+    // Toute inclusion de colonnes absentes du schéma provoque le rejet de l'upsert par PostgREST.
     const fullPayload: any = {
       rec_number: values.rec_number,
       date_reception: values.date_reception || new Date().toISOString().split('T')[0],
@@ -846,8 +848,6 @@ function NewReceptionContent() {
       type_reception: values.type_reception || null,
       inspector: values.inspector || "Admin EGED",
       status: status,
-      center_code: centerCodeToUse,
-      center_id: values.center_id || null,
       supplier: values.supplier || null,
       manufacturer: values.manufacturer || null,
       country: values.country || null,
@@ -864,7 +864,7 @@ function NewReceptionContent() {
       anomalies: values.anomalies || null,
       measures: values.measures || null,
       validator_name: values.validator_name || null,
-      validation_date: values.validation_date || null,
+      validation_date: values.validation_date && values.validation_date.trim() !== '' ? values.validation_date : null,
       samples_data: (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== ""),
     }
 
@@ -996,81 +996,72 @@ function NewReceptionContent() {
       }
     }
 
-    // ─── Synchronisation Cloud parallèle ultra-rapide (Promise.all) ───────────
-    const syncPromise = Promise.all([
-      (async () => {
-        try {
-          const { error } = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
-          if (!error) {
-            try {
-              const syncedIds = JSON.parse(localStorage.getItem('reception_synced_cloud_ids') || '[]')
-              if (!syncedIds.includes(values.rec_number)) {
-                syncedIds.push(values.rec_number)
-                localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
-              }
-            } catch (e) {}
-          }
-        } catch (dbErr) {
-          console.warn("Supabase receptions sync warning:", dbErr)
-        }
-      })(),
-      (async () => {
-        if (validSamples.length === 0) return
-        try {
-          const samplesToUpsert = validSamples.map((sample, idx) => ({
-            sample_number: `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`,
-            reception_ref: values.rec_number,
-            commercial_name: sample.commercial_name,
-            dci: sample.dci || null,
-            dosage: sample.dosage || null,
-            batch_number: sample.batch || 'LOT-TEMP',
-            expiry_date: sample.exp_date && sample.exp_date.trim() !== '' ? sample.exp_date : null,
-            quantity: Number(sample.qty) || 1,
-            status: status === 'Validée' ? 'Disponible' : 'À localiser',
-            current_location: 'Zone de Réception / Quarantaine',
-            manufacturer_name: values.manufacturer || null,
-            supplier_name: values.supplier || null,
-          }))
-          await supabase.from('samples').upsert(samplesToUpsert, { onConflict: 'sample_number' })
-        } catch (sErr) {
-          console.warn("Erreur upsert échantillons:", sErr)
-        }
-      })(),
-      (async () => {
-        if (newMovements.length === 0) return
-        try {
-          const movementsPayload = newMovements.map((mvt) => ({
-            mvt_number: mvt.mvt_number,
-            movement_date: mvt.movement_date,
-            movement_type: 'Entrée',
-            sample_id: mvt.sample_id,
-            sample_number: mvt.sample_number,
-            commercial_name: mvt.commercial_name,
-            batch_number: mvt.batch_number,
-            quantity: mvt.quantity,
-            source_location: mvt.source_location,
-            destination_location: mvt.destination_location,
-            operator: mvt.operator,
-            reason: mvt.reason,
-            observations: mvt.observations,
-            status: mvt.status,
-            reference_document: values.rec_number,
-          }))
-          await supabase.from('movements').upsert(movementsPayload, { onConflict: 'mvt_number' })
-        } catch (mErr) {
-          console.warn("Échec upsert movements Supabase:", mErr)
-        }
-      })()
-    ])
-
-    // Attendre la synchronisation Supabase (jusqu'à 4s max) pour garantir la persistance Cloud
+    // ─── Synchronisation Cloud parallèle vérifiée ─────────────────────────────
     try {
       await Promise.race([
-        syncPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+        (async () => {
+          const rRes = await supabase.from('receptions').upsert(fullPayload, { onConflict: 'rec_number' })
+          if (rRes.error) {
+            console.error("[ReceptionsSave] Erreur upsert receptions Cloud:", rRes.error)
+            throw new Error(rRes.error.message)
+          }
+          try {
+            const syncedIds = JSON.parse(localStorage.getItem('reception_synced_cloud_ids') || '[]')
+            if (!syncedIds.includes(values.rec_number)) {
+              syncedIds.push(values.rec_number)
+              localStorage.setItem('reception_synced_cloud_ids', JSON.stringify(syncedIds))
+            }
+          } catch {}
+
+          if (validSamples.length > 0) {
+            const samplesToUpsert = validSamples.map((sample, idx) => ({
+              sample_number: `ECH-${values.rec_number.replace('REC-', '')}-${idx + 1}`,
+              reception_ref: values.rec_number,
+              commercial_name: sample.commercial_name,
+              dci: sample.dci || null,
+              dosage: sample.dosage || null,
+              batch_number: sample.batch || 'LOT-TEMP',
+              expiry_date: sample.exp_date && sample.exp_date.trim() !== '' ? sample.exp_date : null,
+              quantity: Number(sample.qty) || 1,
+              status: status === 'Validée' ? 'Disponible' : 'À localiser',
+              current_location: 'Zone de Réception / Quarantaine',
+              manufacturer_name: values.manufacturer || null,
+              supplier_name: values.supplier || null,
+            }))
+            const sRes = await supabase.from('samples').upsert(samplesToUpsert, { onConflict: 'sample_number' })
+            if (sRes.error) console.warn("Avertissement upsert samples:", sRes.error)
+          }
+
+          if (newMovements.length > 0) {
+            const movementsPayload = newMovements.map((mvt) => ({
+              mvt_number: mvt.mvt_number,
+              movement_date: mvt.movement_date,
+              movement_type: 'Entrée',
+              sample_id: mvt.sample_id,
+              sample_number: mvt.sample_number,
+              commercial_name: mvt.commercial_name,
+              batch_number: mvt.batch_number,
+              quantity: mvt.quantity,
+              source_location: mvt.source_location,
+              destination_location: mvt.destination_location,
+              operator: mvt.operator,
+              reason: mvt.reason,
+              observations: mvt.observations,
+              status: mvt.status,
+              reference_document: values.rec_number,
+            }))
+            const mRes = await supabase.from('movements').upsert(movementsPayload, { onConflict: 'mvt_number' })
+            if (mRes.error) console.warn("Avertissement upsert movements:", mRes.error)
+          }
+        })(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Délai de connexion Cloud dépassé (15s)')), 15000))
       ])
-    } catch (e) {
-      console.warn("Synchronisation Cloud finalisée ou poursuivie en tâche de fond:", e)
+    } catch (e: any) {
+      console.error("Erreur synchronisation Cloud réception:", e)
+      toast.warning(`Attention : La synchronisation Cloud a rencontré un problème (${e?.message || 'Réseau'}). Relance automatique en cours...`, { duration: 8000 })
+      setTimeout(() => {
+        import("@/utils/realtimeBus").then(m => m.syncPendingLocalDataToCloud()).catch(() => {})
+      }, 2000)
     }
 
     // Diffusion instantanée multi-postes et multi-niveaux (< 50ms)
