@@ -795,25 +795,30 @@ export function generateSecureInitialPassword(): string {
 export const getUsers = async (): Promise<User[]> => {
   let remoteUsers: User[] = []
   let cloudOverrides: Record<string, Partial<User>> = {}
+  let cloudDeletedIds: string[] = []
   try {
     const supabase = createClient()
-    const [uRes, sRes] = await Promise.all([
-      supabase
-        .from('users')
-        .select('*')
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'admin_users_cloud_overrides_v1')
-        .maybeSingle()
-    ])
-    if (!uRes.error && uRes.data && uRes.data.length > 0) {
-      remoteUsers = uRes.data
-    }
-    if (!sRes.error && sRes.data?.value && typeof sRes.data.value === 'object') {
-      cloudOverrides = sRes.data.value as Record<string, Partial<User>>
+    const { data: kvRows } = await supabase
+      .from('waste_movements')
+      .select('batch, observations')
+      .eq('type', 'CLOUD_KV_SYNC')
+      .in('batch', [USERS_STORAGE_KEY, USERS_OVERRIDES_KEY, USERS_DELETED_KEY])
+
+    if (Array.isArray(kvRows)) {
+      kvRows.forEach((row: any) => {
+        try {
+          if (row.batch === USERS_STORAGE_KEY && row.observations) {
+            const parsed = JSON.parse(row.observations)
+            if (Array.isArray(parsed)) remoteUsers = parsed
+          } else if (row.batch === USERS_OVERRIDES_KEY && row.observations) {
+            const parsed = JSON.parse(row.observations)
+            if (parsed && typeof parsed === 'object') cloudOverrides = parsed
+          } else if (row.batch === USERS_DELETED_KEY && row.observations) {
+            const parsed = JSON.parse(row.observations)
+            if (Array.isArray(parsed)) cloudDeletedIds = parsed
+          }
+        } catch {}
+      })
     }
   } catch (err) {}
 
@@ -829,6 +834,8 @@ export const getUsers = async (): Promise<User[]> => {
     } catch (e) {}
   }
 
+  const allDeleted = Array.from(new Set([...deletedIds, ...cloudDeletedIds]))
+
   const userMap = new Map<string, User>()
   // 1. Utilisateurs par défaut
   MOCK_USERS.forEach(u => userMap.set(u.id, u))
@@ -840,9 +847,9 @@ export const getUsers = async (): Promise<User[]> => {
   const finalUsers: User[] = []
   userMap.forEach((user, id) => {
     if (
-      deletedIds.includes(id) || 
-      deletedIds.includes(user.username) || 
-      deletedIds.includes(user.email) || 
+      allDeleted.includes(id) || 
+      allDeleted.includes(user.username) || 
+      allDeleted.includes(user.email) || 
       user.is_deleted
     ) {
       return

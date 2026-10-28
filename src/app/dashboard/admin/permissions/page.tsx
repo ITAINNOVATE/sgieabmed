@@ -59,7 +59,7 @@ export default function PermissionsAdminPage() {
     loadInitial()
   }, [])
 
-  // Charge les permissions dès que la cible (rôle ou utilisateur) change
+  // Charge les permissions dès que la cible (rôle ou utilisateur) change ou lors d'une synchro temps réel
   useEffect(() => {
     async function loadPerms() {
       const targetId = targetType === 'role' ? selectedRoleCode : selectedUserId
@@ -70,6 +70,12 @@ export default function PermissionsAdminPage() {
       setLoading(false)
     }
     loadPerms()
+    const handleSync = () => {
+      loadPerms()
+      getUsers().then(setUsers)
+    }
+    window.addEventListener("eged-data-updated", handleSync)
+    return () => window.removeEventListener("eged-data-updated", handleSync)
   }, [targetType, selectedRoleCode, selectedUserId])
 
   // Cible courante

@@ -11,6 +11,166 @@ export interface MutationPayload {
   [key: string]: unknown
 }
 
+// -------------------------------------------------------------
+// Références natives de localStorage (sans déclenchement de boucle)
+// -------------------------------------------------------------
+let originalGetItem: typeof Storage.prototype.getItem | null = null
+let originalSetItem: typeof Storage.prototype.setItem | null = null
+let originalRemoveItem: typeof Storage.prototype.removeItem | null = null
+
+if (typeof window !== "undefined" && window.localStorage) {
+  originalGetItem = window.localStorage.getItem.bind(window.localStorage)
+  originalSetItem = window.localStorage.setItem.bind(window.localStorage)
+  originalRemoveItem = window.localStorage.removeItem.bind(window.localStorage)
+}
+
+// Clés partagées multi-ordinateurs répliquées dans Supabase Cloud (CLOUD_KV_SYNC)
+const CLOUD_KV_EXACT_KEYS = new Set([
+  "admin_users_custom_v1",
+  "admin_users_overrides_v1",
+  "admin_users_deleted_v1",
+  "admin_users_custom_v4",
+  "admin_users_overrides_v4",
+  "admin_users_deleted_v4",
+  "admin_roles_custom_v1",
+  "admin_departments_custom_v1",
+  "admin_departments_overrides_v1",
+  "admin_departments_deleted_v1",
+  "admin_security_policy_v1",
+  "eged_system_settings_v1",
+  "sgie_global_settings_v1",
+  "local_storage_rooms",
+  "local_storage_zones",
+  "local_storage_cabinets",
+  "local_storage_shelves",
+  "local_sample_overrides",
+  "eged_registered_centers_v1",
+  "reception_deleted_ids",
+  "waste_packages_deleted_ids",
+  "sample_inventories_custom_v1",
+  "waste_inventories_custom_v1",
+  "destruction_plans_custom_v1",
+])
+
+const CLOUD_KV_PREFIXES = [
+  "detailed_perms_role_",
+  "detailed_perms_user_",
+  "admin_perms_",
+  "waste_reception_finances_",
+]
+
+function isCloudReplicatedKey(key: string): boolean {
+  if (!key) return false
+  // Ne jamais répliquer la session de l'utilisateur courant d'un poste sur un autre
+  if (key === "eged_current_user_v1" || key === "theme" || key === "eged_default_light_v2") {
+    return false
+  }
+  if (CLOUD_KV_EXACT_KEYS.has(key)) return true
+  return CLOUD_KV_PREFIXES.some((prefix) => key.startsWith(prefix))
+}
+
+async function pushKeyValueToCloud(key: string, value: string) {
+  if (typeof window === "undefined" || !isCloudReplicatedKey(key)) return
+  if (value && value.length > 250000) return // Sécurité taille payload
+  try {
+    const supabase = createClient()
+    await supabase.from("waste_movements").upsert(
+      [
+        {
+          mvt_number: `KV-${key}`,
+          date: new Date().toISOString(),
+          type: "CLOUD_KV_SYNC",
+          batch: key,
+          waste_type: "Synchronisation Système",
+          commercial_name: `Sync ${key}`,
+          quantity: "1",
+          operator: "Système Temps Réel eGED",
+          observations: value,
+        },
+      ],
+      { onConflict: "mvt_number" }
+    )
+  } catch (e) {
+    console.warn("[RealtimeBus] Erreur push KV Cloud:", e)
+  }
+}
+
+let isPullingCloudKV = false
+export async function pullSharedKeyValuesFromCloud() {
+  if (typeof window === "undefined" || isPullingCloudKV || !originalSetItem || !originalGetItem) return
+  isPullingCloudKV = true
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("waste_movements")
+      .select("batch, observations")
+      .eq("type", "CLOUD_KV_SYNC")
+
+    if (!error && Array.isArray(data)) {
+      const updatedKeys: string[] = []
+      const remoteKeySet = new Set<string>()
+
+      // 1. Appliquer les clés distantes Cloud vers le poste local
+      data.forEach((row: any) => {
+        const key = row.batch
+        const remoteVal = row.observations
+        if (key && typeof remoteVal === "string" && isCloudReplicatedKey(key)) {
+          remoteKeySet.add(key)
+          const currentLocal = originalGetItem!(key)
+          if (currentLocal !== remoteVal) {
+            try {
+              originalSetItem!(key, remoteVal)
+              updatedKeys.push(key)
+            } catch {}
+          }
+        }
+      })
+
+      // 2. Pousser vers le Cloud toute clé locale partagée qui n'existe pas encore dans Supabase
+      const missingInCloudPayload: any[] = []
+      try {
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const localKey = window.localStorage.key(i)
+          if (localKey && isCloudReplicatedKey(localKey) && !remoteKeySet.has(localKey)) {
+            const localVal = originalGetItem!(localKey)
+            if (localVal && localVal !== "[]" && localVal !== "{}" && localVal.length < 250000) {
+              missingInCloudPayload.push({
+                mvt_number: `KV-${localKey}`,
+                date: new Date().toISOString(),
+                type: "CLOUD_KV_SYNC",
+                batch: localKey,
+                waste_type: "Synchronisation Système",
+                commercial_name: `Sync ${localKey}`,
+                quantity: "1",
+                operator: "Système Temps Réel eGED",
+                observations: localVal,
+              })
+            }
+          }
+        }
+      } catch {}
+
+      if (missingInCloudPayload.length > 0) {
+        await supabase.from("waste_movements").upsert(missingInCloudPayload, { onConflict: "mvt_number" })
+      }
+
+      if (updatedKeys.length > 0) {
+        const payload: MutationPayload = {
+          entity: updatedKeys.join(","),
+          action: "cloud_kv_pull",
+          timestamp: Date.now(),
+        }
+        window.dispatchEvent(new CustomEvent("eged-data-updated", { detail: payload }))
+        window.dispatchEvent(new CustomEvent("sgie-sync-event", { detail: payload }))
+      }
+    }
+  } catch (e) {
+    console.warn("[RealtimeBus] Notice pullSharedKeyValuesFromCloud:", e)
+  } finally {
+    isPullingCloudKV = false
+  }
+}
+
 // Canal natif navigateur pour synchronisation 0ms entre onglets
 let nativeBroadcastChannel: BroadcastChannel | null = null
 if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -18,6 +178,15 @@ if (typeof window !== "undefined" && "BroadcastChannel" in window) {
     nativeBroadcastChannel = new BroadcastChannel("sgie_realtime_bus")
     nativeBroadcastChannel.onmessage = (event) => {
       const payload = event.data || {}
+      if (payload.kvValues && typeof payload.kvValues === "object" && originalSetItem && originalGetItem) {
+        Object.entries(payload.kvValues).forEach(([k, v]) => {
+          if (typeof v === "string" && isCloudReplicatedKey(k) && originalGetItem!(k) !== v) {
+            try {
+              originalSetItem!(k, v)
+            } catch {}
+          }
+        })
+      }
       try {
         window.dispatchEvent(new CustomEvent("eged-data-updated", { detail: payload }))
         window.dispatchEvent(new CustomEvent("sgie-sync-event", { detail: payload }))
@@ -45,6 +214,16 @@ export function getGlobalBroadcastChannel() {
       // 1. Écouter les diffusions WebSocket transmises par les autres ordinateurs / téléphones
       globalSupabaseChannel.on("broadcast", { event: "sgie_mutation" }, (data: any) => {
         const payload = data?.payload || {}
+        // Appliquer immédiatement toute valeur clé-valeur transmise en direct (< 50ms)
+        if (payload.kvValues && typeof payload.kvValues === "object" && originalSetItem && originalGetItem) {
+          Object.entries(payload.kvValues).forEach(([k, v]) => {
+            if (typeof v === "string" && isCloudReplicatedKey(k) && originalGetItem!(k) !== v) {
+              try {
+                originalSetItem!(k, v)
+              } catch {}
+            }
+          })
+        }
         try {
           window.dispatchEvent(new CustomEvent("eged-data-updated", { detail: payload }))
           window.dispatchEvent(new CustomEvent("sgie-sync-event", { detail: payload }))
@@ -53,10 +232,20 @@ export function getGlobalBroadcastChannel() {
 
       // 2. Écouter en direct toutes les réplications PostgreSQL Cloud de Supabase
       globalSupabaseChannel.on("postgres_changes", { event: "*", schema: "public" }, (data: any) => {
+        const record: any = data.new || data.old
+        if (data.table === "waste_movements" && record?.type === "CLOUD_KV_SYNC" && record?.batch && typeof record?.observations === "string") {
+          if (originalSetItem && originalGetItem && isCloudReplicatedKey(record.batch)) {
+            if (originalGetItem(record.batch) !== record.observations) {
+              try {
+                originalSetItem(record.batch, record.observations)
+              } catch {}
+            }
+          }
+        }
         const payload: MutationPayload = {
-          entity: data.table || "database",
+          entity: record?.type === "CLOUD_KV_SYNC" && record?.batch ? `${data.table},${record.batch}` : (data.table || "database"),
           action: data.eventType || "change",
-          record: data.new || data.old,
+          record,
           timestamp: Date.now()
         }
         try {
@@ -120,15 +309,12 @@ export function broadcastDataMutation(payload: MutationPayload) {
 
 // -------------------------------------------------------------
 // Intercepteur transparent de localStorage pour auto-propager
-// toute opération sans modifier le code existant
+// toute opération sans modifier le code existant (sans boucle)
 // -------------------------------------------------------------
 let isInterceptorInstalled = false
 export function installLocalStorageSyncInterceptor() {
-  if (typeof window === "undefined" || isInterceptorInstalled) return
+  if (typeof window === "undefined" || isInterceptorInstalled || !originalSetItem || !originalRemoveItem || !originalGetItem) return
   isInterceptorInstalled = true
-
-  const originalSetItem = localStorage.setItem
-  const originalRemoveItem = localStorage.removeItem
 
   const criticalKeyPrefixes = [
     "reception",
@@ -147,38 +333,59 @@ export function installLocalStorageSyncInterceptor() {
     "rdv",
     "user",
     "role",
+    "admin",
     "setting",
     "document",
   ]
 
   let throttleTimer: any = null
   let pendingKeys: string[] = []
+  let pendingKvMap: Record<string, string> = {}
 
-  const triggerBroadcast = (key: string, action: string) => {
-    pendingKeys.push(key)
+  const triggerBroadcast = (key: string, action: string, value?: string) => {
+    if (!pendingKeys.includes(key)) {
+      pendingKeys.push(key)
+    }
+    if (value !== undefined && isCloudReplicatedKey(key) && value.length < 150000) {
+      pendingKvMap[key] = value
+    }
     if (throttleTimer) return
     throttleTimer = setTimeout(() => {
       const keysSnapshot = [...pendingKeys]
+      const kvSnapshot = { ...pendingKvMap }
       pendingKeys = []
+      pendingKvMap = {}
       throttleTimer = null
 
       broadcastDataMutation({
         entity: keysSnapshot.join(","),
         action,
+        kvValues: Object.keys(kvSnapshot).length > 0 ? kvSnapshot : undefined,
       })
     }, 40)
   }
 
   localStorage.setItem = function (key: string, value: string) {
-    originalSetItem.apply(this, [key, value])
+    const prevValue = originalGetItem!.call(this, key)
+    originalSetItem!.apply(this, [key, value])
+    // Éviter toute tempête/boucle de synchronisation si la valeur n'a pas changé
+    if (prevValue === value) return
+
+    if (isCloudReplicatedKey(key)) {
+      pushKeyValueToCloud(key, value)
+    }
+
     const lowerKey = key.toLowerCase()
     if (criticalKeyPrefixes.some((prefix) => lowerKey.includes(prefix))) {
-      triggerBroadcast(key, "set")
+      triggerBroadcast(key, "set", value)
     }
   }
 
   localStorage.removeItem = function (key: string) {
-    originalRemoveItem.apply(this, [key])
+    const prevValue = originalGetItem!.call(this, key)
+    originalRemoveItem!.apply(this, [key])
+    if (prevValue === null) return
+
     const lowerKey = key.toLowerCase()
     if (criticalKeyPrefixes.some((prefix) => lowerKey.includes(prefix))) {
       triggerBroadcast(key, "remove")
@@ -187,12 +394,13 @@ export function installLocalStorageSyncInterceptor() {
 }
 
 /**
- * Rapatrie et synchronise immédiatement tout enregistrement local (déchets, réceptions, plans)
+ * Rapatrie et synchronise immédiatement tout enregistrement local (déchets, réceptions, plans, KV)
  * qui n'aurait pas encore été répliqué dans Supabase Cloud (rattrapage automatique multi-postes).
  */
 export async function syncPendingLocalDataToCloud() {
   if (typeof window === "undefined") return
   try {
+    await pullSharedKeyValuesFromCloud()
     const supabase = createClient()
 
     // 1. Rattrapage des réceptions de déchets (waste_batches)
@@ -384,11 +592,17 @@ if (typeof window !== "undefined") {
   getGlobalBroadcastChannel()
   setTimeout(() => {
     syncPendingLocalDataToCloud()
-  }, 1000)
-  // Rattrapage périodique : toute saisie restée locale est renvoyée au Cloud sans attendre un rechargement
+  }, 800)
+  // Synchronisation rapide (8s) des configurations, comptes, permissions, finances et emplacements partagés
+  setInterval(() => {
+    if (document.visibilityState === "visible") {
+      pullSharedKeyValuesFromCloud()
+    }
+  }, 8000)
+  // Rattrapage périodique complet : toute saisie restée locale est renvoyée au Cloud sans attendre un rechargement
   setInterval(() => {
     syncPendingLocalDataToCloud()
-  }, 60000)
+  }, 45000)
   // Rattrapage immédiat au retour de connexion Internet ou au retour sur l'onglet
   window.addEventListener("online", () => {
     syncPendingLocalDataToCloud()

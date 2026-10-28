@@ -79,26 +79,13 @@ export function extractFinancesFromObservations(obs?: string): WasteFinancialDat
 export function parseFinancesFromBatch(batch: any): WasteFinancialData {
   const recNum = batch?.reception_number || ""
 
-  // 1. Valeurs directes si existantes et non nulles
-  if (batch?.transfer_cost_amount && Number(batch.transfer_cost_amount) > 0) {
-    const amt = Number(batch.transfer_cost_amount)
-    const mode = batch.transfer_cost_mode || "chiffre"
-    const fee = batch.abmed_fee_8_percent !== undefined ? Number(batch.abmed_fee_8_percent) : Math.round(amt * 0.08)
-    return {
-      transfer_cost_amount: amt,
-      transfer_cost_mode: mode,
-      abmed_fee_8_percent: fee,
-      exercise_years: batch.exercise_years || ["2026"],
-    }
-  }
-
-  // 2. Extraction depuis les observations (Cloud Supabase)
+  // 1. Priorité absolue à l'étiquette financière [FIN:...] synchronisée dans Supabase Cloud (observations)
   const fromObs = extractFinancesFromObservations(batch?.observations)
   if (fromObs && fromObs.transfer_cost_amount > 0) {
     return fromObs
   }
 
-  // 3. Extraction depuis le stockage local dédié à la réception
+  // 2. Extraction depuis le stockage local dédié à la réception (répliqué via CLOUD_KV_SYNC)
   if (typeof window !== "undefined" && recNum) {
     try {
       const localFin = localStorage.getItem("waste_reception_finances_" + recNum)
@@ -129,6 +116,19 @@ export function parseFinancesFromBatch(batch: any): WasteFinancialData {
         }
       }
     } catch (e) {}
+  }
+
+  // 3. Valeurs directes sur l'objet si existantes et non nulles
+  if (batch?.transfer_cost_amount && Number(batch.transfer_cost_amount) > 0) {
+    const amt = Number(batch.transfer_cost_amount)
+    const mode = batch.transfer_cost_mode || "chiffre"
+    const fee = batch.abmed_fee_8_percent !== undefined ? Number(batch.abmed_fee_8_percent) : Math.round(amt * 0.08)
+    return {
+      transfer_cost_amount: amt,
+      transfer_cost_mode: mode,
+      abmed_fee_8_percent: fee,
+      exercise_years: batch.exercise_years || ["2026"],
+    }
   }
 
   // 4. Utilisation des valeurs de référence réelles par numéro de réception

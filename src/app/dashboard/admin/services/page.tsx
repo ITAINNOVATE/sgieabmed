@@ -27,6 +27,8 @@ export default function DepartmentsAdminPage() {
       setLoading(false)
     }
     load()
+    window.addEventListener("eged-data-updated", load)
+    return () => window.removeEventListener("eged-data-updated", load)
   }, [])
 
   if (loading) {

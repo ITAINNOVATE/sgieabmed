@@ -104,12 +104,26 @@ export default function WasteMovementsPage() {
         })
       } catch (e) {}
 
-      // Charger également la table Supabase waste_movements
+      // Charger également la table Supabase waste_movements (en excluant les enregistrements techniques de synchronisation)
       try {
         const supabase = createClient()
         const { data: dbMvts } = await supabase.from('waste_movements').select('*').order('date', { ascending: false })
         if (dbMvts && dbMvts.length > 0) {
           dbMvts.forEach((m: any) => {
+            const mNum = m.mvt_number || ''
+            const mType = m.type || ''
+            if (
+              mType === 'CLOUD_KV_SYNC' ||
+              mType === 'Synchronisation Centre' ||
+              mType === 'Colis dissous' ||
+              mNum.startsWith('KV-') ||
+              mNum.startsWith('CTR-SYNC-') ||
+              mNum.startsWith('DISSOLVED-') ||
+              mNum.startsWith('SCHED-') ||
+              mNum.startsWith('APP-')
+            ) {
+              return
+            }
             if (!dynamicMovements.some((dm) => dm.id === m.id || dm.mvt_number === m.mvt_number)) {
               dynamicMovements.push(m)
             }

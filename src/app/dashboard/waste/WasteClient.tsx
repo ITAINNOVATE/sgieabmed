@@ -216,7 +216,7 @@ export default function WasteClient({
       const key = b.batch_number || b.id
       if (key && !deletedIds.includes(b.id) && !deletedIds.includes(b.batch_number) && !deletedIds.includes(b.reception_number)) {
         const existing = batchMap.get(key)
-        const fin = parseFinancesFromBatch(existing?.transfer_cost_amount ? existing : b)
+        const fin = parseFinancesFromBatch({ ...existing, ...b })
         batchMap.set(key, { ...existing, ...b, ...fin })
       }
     })
@@ -230,7 +230,10 @@ export default function WasteClient({
       } catch (e) {}
     }
 
-    // Auto-synchronisation en lot non-bloquante
+    // Rafraîchir aussi le répertoire des centres pour résoudre tout nouveau CTR créé sur un autre poste
+    getRegisteredCenters().then(setRegisteredCenters).catch(() => {})
+
+    // Auto-synchronisation en lot non-bloquante (sans colonnes inexistantes)
     const unsyncedBatches = localBatches.filter(
       (lb: any) => lb.batch_number && !remoteBatches.some((rb: any) => rb.batch_number === lb.batch_number)
     )
@@ -244,7 +247,6 @@ export default function WasteClient({
         delivery_slip_ref: lb.delivery_slip_ref || null,
         recipient_agent: lb.recipient_agent || 'Admin EGED',
         source_structure: lb.source_structure || 'Structure Déposante',
-        source_structure_code: lb.source_structure_code || lb.center_code || null,
         source_type: lb.source_type || 'Officine',
         city: lb.city || 'Cotonou',
         depositor_name: lb.depositor_name || '',
