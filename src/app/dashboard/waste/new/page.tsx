@@ -25,7 +25,7 @@ import {
 
 import { createClient } from "@/utils/supabase/client"
 import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
-import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { broadcastDataMutation, syncPendingLocalDataToCloud } from "@/utils/realtimeBus"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
@@ -935,11 +935,11 @@ function NewWasteReceptionContent() {
       }
 
       // 2. Synchronisation Supabase Cloud en parallèle (sans bloquer l'ouverture de l'attestation)
+      // NB : la table Cloud waste_batches ne possède PAS de colonnes center_code / center_id.
+      // Les envoyer provoquait le rejet systématique de l'enregistrement par Supabase.
       const batchesPayload = newBatches.map((b) => ({
         batch_number: b.batch_number,
         reception_number: b.reception_number,
-        center_code: b.center_code,
-        center_id: b.center_id,
         reception_date: b.reception_date,
         reception_time: b.reception_time,
         delivery_slip_ref: b.delivery_slip_ref,
@@ -981,16 +981,33 @@ function NewWasteReceptionContent() {
         signature_hash: mvt.signature_hash,
       }))
 
+      let cloudOk = false
+      let cloudErrMsg = ""
       try {
-        const batchUpsert = supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" })
-        const mvtUpsert = supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" })
-
-        await Promise.race([
-          Promise.allSettled([batchUpsert, mvtUpsert]),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+        const result: any = await Promise.race([
+          (async () => {
+            const bRes = await supabase.from("waste_batches").upsert(batchesPayload, { onConflict: "batch_number" })
+            if (bRes.error) throw new Error(bRes.error.message)
+            const mRes = await supabase.from("waste_movements").upsert(mvtsPayload, { onConflict: "mvt_number" })
+            if (mRes.error) console.warn("Synchronisation Cloud waste_movements:", mRes.error.message)
+            return true
+          })(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Délai de connexion dépassé")), 15000)),
         ])
-      } catch (remoteErr) {
-        console.warn("Synchronisation Cloud waste_batches:", remoteErr)
+        cloudOk = result === true
+      } catch (remoteErr: any) {
+        cloudErrMsg = remoteErr?.message || String(remoteErr)
+        console.error("Synchronisation Cloud waste_batches:", remoteErr)
+      }
+
+      if (!cloudOk) {
+        toast.warning(
+          `⚠️ Réception ${values.reception_number} enregistrée sur ce poste uniquement : l'envoi au Cloud a échoué (${cloudErrMsg}). ` +
+          `Ne videz pas le navigateur ; une nouvelle tentative automatique est en cours.`,
+          { duration: 15000 }
+        )
+        // Nouvelle tentative automatique via le mécanisme de rattrapage
+        setTimeout(() => { syncPendingLocalDataToCloud() }, 5000)
       }
 
       broadcastDataMutation({

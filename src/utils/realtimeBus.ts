@@ -375,4 +375,8 @@ if (typeof window !== "undefined") {
   setTimeout(() => {
     syncPendingLocalDataToCloud()
   }, 1000)
+  // Rattrapage périodique : toute saisie restée locale est renvoyée au Cloud sans attendre un rechargement
+  setInterval(() => {
+    syncPendingLocalDataToCloud()
+  }, 60000)
 }
