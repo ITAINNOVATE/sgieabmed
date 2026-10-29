@@ -1489,6 +1489,16 @@ export const getCurrentUser = (): User | null => {
   return MOCK_USERS[0]
 }
 
+// Comptes autorisés à voir et utiliser le module Administration.
+// Le contrôle se fait sur l'ID interne (stable), afin que l'accès soit conservé même si l'agent change son identifiant de connexion.
+// usr-1 = Admin EGED, usr-0 = Yossounon CHABI, usr-2 = Jocelyne SATCHIVI
+export const ADMIN_MODULE_ALLOWED_USER_IDS = ["usr-1", "usr-0", "usr-2"]
+
+export const canAccessAdminModule = (user: Pick<User, "id"> | null | undefined): boolean => {
+  if (!user || !user.id) return false
+  return ADMIN_MODULE_ALLOWED_USER_IDS.includes(user.id)
+}
+
 // 5. AUDIT & LOGS
 export const LOGIN_LOGS_STORAGE_KEY = "admin_login_logs_custom_v1"
 export const AUDIT_LOGS_STORAGE_KEY = "admin_audit_logs_custom_v1"

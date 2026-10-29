@@ -27,7 +27,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { logout } from "@/app/actions/auth"
 import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
-import { getCurrentUser, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
+import { getCurrentUser, canAccessAdminModule, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
 import "@/utils/waste-locations"
 import "@/utils/sample-reset"
 
@@ -45,6 +45,9 @@ export function AppSidebar() {
     currentUser?.role === "Centre Apporteur" || 
     currentUser?.matricule?.startsWith("CTR-") || 
     currentUser?.username?.startsWith("CTR-")
+
+  // Module Administration réservé à Admin EGED, Yossounon CHABI et Jocelyne SATCHIVI
+  const showAdminModule = canAccessAdminModule(currentUser)
 
   // Fermeture automatique du volet mobile lors de la navigation
   useEffect(() => {
@@ -634,7 +637,8 @@ export function AppSidebar() {
                 )}
               </SidebarMenuItem>
 
-              {/* 7. ADMINISTRATION */}
+              {/* 7. ADMINISTRATION (réservé aux comptes autorisés) */}
+              {showAdminModule && (
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => toggleSection('admin')}
@@ -752,6 +756,7 @@ export function AppSidebar() {
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
+              )}
                 </>
               )}
             </SidebarMenu>
