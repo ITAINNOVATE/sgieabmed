@@ -32,6 +32,8 @@ export const RECEPTION_FINANCE_DEFAULTS: Record<string, WasteFinancialData> = {
   "REC-DECH-2026-8867": { transfer_cost_amount: 290000,  transfer_cost_mode: "chiffre", abmed_fee_8_percent: 23200,  exercise_years: ["2025", "2026"] },         // BOLADJI (2.92 kg)
   "REC-DECH-2026-5923": { transfer_cost_amount: 1368234, transfer_cost_mode: "chiffre", abmed_fee_8_percent: 109459, exercise_years: ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025"] }, // PHARMACIE OUESSE CENTRE (36.15 kg)
   "REC-DECH-2026-4507": { transfer_cost_amount: 1439096, transfer_cost_mode: "chiffre", abmed_fee_8_percent: 115128, exercise_years: ["2022", "2023", "2024", "2025", "2026"] }, // PHARMACIE MOSQUEE CENTRALE DE ZONGO (27.80 kg)
+  "REC-DECH-2026-1127": { transfer_cost_amount: 1480511, transfer_cost_mode: "chiffre", abmed_fee_8_percent: 118441, exercise_years: ["2025", "2026"] }, // PHARMACIE LE SCHILO (27.15 kg)
+  "REC-DECH-2026-4832": { transfer_cost_amount: 799933,  transfer_cost_mode: "chiffre", abmed_fee_8_percent: 63995,  exercise_years: ["2025", "2026"] }, // PHARMACIE KPEDETIN (28.90 kg)
 }
 
 /**

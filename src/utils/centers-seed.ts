@@ -624,5 +624,31 @@ export const DEFAULT_OFFICIAL_CENTERS: Center[] = [
     "email": "ctr-2026-0048@portail-abmed.bj",
     "account_status": "Actif",
     "created_at": "2026-10-28T13:15:00.000Z"
+  },
+  {
+    "id": "center-2026-0049",
+    "center_code": "CTR-2026-0049",
+    "name": "PHARMACIE LE SCHILO",
+    "center_type": "Officine privée de pharmacie",
+    "city": "ABOMEY-CALAVI",
+    "country": "Bénin",
+    "contact_person": "TCHOBLI BERNICE",
+    "phone": "0164601171",
+    "email": "ctr-2026-0049@portail-abmed.bj",
+    "account_status": "Actif",
+    "created_at": "2026-10-28T12:27:00.000Z"
+  },
+  {
+    "id": "center-2026-0050",
+    "center_code": "CTR-2026-0050",
+    "name": "PHARMACIE KPEDETIN",
+    "center_type": "Officine privée de pharmacie",
+    "city": "AKPRO MISSERETE",
+    "country": "Bénin",
+    "contact_person": "TOUDONOU BEATRICE",
+    "phone": "0194374041",
+    "email": "ctr-2026-0050@portail-abmed.bj",
+    "account_status": "Actif",
+    "created_at": "2026-10-28T15:44:00.000Z"
   }
 ];
