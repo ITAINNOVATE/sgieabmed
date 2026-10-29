@@ -1399,10 +1399,11 @@ function NewReceptionContent() {
                     <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                       <SelectContent>
-                        <SelectItem value="Enregistrement">Enregistrement</SelectItem>
-                        <SelectItem value="Renouvellement">Renouvellement</SelectItem>
-                        <SelectItem value="Variation">Variation</SelectItem>
-                        <SelectItem value="Inspection">Inspection</SelectItem>
+                        <SelectItem value="Échantillon PMS">Échantillon PMS</SelectItem>
+                        <SelectItem value="Échantillon Homologation - Nouvelle demande">Échantillon Homologation - Nouvelle demande</SelectItem>
+                        <SelectItem value="Échantillon Homologation - Renouvellement">Échantillon Homologation - Renouvellement</SelectItem>
+                        <SelectItem value="Échantillon Inspection post enlèvement">Échantillon Inspection post enlèvement</SelectItem>
+                        <SelectItem value="Échantillon Inspection de routine">Échantillon Inspection de routine</SelectItem>
                         <SelectItem value="Don">Don</SelectItem>
                         <SelectItem value="Etude">Étude</SelectItem>
                       </SelectContent>
