@@ -39,8 +39,9 @@ export default function LoginPage({
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  // Étape première connexion : modification du mot de passe obligatoire
+  // Étape première connexion : modification du mot de passe et identifiant obligatoire
   const [pendingUser, setPendingUser] = useState<AdminUser | null>(null)
+  const [newUsername, setNewUsername] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -66,8 +67,9 @@ export default function LoginPage({
 
       if (res.mustChangePassword) {
         setPendingUser(user)
+        setNewUsername(user.username || "")
         setLoading(false)
-        toast.info("Première connexion détectée : Veuillez définir votre mot de passe personnel.")
+        toast.info("Première connexion détectée : Veuillez définir vos identifiants personnels.")
         return
       }
 
@@ -90,6 +92,12 @@ export default function LoginPage({
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!pendingUser) return
+
+    const finalUsername = (newUsername.trim() || pendingUser.username).toLowerCase()
+    if (finalUsername.length < 3) {
+      toast.error("L'identifiant de connexion doit comporter au moins 3 caractères.")
+      return
+    }
 
     if (newPassword.length < 8) {
       toast.error("Le nouveau mot de passe doit comporter au moins 8 caractères.")
@@ -114,10 +122,11 @@ export default function LoginPage({
     setChangingPassword(true)
 
     try {
-      await updateUserPassword(pendingUser.username, newPassword)
+      await updateUserPassword(pendingUser.id, newPassword, finalUsername)
 
       const updatedUser: AdminUser = {
         ...pendingUser,
+        username: finalUsername,
         must_change_password: false,
         password: newPassword,
         last_login: new Date().toISOString()
@@ -125,17 +134,17 @@ export default function LoginPage({
       delete updatedUser.initial_password
       setCurrentUser(updatedUser)
 
-      recordLoginLog(pendingUser.username, "Connexion")
-      recordAuditLog("Modification", "Sécurité", `Définition du mot de passe personnel pour l'utilisateur ${pendingUser.username}`, `${pendingUser.first_name} ${pendingUser.last_name}`)
+      recordLoginLog(finalUsername, "Connexion")
+      recordAuditLog("Modification", "Sécurité", `Définition des identifiants personnels (${finalUsername}) pour ${pendingUser.first_name} ${pendingUser.last_name}`, `${pendingUser.first_name} ${pendingUser.last_name}`)
 
       if (typeof document !== "undefined") {
         document.cookie = `eged_user_logged=true; path=/; max-age=86400; SameSite=Lax`
       }
 
-      toast.success("Mot de passe enregistré avec succès ! Bienvenue sur eGED.")
+      toast.success("Vos nouveaux identifiants ont été enregistrés dans la base de données ! Bienvenue sur eGED.")
       router.push("/dashboard")
     } catch (err) {
-      toast.error("Erreur lors de l'enregistrement du mot de passe.")
+      toast.error("Erreur lors de l'enregistrement de vos identifiants.")
       setChangingPassword(false)
     }
   }
@@ -268,7 +277,7 @@ export default function LoginPage({
                   </div>
                   <h3 className="text-lg font-black text-foreground tracking-tight">Première Connexion</h3>
                   <p className="text-xs text-muted-foreground font-medium">
-                    Définition obligatoire de votre mot de passe
+                    Définition permanente de vos identifiants personnels
                   </p>
                 </div>
 
@@ -277,11 +286,29 @@ export default function LoginPage({
                     Bonjour {pendingUser.first_name} {pendingUser.last_name},
                   </p>
                   <p className="text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed">
-                    Votre compte a été initialisé avec un mot de passe temporaire. Vous devez obligatoirement définir votre mot de passe personnel pour accéder à votre espace sécurisé eGED.
+                    Votre compte a été initialisé avec des identifiants temporaires. Veuillez définir votre identifiant de connexion et votre mot de passe personnel : ils seront désormais enregistrés de manière permanente dans la base de données.
                   </p>
                 </div>
 
                 <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
+                  {/* IDENTIFIANT DE CONNEXION PERSONNALISABLE */}
+                  <div className="space-y-1">
+                    <Label htmlFor="newUsername" className="text-xs font-semibold text-foreground">
+                      Votre identifiant de connexion
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input 
+                        id="newUsername" 
+                        type="text" 
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        required 
+                        className="pl-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E] font-mono" 
+                      />
+                    </div>
+                  </div>
+
                   {/* NOUVEAU MOT DE PASSE */}
                   <div className="space-y-1">
                     <Label htmlFor="newPassword" className="text-xs font-semibold text-foreground">

@@ -115,9 +115,11 @@ export default function WasteMovementsPage() {
             if (
               mType === 'CLOUD_KV_SYNC' ||
               mType === 'Synchronisation Centre' ||
+              mType === 'Synchronisation Compte' ||
               mType === 'Colis dissous' ||
               mNum.startsWith('KV-') ||
               mNum.startsWith('CTR-SYNC-') ||
+              mNum.startsWith('USR-CRED-') ||
               mNum.startsWith('DISSOLVED-') ||
               mNum.startsWith('SCHED-') ||
               mNum.startsWith('APP-')

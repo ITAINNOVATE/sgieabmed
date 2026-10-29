@@ -795,17 +795,25 @@ export function generateSecureInitialPassword(): string {
 export const getUsers = async (): Promise<User[]> => {
   let remoteUsers: User[] = []
   let cloudOverrides: Record<string, Partial<User>> = {}
+  let perUserCloudCreds: Record<string, Partial<User>> = {}
   let cloudDeletedIds: string[] = []
   try {
     const supabase = createClient()
-    const { data: kvRows } = await supabase
-      .from('waste_movements')
-      .select('batch, observations')
-      .eq('type', 'CLOUD_KV_SYNC')
-      .in('batch', [USERS_STORAGE_KEY, USERS_OVERRIDES_KEY, USERS_DELETED_KEY])
+    const [kvRes, credRes] = await Promise.all([
+      supabase
+        .from('waste_movements')
+        .select('batch, observations')
+        .eq('type', 'CLOUD_KV_SYNC')
+        .in('batch', [USERS_STORAGE_KEY, USERS_OVERRIDES_KEY, USERS_DELETED_KEY]),
+      supabase
+        .from('waste_movements')
+        .select('batch, observations, date')
+        .eq('type', 'Synchronisation Compte')
+        .order('date', { ascending: true })
+    ])
 
-    if (Array.isArray(kvRows)) {
-      kvRows.forEach((row: any) => {
+    if (Array.isArray(kvRes.data)) {
+      kvRes.data.forEach((row: any) => {
         try {
           if (row.batch === USERS_STORAGE_KEY && row.observations) {
             const parsed = JSON.parse(row.observations)
@@ -816,6 +824,22 @@ export const getUsers = async (): Promise<User[]> => {
           } else if (row.batch === USERS_DELETED_KEY && row.observations) {
             const parsed = JSON.parse(row.observations)
             if (Array.isArray(parsed)) cloudDeletedIds = parsed
+          }
+        } catch {}
+      })
+    }
+
+    if (Array.isArray(credRes.data)) {
+      credRes.data.forEach((row: any) => {
+        try {
+          if (row.observations) {
+            const parsed = JSON.parse(row.observations)
+            const key = row.batch || parsed.id || parsed.username
+            if (key && parsed && typeof parsed === 'object') {
+              perUserCloudCreds[key] = { ...(perUserCloudCreds[key] || {}), ...parsed }
+              if (parsed.id) perUserCloudCreds[parsed.id] = { ...(perUserCloudCreds[parsed.id] || {}), ...parsed }
+              if (parsed.username) perUserCloudCreds[parsed.username] = { ...(perUserCloudCreds[parsed.username] || {}), ...parsed }
+            }
           }
         } catch {}
       })
@@ -856,7 +880,16 @@ export const getUsers = async (): Promise<User[]> => {
     }
     const cloudOv = cloudOverrides[id] || cloudOverrides[user.username] || cloudOverrides[user.email] || {}
     const localOv = localOverrides[id] || localOverrides[user.username] || localOverrides[user.email] || {}
-    finalUsers.push({ ...user, ...cloudOv, ...localOv })
+    const credOv = perUserCloudCreds[id] || perUserCloudCreds[user.username] || perUserCloudCreds[user.email] || {}
+
+    // Déterminer quel override est le plus récent entre localOv et credOv (Cloud dédié par compte)
+    const localTime = (localOv as any)?.updated_at ? new Date((localOv as any).updated_at).getTime() : 0
+    const cloudTime = (credOv as any)?.updated_at ? new Date((credOv as any).updated_at).getTime() : 0
+    const mergedUser = cloudTime >= localTime
+      ? { ...user, ...cloudOv, ...localOv, ...credOv }
+      : { ...user, ...cloudOv, ...credOv, ...localOv }
+
+    finalUsers.push(mergedUser)
   })
 
   // Trier par date de création descendante
@@ -923,24 +956,22 @@ export const createUser = async (payload: {
     }
   }
 
-  // 2. Synchronisation Supabase en tâche de fond (si table / Auth disponible)
+  // 2. Synchronisation Supabase Cloud (enregistrement dédié par compte dans waste_movements)
   try {
     const supabase = createClient()
-    await supabase.from('users').insert({
-      id: newUser.id,
-      first_name: newUser.first_name,
-      last_name: newUser.last_name,
-      matricule: newUser.matricule,
-      fonction: newUser.fonction,
-      department_id: newUser.department_id,
-      role: newUser.role,
-      phone: newUser.phone,
-      email: newUser.email,
-      username: newUser.username,
-      status: 'Actif',
-      must_change_password: true,
-      is_deleted: false
-    })
+    await supabase.from('waste_movements').upsert([
+      {
+        mvt_number: `USR-CRED-${newUser.id}`,
+        date: new Date().toISOString(),
+        type: 'Synchronisation Compte',
+        batch: newUser.id,
+        waste_type: newUser.role,
+        commercial_name: `${newUser.first_name} ${newUser.last_name}`,
+        quantity: '1 Compte',
+        operator: 'Admin EGED',
+        observations: JSON.stringify({ ...newUser, updated_at: new Date().toISOString() }),
+      }
+    ], { onConflict: 'mvt_number' })
   } catch (err) {}
 
   try {
@@ -971,30 +1002,70 @@ export const createUser = async (payload: {
 }
 
 export const updateUser = async (id: string, user: Partial<Omit<User, 'id' | 'created_at'>>): Promise<boolean> => {
+  const nowIso = new Date().toISOString()
+  const payloadWithTime = { ...user, updated_at: nowIso }
+
+  // Identifier l'utilisateur complet pour synchroniser son enregistrement Cloud dédié
+  let targetUser: User | undefined
+  try {
+    const allUsers = await getUsers()
+    targetUser = allUsers.find(u => u.id === id || u.username === id || u.email === id)
+  } catch {}
+  const effectiveId = targetUser?.id || id
+
   if (typeof window !== "undefined" && window.localStorage) {
     try {
       const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
-      const idx = list.findIndex(u => u.id === id || u.username === id || u.email === id)
+      const idx = list.findIndex(u => u.id === effectiveId || u.id === id || u.username === id || u.email === id)
       if (idx !== -1) {
-        list[idx] = { ...list[idx], ...user }
+        list[idx] = { ...list[idx], ...payloadWithTime }
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(list))
       }
 
       const overrides = JSON.parse(localStorage.getItem(USERS_OVERRIDES_KEY) || "{}")
-      overrides[id] = { ...(overrides[id] || {}), ...user }
+      overrides[effectiveId] = { ...(overrides[effectiveId] || {}), ...payloadWithTime }
+      if (targetUser?.username) {
+        overrides[targetUser.username] = { ...(overrides[targetUser.username] || {}), ...payloadWithTime }
+      }
       localStorage.setItem(USERS_OVERRIDES_KEY, JSON.stringify(overrides))
+
+      // Si c'est l'utilisateur connecté sur ce poste, mettre à jour sa session
+      const curr = localStorage.getItem(CURRENT_USER_STORAGE_KEY)
+      if (curr) {
+        const parsed = JSON.parse(curr)
+        if (parsed.id === effectiveId || parsed.id === id || parsed.username === id) {
+          localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify({ ...parsed, ...payloadWithTime }))
+        }
+      }
     } catch (e) {}
   }
 
+  // Persistance Cloud garantie dans waste_movements (ligne dédiée USR-CRED-<id>)
   try {
     const supabase = createClient()
-    await supabase.from('users').update(user).eq('id', id)
+    const mergedForCloud = {
+      ...(targetUser || { id: effectiveId }),
+      ...payloadWithTime,
+    }
+    await supabase.from('waste_movements').upsert([
+      {
+        mvt_number: `USR-CRED-${effectiveId}`,
+        date: nowIso,
+        type: 'Synchronisation Compte',
+        batch: effectiveId,
+        waste_type: mergedForCloud.role || 'Utilisateur',
+        commercial_name: `${mergedForCloud.first_name || ''} ${mergedForCloud.last_name || ''}`.trim() || effectiveId,
+        quantity: '1 Compte',
+        operator: mergedForCloud.username || effectiveId,
+        observations: JSON.stringify(mergedForCloud),
+      }
+    ], { onConflict: 'mvt_number' })
   } catch (err) {}
 
   broadcastDataMutation({
     entity: "users",
     action: "update",
-    id
+    id: effectiveId
   })
 
   return true
@@ -1041,7 +1112,7 @@ export const softDeleteUser = async (id: string): Promise<boolean> => {
 
   try {
     const supabase = createClient()
-    await supabase.from('users').update({ is_deleted: true, status: 'Désactivé' }).eq('id', id)
+    await supabase.from('waste_movements').delete().eq('mvt_number', `USR-CRED-${id}`)
   } catch (err) {}
 
   broadcastDataMutation({
@@ -1053,90 +1124,172 @@ export const softDeleteUser = async (id: string): Promise<boolean> => {
   return true
 }
 
-// Mise à jour sécurisée du mot de passe lors de la première connexion
-export const updateUserPassword = async (identifier: string, newPassword: string): Promise<boolean> => {
+// Mise à jour sécurisée et permanente des identifiants (mot de passe et/ou identifiant username) dans la base Cloud
+export const updateUserPassword = async (
+  identifier: string,
+  newPassword: string,
+  newUsername?: string,
+  newEmail?: string
+): Promise<boolean> => {
   const idLower = identifier.trim().toLowerCase()
-  let mergedOverrides: Record<string, any> = {}
+  const nowIso = new Date().toISOString()
+
+  // 1. Rechercher le compte dans la liste consolidée (Cloud + Local + Mock)
+  let targetUser: User | undefined
+  try {
+    const allUsers = await getUsers()
+    targetUser = allUsers.find(
+      u =>
+        u.id === identifier ||
+        u.username.toLowerCase() === idLower ||
+        u.email.toLowerCase() === idLower ||
+        (u.matricule && u.matricule.toLowerCase() === idLower)
+    )
+  } catch {}
+
+  const effectiveId = targetUser?.id || identifier
+  const cleanNewUsername = newUsername && newUsername.trim() ? newUsername.trim().toLowerCase() : (targetUser?.username || identifier)
+  const cleanNewEmail = newEmail && newEmail.trim() ? newEmail.trim().toLowerCase() : targetUser?.email
+
+  const credUpdate: Record<string, any> = {
+    password: newPassword,
+    initial_password: "",
+    must_change_password: false,
+    username: cleanNewUsername,
+    ...(cleanNewEmail ? { email: cleanNewEmail } : {}),
+    last_login: nowIso,
+    updated_at: nowIso,
+  }
+
   if (typeof window !== "undefined" && window.localStorage) {
     try {
       const list: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]")
-      const idx = list.findIndex(u => u.id === identifier || u.email.toLowerCase() === idLower || u.username.toLowerCase() === idLower)
+      const idx = list.findIndex(
+        u => u.id === effectiveId || u.id === identifier || u.email.toLowerCase() === idLower || u.username.toLowerCase() === idLower
+      )
       if (idx !== -1) {
-        list[idx].password = newPassword
-        list[idx].must_change_password = false
+        list[idx] = { ...list[idx], ...credUpdate }
         delete list[idx].initial_password
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(list))
       }
 
       const overrides = JSON.parse(localStorage.getItem(USERS_OVERRIDES_KEY) || "{}")
-      overrides[identifier] = {
-        ...(overrides[identifier] || {}),
-        password: newPassword,
-        must_change_password: false,
-        last_login: new Date().toISOString()
+      overrides[effectiveId] = { ...(overrides[effectiveId] || {}), ...credUpdate }
+      overrides[identifier] = { ...(overrides[identifier] || {}), ...credUpdate }
+      overrides[cleanNewUsername] = { ...(overrides[cleanNewUsername] || {}), ...credUpdate }
+      if (targetUser?.username) {
+        overrides[targetUser.username] = { ...(overrides[targetUser.username] || {}), ...credUpdate }
       }
-      mergedOverrides = overrides
       localStorage.setItem(USERS_OVERRIDES_KEY, JSON.stringify(overrides))
 
       // Mettre à jour l'utilisateur courant en session si connecté
       const curr = localStorage.getItem(CURRENT_USER_STORAGE_KEY)
       if (curr) {
         const parsed = JSON.parse(curr)
-        if (parsed.id === identifier || parsed.username?.toLowerCase() === idLower || parsed.email?.toLowerCase() === idLower) {
-          parsed.must_change_password = false
-          parsed.password = newPassword
-          delete parsed.initial_password
-          localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(parsed))
+        if (
+          parsed.id === effectiveId ||
+          parsed.id === identifier ||
+          parsed.username?.toLowerCase() === idLower ||
+          parsed.email?.toLowerCase() === idLower
+        ) {
+          const updatedSession = { ...parsed, ...credUpdate }
+          delete updatedSession.initial_password
+          localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(updatedSession))
         }
       }
 
-      // Si c'est un compte Centre Apporteur, mettre à jour également son mot de passe dans les centres
-      if (identifier.toUpperCase().includes("CTR-") || identifier.toLowerCase().includes("center-")) {
-        const centers = getRegisteredCentersSync()
-        const targetCenter = centers.find(c => 
-          c.center_code.toLowerCase() === idLower || 
-          c.id === identifier ||
-          c.center_code.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() === idLower.replace(/[^a-zA-Z0-9]/g, "")
+      // Si c'est un compte Centre Apporteur, mettre à jour également son mot de passe dans les centres Cloud
+      if (identifier.toUpperCase().includes("CTR-") || identifier.toLowerCase().includes("center-") || effectiveId.toLowerCase().includes("center-")) {
+        const centers = await getRegisteredCenters()
+        const targetCenter = centers.find(
+          c =>
+            c.center_code.toLowerCase() === idLower ||
+            c.id === identifier ||
+            c.id === effectiveId ||
+            c.center_code.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() === idLower.replace(/[^a-zA-Z0-9]/g, "")
         )
         if (targetCenter) {
-          saveCenter({ ...targetCenter, password: newPassword })
+          await saveCenter({ ...targetCenter, password: newPassword })
         }
       }
     } catch (e) {}
   }
 
+  // 2. Sauvegarde Cloud permanente et isolée par compte dans Supabase (waste_movements -> USR-CRED-<id>)
   try {
     const supabase = createClient()
-    const { data: existingCloud } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'admin_users_cloud_overrides_v1')
-      .maybeSingle()
-    const cloudVal = (existingCloud?.value && typeof existingCloud.value === 'object') ? existingCloud.value : {}
-    const updatedCloud = {
-      ...cloudVal,
-      ...mergedOverrides,
-      [identifier]: {
-        ...((cloudVal as any)[identifier] || {}),
-        password: newPassword,
-        must_change_password: false,
-        last_login: new Date().toISOString()
-      }
+    const fullUserRecord: Record<string, any> = {
+      ...(targetUser || { id: effectiveId, username: cleanNewUsername }),
+      ...credUpdate,
     }
-    await supabase.from('settings').upsert({
-      key: 'admin_users_cloud_overrides_v1',
-      value: updatedCloud
-    }, { onConflict: 'key' })
+    delete fullUserRecord.initial_password
 
-    await supabase.from('users').update({
-      must_change_password: false,
-    }).or(`email.eq.${identifier},username.eq.${identifier},id.eq.${identifier}`)
-  } catch (err) {}
+    await supabase.from('waste_movements').upsert(
+      [
+        {
+          mvt_number: `USR-CRED-${effectiveId}`,
+          date: nowIso,
+          type: 'Synchronisation Compte',
+          batch: effectiveId,
+          waste_type: fullUserRecord.role || 'Personnel ABMed',
+          commercial_name: `${fullUserRecord.first_name || ''} ${fullUserRecord.last_name || ''}`.trim() || cleanNewUsername,
+          quantity: '1 Compte',
+          operator: cleanNewUsername,
+          observations: JSON.stringify(fullUserRecord),
+        },
+      ],
+      { onConflict: 'mvt_number' }
+    )
+
+    // Mettre également à jour le registre KV global des overrides dans le Cloud en fusionnant proprement
+    const { data: existingKv } = await supabase
+      .from('waste_movements')
+      .select('observations')
+      .eq('mvt_number', `KV-${USERS_OVERRIDES_KEY}`)
+      .maybeSingle()
+
+    let remoteOv: Record<string, any> = {}
+    if (existingKv?.observations) {
+      try {
+        remoteOv = JSON.parse(existingKv.observations)
+      } catch {}
+    }
+    remoteOv[effectiveId] = { ...(remoteOv[effectiveId] || {}), ...credUpdate }
+    remoteOv[cleanNewUsername] = { ...(remoteOv[cleanNewUsername] || {}), ...credUpdate }
+    if (targetUser?.username) {
+      remoteOv[targetUser.username] = { ...(remoteOv[targetUser.username] || {}), ...credUpdate }
+    }
+
+    await supabase.from('waste_movements').upsert(
+      [
+        {
+          mvt_number: `KV-${USERS_OVERRIDES_KEY}`,
+          date: nowIso,
+          type: 'CLOUD_KV_SYNC',
+          batch: USERS_OVERRIDES_KEY,
+          waste_type: 'Synchronisation Système',
+          commercial_name: `Sync ${USERS_OVERRIDES_KEY}`,
+          quantity: '1',
+          operator: cleanNewUsername,
+          observations: JSON.stringify(remoteOv),
+        },
+      ],
+      { onConflict: 'mvt_number' }
+    )
+  } catch (err) {
+    console.warn("Erreur sauvegarde Cloud identifiants:", err)
+  }
+
+  broadcastDataMutation({
+    entity: "users",
+    action: "password_updated",
+    id: effectiveId,
+  })
 
   return true
 }
 
-// Authentification universelle (Supabase + Utilisateurs créés)
+// Authentification universelle (Supabase Cloud + Utilisateurs personnalisés)
 export const authenticateUser = async (identifier: string, passwordAttempt: string): Promise<{
   success: boolean
   error?: string
@@ -1206,15 +1359,18 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
       const centerPassword = matchedCenter.password || defaultPass
       const cleanAttempt = (passwordAttempt || "").trim()
 
-      const isMatch = 
-        passwordAttempt === centerPassword || 
-        passwordAttempt === defaultPass || 
-        cleanAttempt === (centerPassword || "").trim() ||
-        cleanAttempt === (defaultPass || "").trim() ||
-        passwordAttempt === "AbMed@2026!" || 
-        cleanAttempt === "AbMed@2026!" || 
-        passwordAttempt === "Password123!" ||
-        passwordAttempt === "admin"
+      // Si le centre a personnalisé son mot de passe (différent du mot de passe par défaut), c'est son nouveau mot de passe qui fait foi
+      const hasCustomCenterPass = matchedCenter.password && matchedCenter.password !== defaultPass
+      const isMatch = hasCustomCenterPass
+        ? (passwordAttempt === matchedCenter.password || cleanAttempt === matchedCenter.password!.trim())
+        : (
+            passwordAttempt === centerPassword || 
+            passwordAttempt === defaultPass || 
+            cleanAttempt === (centerPassword || "").trim() ||
+            cleanAttempt === (defaultPass || "").trim() ||
+            passwordAttempt === "AbMed@2026!" || 
+            cleanAttempt === "AbMed@2026!"
+          )
 
       if (!isMatch) {
         return { success: false, error: "Mot de passe incorrect pour ce centre apporteur." }
@@ -1262,18 +1418,23 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
     return { success: false, error: "Ce compte est désactivé. Veuillez contacter votre responsable d'autorité." }
   }
 
-  // Vérification du mot de passe (mot de passe défini, mot de passe initial généré, ou mot de passe par défaut)
-  const isMatch = 
-    (user.password && passwordAttempt === user.password) ||
-    (user.initial_password && passwordAttempt === user.initial_password) ||
-    (passwordAttempt === "Password123!") ||
-    (passwordAttempt === "eGed2026!") ||
-    (passwordAttempt === "admin") ||
-    (user.username === "admin" && passwordAttempt === "Password123!") ||
-    (user.username === "m.adande" && passwordAttempt === "Password123!")
+  // Vérification stricte du mot de passe :
+  // - Si le personnel a déjà personnalisé ses identifiants (must_change_password === false), SEUL son nouveau mot de passe personnel est accepté
+  // - S'il est encore en première connexion (must_change_password === true), son mot de passe initial est accepté pour ouvrir l'écran de changement obligatoire
+  const isAdminAccount = user.username === "admin" || user.id === "usr-1"
+  const isMatch = user.must_change_password
+    ? (
+        (user.password && passwordAttempt === user.password) ||
+        (user.initial_password && passwordAttempt === user.initial_password) ||
+        (isAdminAccount && (passwordAttempt === "Password123!" || passwordAttempt === "eGed2026!" || passwordAttempt === "admin"))
+      )
+    : (
+        (user.password && (passwordAttempt === user.password || passwordAttempt.trim() === user.password.trim())) ||
+        (isAdminAccount && !user.password && (passwordAttempt === "Password123!" || passwordAttempt === "eGed2026!" || passwordAttempt === "admin"))
+      )
 
   if (!isMatch) {
-    return { success: false, error: "Mot de passe incorrect." }
+    return { success: false, error: "Mot de passe incorrect. Veuillez saisir vos identifiants personnels enregistrés." }
   }
 
   return {
