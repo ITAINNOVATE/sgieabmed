@@ -17,10 +17,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 import { 
   ArrowLeft, Save, Building2, FileSignature, Truck, CheckSquare, 
-  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText, Sparkles, Search
+  Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText, Sparkles, Search, Eye, Pencil
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
@@ -508,6 +515,12 @@ function NewReceptionContent() {
   const [validators, setValidators] = useState<{id: string, name: string}[]>(DEFAULT_VALIDATORS)
   const [autoSaveTime, setAutoSaveTime] = useState<string | null>(null)
   const AUTO_SAVE_KEY = 'reception_form_autosave'
+
+  // Modals de prévisualisation et attestation officielle
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [showSlipModal, setShowSlipModal] = useState(false)
+  const [previewData, setPreviewData] = useState<any>(null)
+  const [savedSlipData, setSavedSlipData] = useState<any>(null)
 
   // État pour les centres répertoriés
   const [registeredCenters, setRegisteredCenters] = useState<Center[]>([])
@@ -1097,7 +1110,7 @@ function NewReceptionContent() {
     })
   }
 
-  // ─── Sauvegarder (En instance de validation ou Modifications) ─────────────
+  // ─── Sauvegarder Brouillon (En instance de validation ou Modifications) ───
   const onDraft = async () => {
     if (isValidated && !isEditMode) {
       toast.info("Cette réception est déjà validée.")
@@ -1109,7 +1122,7 @@ function NewReceptionContent() {
       await saveReceptionToSupabase(statusToSave)
       clearDraft()
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Réception enregistrée avec succès !", { duration: 2500 })
+      toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Brouillon de réception enregistré avec succès !", { duration: 2500 })
       router.push("/dashboard/receptions?status=en_attente")
     } catch (err: any) {
       console.error(err)
@@ -1119,47 +1132,111 @@ function NewReceptionContent() {
     }
   }
 
-  // ─── Soumettre la réception pour validation / Enregistrer modifications ───
-  const onSubmit = async () => {
-    if (isValidated && !isEditMode) {
-      toast.info("Cette réception est déjà validée.")
+  // ─── 1. Ouvrir la prévisualisation avant enregistrement ──────────────────────
+  const handleOpenPreview = async () => {
+    const isValid = await form.trigger()
+    if (!isValid) {
+      toast.error("Veuillez renseigner les champs obligatoires avant de prévisualiser.")
       return
     }
-    setIsSaving(true)
-    try {
-      const statusToSave = isEditMode ? (receptionStatus || "En attente de validation") : "En attente de validation"
-      await saveReceptionToSupabase(statusToSave)
-      clearDraft()
-      localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Réception soumise avec succès !", { duration: 2500 })
-      router.push("/dashboard/receptions")
-    } catch (err: any) {
-      console.error(err)
-      toast.error(`Erreur : ${err.message || "Impossible de soumettre la réception."}`)
-    } finally {
-      setIsSaving(false)
+
+    const values = form.getValues()
+    const validSamples = (values.samples || []).filter(s => s.commercial_name && s.commercial_name.trim() !== "")
+    if (validSamples.length === 0) {
+      toast.error("Veuillez renseigner au moins un produit / échantillon dans le tableau avant de prévisualiser.")
+      return
     }
+
+    const centerCodeToUse = values.center_code || generatedCenterCode || ""
+    const payload = {
+      rec_number: values.rec_number,
+      date_reception: values.date_reception,
+      time_reception: values.time_reception,
+      ref_document: values.ref_document || "N/A",
+      type_reception: values.type_reception || "Standard",
+      inspector: values.inspector || "Admin EGED",
+      status: "Validée",
+      supplier: values.supplier || "DEMANDEUR NON PRÉCISÉ",
+      center_code: centerCodeToUse,
+      center_type: values.center_type || "Officine privée de pharmacie",
+      manufacturer: values.manufacturer || "Non précisé",
+      country: values.country || "Bénin",
+      city: values.city || "Cotonou",
+      contact_person: values.contact_person || "",
+      phone: values.phone || "",
+      transport_mode: values.transport_mode || "Standard",
+      carrier: values.carrier || "",
+      package_number: values.package_number || "",
+      total_packages: values.total_packages || 1,
+      received_packages: values.received_packages || 1,
+      check_packaging: values.check_packaging,
+      check_boxes: values.check_boxes,
+      check_seals: values.check_seals,
+      check_qty: values.check_qty,
+      check_docs: values.check_docs,
+      check_damage: values.check_damage,
+      check_conform: values.check_conform,
+      anomalies: values.anomalies || "",
+      measures: values.measures || "",
+      samples: validSamples,
+      attachedFiles: attachedFiles,
+    }
+
+    setPreviewData(payload)
+    setShowPreviewModal(true)
   }
 
-  // ─── Validation officielle par le responsable ──────────────────────────────
-  const onValidateByValidator = async () => {
-    if (isValidated && !isEditMode) {
-      toast.info("Cette réception est déjà validée.")
-      return
-    }
+  // ─── 2. Valider la réception et afficher l'attestation prête à imprimer ────
+  const handleValidateAndPrint = async () => {
+    if (!previewData) return
     setIsSaving(true)
     try {
+      const todayStr = new Date().toISOString().split('T')[0]
+      form.setValue("status", "Validée")
+      form.setValue("validation_date", todayStr)
+      form.setValue("validator_name", previewData.inspector || "Admin EGED")
+
       await saveReceptionToSupabase("Validée")
       clearDraft()
       localStorage.removeItem(AUTO_SAVE_KEY)
-      toast.success("Réception validée avec succès ! (Statut: Finalisé)", { duration: 2500 })
-      router.push("/dashboard/receptions")
+
+      const finalSaved = {
+        ...previewData,
+        status: "Validée",
+        validation_date: todayStr,
+        validator_name: previewData.inspector || "Admin EGED",
+      }
+      setSavedSlipData(finalSaved)
+      setShowPreviewModal(false)
+      setShowSlipModal(true)
+      toast.success("Réception validée avec succès ! Attestation officielle prête à imprimer.")
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur : ${err.message || "Impossible de valider la réception."}`)
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // ─── Téléchargement PDF de l'attestation ─────────────────────────────────────
+  const handleDownloadSlipPdf = () => {
+    try {
+      const dataToExport = savedSlipData || previewData || form.getValues()
+      exportReceptionVoucherPDF(dataToExport, dataToExport.samples || [])
+      toast.success("Attestation officielle (PDF) générée avec succès !")
+    } catch (e: any) {
+      toast.error("Erreur lors de la génération du PDF d'attestation.")
+    }
+  }
+
+  // ─── Soumettre la réception pour validation (Mode compatibilité) ────────────
+  const onSubmit = async () => {
+    handleOpenPreview()
+  }
+
+  // ─── Validation officielle par le responsable (Mode compatibilité) ───────────
+  const onValidateByValidator = async () => {
+    handleOpenPreview()
   }
 
   // ─── Upload / Attachement de fichiers multiples & optimisés ─────────────────
@@ -1301,49 +1378,41 @@ function NewReceptionContent() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <Button type="button" variant="ghost" onClick={handlePrint} className="hidden sm:inline-flex text-xs h-9">
-            <Printer className="mr-2 h-4 w-4" /> Imprimer
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleExportPDF}
-            className="flex-1 sm:flex-initial border-[#1B5C2E] text-[#1B5C2E] bg-[#1B5C2E]/5 hover:bg-[#1B5C2E]/15 font-bold cursor-pointer text-xs h-9"
-          >
-            <Download className="mr-1.5 h-4 w-4" /> <span className="hidden sm:inline">Télécharger l&apos;Attestation (PDF)</span><span className="sm:hidden">Attestation (PDF)</span>
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onDraft}
-            disabled={isDrafting || (isValidated && !isEditMode)}
-            className={`flex-1 sm:flex-initial text-xs h-9 ${isValidated && !isEditMode ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
-            title={isValidated && !isEditMode ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
-          >
-            <Save className="mr-1.5 h-4 w-4" />
-            {isDrafting ? "Sauvegarde..." : isEditMode ? "Enregistrer corrections" : "Sauvegarder"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => onSubmit()}
-            disabled={isSaving || (isValidated && !isEditMode)}
-            className={`w-full sm:w-auto text-xs h-9 font-bold ${
-              isValidated && !isEditMode
-                ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
-                : "shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white"
-            }`}
-            title={isValidated && !isEditMode ? "Cette réception est déjà validée." : ""}
-          >
-            {isSaving ? "Enregistrement..." : isEditMode ? <><Save className="mr-1.5 h-4 w-4" /> Enregistrer les modifications</> : <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Soumettre la réception</>}
-          </Button>
-          {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
-            <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="w-full sm:w-auto text-xs h-9 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
-              {isSaving ? "Validation..." : <><ShieldCheck className="mr-1.5 h-4 w-4" /> Valider la réception</>}
-            </Button>
+          {isValidated && !isEditMode ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleExportPDF}
+                className="flex-1 sm:flex-initial border-[#1B5C2E] text-[#1B5C2E] bg-[#1B5C2E]/5 hover:bg-[#1B5C2E]/15 font-bold cursor-pointer text-xs h-9"
+              >
+                <Download className="mr-1.5 h-4 w-4" /> <span className="hidden sm:inline">Télécharger l&apos;Attestation (PDF)</span><span className="sm:hidden">Attestation (PDF)</span>
+              </Button>
+              <Button type="button" onClick={handlePrint} className="bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold text-xs h-9">
+                <Printer className="mr-1.5 h-4 w-4" /> Imprimer l&apos;Attestation
+              </Button>
+            </>
           ) : (
-            <Button type="button" disabled className="w-full sm:w-auto text-xs h-9 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title={isValidated ? "Cette réception est déjà validée." : "Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception."}>
-              <ShieldCheck className="mr-1.5 h-4 w-4 text-muted-foreground/60" /> {isValidated ? "Réception Validée" : "Valider la réception"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onDraft}
+                disabled={isDrafting}
+                className="flex-1 sm:flex-initial text-xs h-9"
+              >
+                <Save className="mr-1.5 h-4 w-4" />
+                {isDrafting ? "Sauvegarde..." : isEditMode ? "Enregistrer corrections" : "Sauvegarder brouillon"}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleOpenPreview}
+                disabled={isSaving}
+                className="w-full sm:w-auto text-xs h-9 font-bold shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white cursor-pointer"
+              >
+                <Eye className="mr-1.5 h-4 w-4" /> Visualiser avant d&apos;enregistrer
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -1395,7 +1464,7 @@ function NewReceptionContent() {
                 )} />
                 <FormField control={form.control} name="type_reception" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Type de demande</FormLabel>
+                    <FormLabel>Objet</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -2044,77 +2113,477 @@ function NewReceptionContent() {
               </CardContent>
             </Card>
 
-            {/* 7. VALIDATION */}
-            <Card className="shadow-sm border-border/50">
-              <CardHeader className="bg-muted/20 border-b border-border/50 pb-4">
-                <CardTitle className="flex items-center text-lg"><ShieldCheck className="mr-2 h-5 w-5 text-primary" /> 7. Validation Officielle</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 pt-6">
-                <FormField control={form.control} name="validator_name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsable validation</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger className="overflow-hidden">
-                          <SelectValue placeholder="Sélectionner..." className="truncate" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {validators.map(v => (
-                          <SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="validation_date" render={({ field }) => (
-                  <FormItem><FormLabel>Date de validation</FormLabel><FormControl><Input type="date" onKeyDown={(e) => e.preventDefault()} onClick={(e) => 'showPicker' in e.currentTarget && (e.currentTarget as any).showPicker()} {...field} value={field.value ?? ""} /></FormControl></FormItem>
-                )} />
-              </CardContent>
-            </Card>
-
-
           </div>
 
           {/* BOUTONS EN BAS */}
           <div className="flex flex-wrap justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onDraft}
-              disabled={isDrafting || (isValidated && !isEditMode)}
-              className={`gap-2 ${isValidated && !isEditMode ? "bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" : ""}`}
-              title={isValidated && !isEditMode ? "Cette réception est déjà validée et ne peut plus être sauvegardée." : ""}
-            >
-              <Save className="h-4 w-4" />
-              {isDrafting ? "Sauvegarde..." : isEditMode ? "Enregistrer corrections" : "Sauvegarder"}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => onSubmit()}
-              disabled={isSaving || (isValidated && !isEditMode)}
-              className={
-                isValidated && !isEditMode
-                  ? "gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80"
-                  : "gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white cursor-pointer"
-              }
-              title={isValidated && !isEditMode ? "Cette réception est déjà validée." : ""}
-            >
-              {isSaving ? "Enregistrement..." : isEditMode ? <><Save className="h-4 w-4" /> Enregistrer les modifications</> : <><CheckCircle2 className="h-4 w-4" /> Soumettre la réception</>}
-            </Button>
-            {!isValidated && (receptionStatus === "En attente de validation" || receptionStatus === "Soumise" || watchedStatus === "En attente de validation" || watchedStatus === "Soumise") ? (
-              <Button type="button" onClick={() => onValidateByValidator()} disabled={isSaving} className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer">
-                {isSaving ? "Validation..." : <><ShieldCheck className="h-4 w-4" /> Valider la réception</>}
-              </Button>
+            {isValidated && !isEditMode ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  className="gap-2 border-[#1B5C2E] text-[#1B5C2E] bg-[#1B5C2E]/5 hover:bg-[#1B5C2E]/15 font-bold"
+                >
+                  <Download className="h-4 w-4" /> Télécharger l&apos;Attestation (PDF)
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handlePrint}
+                  className="gap-2 bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold"
+                >
+                  <Printer className="h-4 w-4" /> Imprimer l&apos;Attestation
+                </Button>
+              </>
             ) : (
-              <Button type="button" disabled className="gap-2 bg-muted text-muted-foreground/70 cursor-not-allowed opacity-60 border border-border/80" title={isValidated ? "Cette réception est déjà validée." : "Le bouton de validation est grisé pendant la saisie. Soumettez d'abord la réception."}>
-                <ShieldCheck className="h-4 w-4 text-muted-foreground/60" /> {isValidated ? "Réception Validée" : "Valider la réception"}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onDraft}
+                  disabled={isDrafting}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {isDrafting ? "Sauvegarde..." : isEditMode ? "Enregistrer corrections" : "Sauvegarder brouillon"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleOpenPreview}
+                  disabled={isSaving}
+                  className="gap-2 shadow-md bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold cursor-pointer px-5"
+                >
+                  <Eye className="h-4 w-4" /> Visualiser avant d&apos;enregistrer
+                </Button>
+              </>
             )}
           </div>
 
         </form>
       </Form>
+
+      {/* DIALOG 1 : PRÉVISUALISATION & VÉRIFICATION AVANT ENREGISTREMENT */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl sm:max-w-4xl w-[95vw] md:w-full bg-card border-border/70 p-4 sm:p-6 rounded-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Eye className="h-5 w-5 text-amber-600" />
+                Prévisualisation & Vérification avant Enregistrement
+              </DialogTitle>
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                Aperçu • {previewData?.samples?.length || 0} produit(s)
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Vérifiez l&apos;exactitude de toutes les informations saisies avant la validation définitive et la génération de l&apos;attestation officielle.
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewData && (
+            <div className="space-y-4 pt-1">
+              {/* BANDEAU D'INFORMATION */}
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Relecture avant validation : </span>
+                  Si vous constatez une omission ou une erreur, cliquez sur <strong>« Modifier / Corriger la saisie »</strong> en bas à gauche pour revenir au formulaire et corriger.
+                </div>
+              </div>
+
+              {/* APERÇU DU DOCUMENT OFFICIEL */}
+              <div className="bg-white text-slate-900 p-5 sm:p-7 rounded-xl border-2 border-amber-300/80 shadow-xs space-y-4">
+                <div className="border-b-2 border-[#1B5C2E] pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold tracking-widest text-slate-600 uppercase">
+                      RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ
+                    </p>
+                    <h1 className="text-base sm:text-lg font-black text-[#1B5C2E] tracking-tight">
+                      AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)
+                    </h1>
+                    <p className="text-[11px] font-semibold text-slate-700">
+                      Direction de la Réglementation Pharmaceutique et du Contrôle de Qualité
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block px-2.5 py-1 rounded bg-[#1B5C2E]/10 border border-[#1B5C2E]/30 text-xs font-mono font-bold text-[#1B5C2E]">
+                      {previewData.rec_number}
+                    </span>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Date : {previewData.date_reception} {previewData.time_reception}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-center py-1.5 bg-slate-50 rounded border border-slate-200">
+                  <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+                    APERÇU DU BORDEREAU & ATTESTATION DE RÉCEPTION D&apos;ÉCHANTILLONS
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                      1. Demandeur / Établissement Déposant
+                    </p>
+                    <p className="pt-1">
+                      <span className="text-slate-500">Demandeur :</span>{" "}
+                      <strong className="text-slate-900">{previewData.supplier}</strong>
+                      {previewData.center_code && <span className="ml-1 text-[11px] text-slate-500 font-mono">[{previewData.center_code}]</span>}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Fabricant :</span> {previewData.manufacturer || "Non précisé"}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Pays / Ville :</span> {previewData.country} — {previewData.city}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Contact :</span> {previewData.contact_person || "Non renseigné"} {previewData.phone ? `(${previewData.phone})` : ""}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                      2. Prise en charge ABMed
+                    </p>
+                    <p className="pt-1">
+                      <span className="text-slate-500">Agent récepteur :</span>{" "}
+                      <strong className="text-slate-900">{previewData.inspector}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Objet :</span>{" "}
+                      <strong className="text-[#1B5C2E]">{previewData.type_reception}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Réf. Lettre :</span> {previewData.ref_document || "N/A"}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Transport :</span> {previewData.transport_mode} {previewData.carrier ? `(${previewData.carrier})` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* CONTRÔLE DE CONFORMITÉ */}
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                    3. Contrôle Physique & Conformité à Réception
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className={previewData.check_packaging ? "text-emerald-700 font-bold" : "text-slate-400"}>
+                        {previewData.check_packaging ? "✓" : "✗"} Emballage intègre
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={previewData.check_seals ? "text-emerald-700 font-bold" : "text-slate-400"}>
+                        {previewData.check_seals ? "✓" : "✗"} Scellés intacts
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={previewData.check_qty ? "text-emerald-700 font-bold" : "text-slate-400"}>
+                        {previewData.check_qty ? "✓" : "✗"} Quantité conforme
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={previewData.check_docs ? "text-emerald-700 font-bold" : "text-slate-400"}>
+                        {previewData.check_docs ? "✓" : "✗"} Documents conformes
+                      </span>
+                    </div>
+                  </div>
+                  {previewData.anomalies && (
+                    <p className="text-[11px] text-amber-700 pt-1">
+                      <strong>Réserves / Anomalies :</strong> {previewData.anomalies}
+                    </p>
+                  )}
+                </div>
+
+                {/* TABLEAU DES ÉCHANTILLONS */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pb-1">
+                    4. Échantillons Réceptionnés ({previewData.samples.length} produit{previewData.samples.length > 1 ? "s" : ""})
+                  </p>
+                  <div className="border border-slate-200 rounded overflow-hidden">
+                    <table className="w-full text-[11px] text-left">
+                      <thead className="bg-[#1B5C2E] text-white">
+                        <tr>
+                          <th className="p-1.5 text-center w-8">#</th>
+                          <th className="p-1.5">Désignation Commerciale / DCI</th>
+                          <th className="p-1.5">Forme / Dosage</th>
+                          <th className="p-1.5">N° Lot</th>
+                          <th className="p-1.5">Péremption</th>
+                          <th className="p-1.5 text-right">Quantité</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {previewData.samples.map((s: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="p-1.5 text-center text-slate-500">{idx + 1}</td>
+                            <td className="p-1.5 font-semibold text-slate-900">
+                              {s.commercial_name}
+                              {s.dci && <span className="block text-[10px] text-slate-500 font-normal">DCI: {s.dci}</span>}
+                            </td>
+                            <td className="p-1.5 text-slate-600">{s.form || "-"} {s.dosage || ""}</td>
+                            <td className="p-1.5 font-mono text-slate-700">{s.batch || "-"}</td>
+                            <td className="p-1.5 text-slate-600">{s.exp_date || "-"}</td>
+                            <td className="p-1.5 text-right font-bold text-slate-900">{s.qty || 1} {s.unit || "Boîtes"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* PIÈCES JUSTIFICATIVES */}
+                {previewData.attachedFiles && previewData.attachedFiles.length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pb-1">
+                      5. Pièces Justificatives Jointes ({previewData.attachedFiles.length})
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {previewData.attachedFiles.map((f: any, idx: number) => (
+                        <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] border border-slate-200">
+                          <Paperclip className="h-3 w-3 text-slate-400" /> {f.title || f.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* FOOTER BOUTONS */}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-border/60">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowPreviewModal(false)}
+                  className="w-full sm:w-auto text-xs font-semibold gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-50 cursor-pointer"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-amber-600" /> Modifier / Corriger la saisie
+                </Button>
+                
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  onClick={handleValidateAndPrint}
+                  disabled={isSaving}
+                  className="w-full sm:w-auto gap-2 text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm px-5 h-9 cursor-pointer"
+                >
+                  {isSaving ? "Validation en cours..." : (
+                    <>
+                      <ShieldCheck className="h-4 w-4" /> Valider la réception et imprimer l&apos;attestation
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG 2 : OFFICIEL D'ATTESTATION & BORDEREAU DE RÉCEPTION D'ÉCHANTILLONS (PRÊT À IMPRIMER) */}
+      <Dialog open={showSlipModal} onOpenChange={setShowSlipModal}>
+        <DialogContent className="max-w-4xl sm:max-w-4xl w-[95vw] md:w-full bg-card border-border/70 p-4 sm:p-6 rounded-2xl max-h-[92vh] overflow-y-auto print:max-w-full print:m-0 print:p-0 print:border-none print:shadow-none">
+          <DialogHeader className="print:hidden">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <ShieldCheck className="h-5 w-5 text-[#1B5C2E]" />
+                Attestation Officielle de Réception d&apos;Échantillons Prête à Imprimer
+              </DialogTitle>
+              <Badge className="bg-[#1B5C2E]/10 text-[#1B5C2E] border-[#1B5C2E]/20 text-[10px] font-bold">
+                Validée • {savedSlipData?.samples?.length || 0} produit(s)
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Faites signer ce document par le déposant et l&apos;agent récepteur ABMed comme preuve officielle de prise en charge.
+            </DialogDescription>
+          </DialogHeader>
+
+          {savedSlipData && (
+            <div className="space-y-4 pt-2">
+              {/* DOCUMENT OFFICIEL FORMAT ATTESTATION (A4 PRINTABLE) */}
+              <div id="printable-sample-receipt" className="bg-white text-slate-900 p-6 sm:p-8 rounded-xl border border-slate-300 shadow-sm space-y-5 print:border-none print:p-4 print:shadow-none">
+                
+                {/* EN-TÊTE OFFICIEL BÉNIN & ABMed */}
+                <div className="border-b-2 border-[#1B5C2E] pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold tracking-widest text-slate-600 uppercase">
+                      RÉPUBLIQUE DU BÉNIN — MINISTÈRE DE LA SANTÉ
+                    </p>
+                    <h1 className="text-base sm:text-lg font-black text-[#1B5C2E] tracking-tight">
+                      AGENCE BÉNINOISE DU MÉDICAMENT (ABMed)
+                    </h1>
+                    <p className="text-[11px] font-semibold text-slate-700">
+                      Direction de la Réglementation Pharmaceutique et du Contrôle de Qualité
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block px-2.5 py-1 rounded bg-[#1B5C2E]/10 border border-[#1B5C2E]/30 text-xs font-mono font-bold text-[#1B5C2E]">
+                      {savedSlipData.rec_number}
+                    </span>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Date : {savedSlipData.date_reception} {savedSlipData.time_reception}
+                    </p>
+                  </div>
+                </div>
+
+                {/* TITRE CENTRAL */}
+                <div className="text-center py-2 bg-slate-50 rounded border border-slate-200">
+                  <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+                    ATTESTATION & BORDEREAU DE RÉCEPTION D&apos;ÉCHANTILLONS
+                  </h2>
+                </div>
+
+                {/* GRILLE : DEMANDEUR & PRISE EN CHARGE ABMed */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                      1. Structure / Demandeur Déposant
+                    </p>
+                    <p className="pt-1">
+                      <span className="text-slate-500">Demandeur :</span>{" "}
+                      <strong className="text-slate-900">{savedSlipData.supplier}</strong>
+                      {savedSlipData.center_code && <span className="ml-1 text-[11px] text-slate-500 font-mono">[{savedSlipData.center_code}]</span>}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Fabricant :</span> {savedSlipData.manufacturer || "Non précisé"}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Pays / Ville :</span> {savedSlipData.country} — {savedSlipData.city}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Contact :</span> {savedSlipData.contact_person || "Non renseigné"} {savedSlipData.phone ? `(${savedSlipData.phone})` : ""}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1">
+                      2. Prise en charge ABMed
+                    </p>
+                    <p className="pt-1">
+                      <span className="text-slate-500">Agent récepteur :</span>{" "}
+                      <strong className="text-slate-900">{savedSlipData.inspector}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Objet :</span>{" "}
+                      <strong className="text-[#1B5C2E]">{savedSlipData.type_reception}</strong>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Réf. Lettre :</span> {savedSlipData.ref_document || "N/A"}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Statut Dossier :</span>{" "}
+                      <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                        Validée / Conforme
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* TABLEAU DES ÉCHANTILLONS */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pb-1">
+                    3. Échantillons Réceptionnés ({savedSlipData.samples.length} produit{savedSlipData.samples.length > 1 ? "s" : ""})
+                  </p>
+                  <div className="border border-slate-200 rounded overflow-hidden">
+                    <table className="w-full text-[11px] text-left">
+                      <thead className="bg-[#1B5C2E] text-white">
+                        <tr>
+                          <th className="p-2 text-center w-8">#</th>
+                          <th className="p-2">Désignation Commerciale / DCI</th>
+                          <th className="p-2">Forme / Dosage</th>
+                          <th className="p-2">N° Lot</th>
+                          <th className="p-2">Péremption</th>
+                          <th className="p-2 text-right">Quantité</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {savedSlipData.samples.map((s: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="p-2 text-center text-slate-500">{idx + 1}</td>
+                            <td className="p-2 font-semibold text-slate-900">
+                              {s.commercial_name}
+                              {s.dci && <span className="block text-[10px] text-slate-500 font-normal">DCI: {s.dci}</span>}
+                            </td>
+                            <td className="p-2 text-slate-600">{s.form || "-"} {s.dosage || ""}</td>
+                            <td className="p-2 font-mono text-slate-700">{s.batch || "-"}</td>
+                            <td className="p-2 text-slate-600">{s.exp_date || "-"}</td>
+                            <td className="p-2 text-right font-bold text-slate-900">{s.qty || 1} {s.unit || "Boîtes"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* MENTION LÉGALE D'ATTESTATION */}
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-slate-700 text-[11px] italic">
+                  La présente attestation certifie que les échantillons mentionnés ci-dessus ont été officiellement réceptionnés, vérifiés et validés par l&apos;Agence Béninoise du Médicament (ABMed) dans le cadre des procédures réglementaires en vigueur.
+                </div>
+
+                {/* SIGNATURES OFFICIELLES */}
+                <div className="grid grid-cols-2 gap-6 pt-3">
+                  <div className="border border-slate-300 rounded-lg p-3 text-center h-28 flex flex-col justify-between">
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">
+                      LE DÉPOSANT / REPRÉSENTANT
+                    </p>
+                    <p className="text-[10px] text-slate-400 italic">
+                      Signature précédée de la mention « Lu et approuvé »
+                    </p>
+                    <p className="text-xs font-semibold text-slate-800">
+                      {savedSlipData.contact_person || savedSlipData.supplier}
+                    </p>
+                  </div>
+
+                  <div className="border border-slate-300 rounded-lg p-3 text-center h-28 flex flex-col justify-between">
+                    <p className="text-[10px] font-bold text-[#1B5C2E] uppercase">
+                      POUR L&apos;ABMed (RÉCEPTION & VALIDATION)
+                    </p>
+                    <p className="text-[10px] text-slate-400 italic">
+                      Cachet officiel et Signature de l&apos;Agent
+                    </p>
+                    <p className="text-xs font-semibold text-slate-800">
+                      {savedSlipData.validator_name || savedSlipData.inspector}
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* BOUTONS D'ACTION DU MODAL (MASQUÉS À L'IMPRESSION) */}
+              <div className="print:hidden flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-border/60">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => router.push("/dashboard/receptions")}
+                  className="w-full sm:w-auto text-xs"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour au registre des réceptions
+                </Button>
+                
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleDownloadSlipPdf}
+                    className="gap-1.5 text-xs text-[#1B5C2E] border-[#1B5C2E]/30 hover:bg-[#1B5C2E]/10"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Télécharger l&apos;Attestation (PDF)
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handlePrint}
+                    className="gap-1.5 text-xs font-bold bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-sm"
+                  >
+                    <Printer className="h-3.5 w-3.5" /> Imprimer pour Signature
+                  </Button>
+                </div>
+              </div>
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

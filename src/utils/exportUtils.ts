@@ -146,7 +146,7 @@ export function exportReceptionVoucherPDF(reception: any, samples: any[]) {
   doc.text(`Demandeur : ${supplierDisplay.substring(0, 42)}`, 18, 58)
   doc.text(`Fabricant : ${(reception.manufacturer || "N/A").substring(0, 34)}`, 18, 64)
   doc.text(`Pays / Transport : ${reception.country || "Bénin"} (${reception.transport_mode || "Standard"})`, 18, 70)
-  doc.text(`Type demande : ${reception.type_reception || "Enregistrement / Contrôle"}`, 18, 76)
+  doc.text(`Objet : ${reception.type_reception || "Standard"}`, 18, 76)
   doc.text(`Réf. Courrier : ${reception.ref_document || "N/A"}`, 18, 82)
 
   // Box 2: Réception & Conformité ABMed (Light Emerald tint + Green border)
