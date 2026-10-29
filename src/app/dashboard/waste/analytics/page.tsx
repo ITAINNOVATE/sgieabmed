@@ -171,14 +171,30 @@ export default function WasteAnalyticsPage() {
     return acc
   }, {})
 
-  const wasteByCategory = Object.keys(categoryMap).length > 0 
-    ? Object.entries(categoryMap).map(([name, value]) => ({ name, value }))
-    : [
-        { name: 'Cytotoxiques', value: 0 },
-        { name: 'Infectieux (DASRI)', value: 0 },
-        { name: 'Chimiques', value: 0 },
-        { name: 'Autres', value: 0 },
-      ]
+  const sortedCategories = Object.entries(categoryMap)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+
+  let wasteByCategory: { name: string; value: number }[] = []
+  if (sortedCategories.length <= 5) {
+    wasteByCategory = sortedCategories
+  } else {
+    const top4 = sortedCategories.slice(0, 4)
+    const othersValue = Math.round(sortedCategories.slice(4).reduce((sum, item) => sum + item.value, 0) * 100) / 100
+    wasteByCategory = [
+      ...top4,
+      { name: `Autres (${sortedCategories.length - 4} cat.)`, value: othersValue }
+    ]
+  }
+
+  if (wasteByCategory.length === 0) {
+    wasteByCategory = [
+      { name: 'Cytotoxiques', value: 0 },
+      { name: 'Infectieux (DASRI)', value: 0 },
+      { name: 'Chimiques', value: 0 },
+      { name: 'Autres', value: 0 },
+    ]
+  }
 
   const statusMap = batches.reduce((acc: Record<string, number>, b) => {
     const s = b.status || 'En stockage'
@@ -186,8 +202,12 @@ export default function WasteAnalyticsPage() {
     return acc
   }, {})
 
-  const wasteByStatus = Object.keys(statusMap).length > 0
-    ? Object.entries(statusMap).map(([name, value]) => ({ name, value }))
+  const sortedStatus = Object.entries(statusMap)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+
+  const wasteByStatus = sortedStatus.length > 0
+    ? sortedStatus.slice(0, 5)
     : [
         { name: 'En stockage', value: 0 },
         { name: 'En contrôle', value: 0 },
@@ -279,106 +299,125 @@ export default function WasteAnalyticsPage() {
         ))}
       </div>
 
-      {/* LIGNE 2 : ANALYTIQUE DÉCHETS (3 COLONNES COMPACTES - STATIQUE 1-ÉCRAN) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+      {/* LIGNE 2 : ANALYTIQUE DÉCHETS (3 COLONNES COMPACTES - SANS CHEVAUCHEMENT) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         
         {/* DONUT 1 : DÉCHETS PAR CATÉGORIE */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-2 pb-0">
-            <CardTitle className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">DÉCHETS PAR CATÉGORIE (KG)</CardTitle>
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card flex flex-col justify-between overflow-hidden">
+          <CardHeader className="p-3 pb-1">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              DÉCHETS PAR CATÉGORIE (KG)
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-2 pt-0.5">
-            <div className="flex items-center justify-between h-[100px]">
-              <div className="w-1/2 h-full">
+          <CardContent className="p-3 pt-1 flex-1 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2 min-h-[125px]">
+              <div className="w-[45%] h-[125px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
+                    <Pie data={wasteByCategory} cx="50%" cy="50%" innerRadius={24} outerRadius={46} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {wasteByCategory.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={WASTE_CATEGORIES_COLORS[index % WASTE_CATEGORIES_COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ borderRadius: '6px', fontSize: '10px' }} />
+                    <RechartsTooltip 
+                      formatter={(val: any) => [`${Number(val).toLocaleString('fr-FR')} kg`, 'Masse']}
+                      contentStyle={{ borderRadius: '6px', fontSize: '11px' }} 
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="w-1/2 space-y-0.5 pl-1">
+              <div className="w-[55%] max-h-[125px] overflow-y-auto space-y-1.5 pl-1 pr-0.5">
                 {wasteByCategory.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[9.5px]">
-                    <div className="flex items-center gap-1 truncate">
-                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_CATEGORIES_COLORS[idx % WASTE_CATEGORIES_COLORS.length] }}></span>
-                      <span className="text-muted-foreground truncate">{item.name}</span>
+                  <div key={idx} className="flex items-center justify-between text-[10px] gap-1 hover:bg-muted/30 rounded px-1 py-0.5">
+                    <div className="flex items-center gap-1.5 truncate min-w-0">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: WASTE_CATEGORIES_COLORS[idx % WASTE_CATEGORIES_COLORS.length] }}></span>
+                      <span className="text-muted-foreground truncate" title={item.name}>{item.name}</span>
                     </div>
-                    <span className="font-bold text-foreground ml-1">{item.value} kg</span>
+                    <span className="font-bold text-foreground ml-1 shrink-0 whitespace-nowrap">
+                      {item.value.toLocaleString('fr-FR')} kg
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
+            <div className="flex justify-between items-center pt-2 mt-2 border-t border-border/50 text-[10.5px]">
               <span className="text-muted-foreground font-medium">Masse Totale Déchets</span>
-              <span className="font-bold text-foreground">{totalAllWasteWeight} kg</span>
+              <span className="font-bold text-foreground">{totalAllWasteWeight.toLocaleString('fr-FR')} kg</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* DONUT 2 : ÉTAT DES DECHETS */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-2 pb-0">
-            <CardTitle className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">RÉPARTITION PAR STATUT</CardTitle>
+        {/* DONUT 2 : ÉTAT DES DÉCHETS */}
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card flex flex-col justify-between overflow-hidden">
+          <CardHeader className="p-3 pb-1">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              RÉPARTITION PAR STATUT
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-2 pt-0.5">
-            <div className="flex items-center justify-between h-[100px]">
-              <div className="w-1/2 h-full">
+          <CardContent className="p-3 pt-1 flex-1 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2 min-h-[125px]">
+              <div className="w-[45%] h-[125px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={22} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
+                    <Pie data={wasteByStatus} cx="50%" cy="50%" innerRadius={24} outerRadius={46} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
                       {wasteByStatus.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={WASTE_STATUS_COLORS[index % WASTE_STATUS_COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ borderRadius: '6px', fontSize: '10px' }} />
+                    <RechartsTooltip 
+                      formatter={(val: any) => [`${Number(val).toLocaleString('fr-FR')} lot(s)`, 'Quantité']}
+                      contentStyle={{ borderRadius: '6px', fontSize: '11px' }} 
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="w-1/2 space-y-0.5 pl-1">
-                {wasteByStatus.slice(0, 4).map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[9px]">
-                    <div className="flex items-center gap-1 truncate">
-                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: WASTE_STATUS_COLORS[idx % WASTE_STATUS_COLORS.length] }}></span>
-                      <span className="text-muted-foreground truncate">{item.name}</span>
+              <div className="w-[55%] max-h-[125px] overflow-y-auto space-y-1.5 pl-1 pr-0.5">
+                {wasteByStatus.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[10px] gap-1 hover:bg-muted/30 rounded px-1 py-0.5">
+                    <div className="flex items-center gap-1.5 truncate min-w-0">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: WASTE_STATUS_COLORS[idx % WASTE_STATUS_COLORS.length] }}></span>
+                      <span className="text-muted-foreground truncate" title={item.name}>{item.name}</span>
                     </div>
-                    <span className="font-bold text-foreground ml-1">{item.value}</span>
+                    <span className="font-bold text-foreground ml-1 shrink-0 whitespace-nowrap">
+                      {item.value.toLocaleString('fr-FR')}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex justify-between items-center pt-1 border-t border-border/40 text-[10px]">
+            <div className="flex justify-between items-center pt-2 mt-2 border-t border-border/50 text-[10.5px]">
               <span className="text-muted-foreground font-medium">Lots de Déchets Enregistrés</span>
-              <span className="font-bold text-foreground">{batches.length} Lot(s)</span>
+              <span className="font-bold text-foreground">{batches.length.toLocaleString('fr-FR')} Lot(s)</span>
             </div>
           </CardContent>
         </Card>
 
         {/* COLONNE 3 : ALERTES DÉCHETS */}
-        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card">
-          <CardHeader className="p-2 pb-1 flex flex-row items-center justify-between">
-            <CardTitle className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">ALERTES & ANOMALIES DÉCHETS</CardTitle>
-            <Link href="/dashboard/alerts" className="text-[10px] font-semibold text-red-600 hover:underline">Voir tout</Link>
+        <Card className="shadow-2xs border border-border/70 rounded-xl bg-card flex flex-col justify-between overflow-hidden">
+          <CardHeader className="p-3 pb-1 flex flex-row items-center justify-between">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              ALERTES & ANOMALIES DÉCHETS
+            </CardTitle>
+            <Link href="/dashboard/alerts" className="text-[10px] font-semibold text-red-600 hover:underline">
+              Voir tout
+            </Link>
           </CardHeader>
-          <CardContent className="p-2 pt-0 space-y-1">
-            {wasteAlerts.map((alert, idx) => (
-              <div key={idx} className="flex items-center justify-between text-[10px] p-1 px-1.5 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer">
-                <div className="flex items-center gap-1 truncate pr-1">
-                  {alert.type === 'error' && <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />}
-                  {alert.type === 'warning' && <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />}
-                  {alert.type === 'info' && <ShieldAlert className="h-3 w-3 text-blue-600 shrink-0" />}
-                  <span className="text-foreground font-medium truncate">{alert.text}</span>
+          <CardContent className="p-3 pt-1 flex-1 flex flex-col justify-between">
+            <div className="space-y-1.5 max-h-[155px] overflow-y-auto pr-0.5">
+              {wasteAlerts.map((alert, idx) => (
+                <div key={idx} className="flex items-center justify-between text-[10px] p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer gap-2">
+                  <div className="flex items-center gap-1.5 truncate min-w-0">
+                    {alert.type === 'error' && <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0" />}
+                    {alert.type === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />}
+                    {alert.type === 'info' && <ShieldAlert className="h-3.5 w-3.5 text-blue-600 shrink-0" />}
+                    <span className="text-foreground font-medium truncate" title={alert.text}>{alert.text}</span>
+                  </div>
+                  <span className="text-[8.5px] text-muted-foreground shrink-0">{alert.date}</span>
                 </div>
-                <span className="text-[8.5px] text-muted-foreground shrink-0">{alert.date}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </CardContent>
         </Card>
-
       </div>
 
     </div>
