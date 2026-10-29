@@ -39,6 +39,8 @@ import {
   safeSaveDocsToLocalStorage 
 } from "@/utils/idb-docs"
 import React from 'react'
+import { useFormAutosave } from "@/hooks/use-form-autosave"
+import { DraftRestoreBanner } from "@/components/draft-restore-banner"
 
 // --- ZOD SCHEMA ---
 const formSchema = z.object({
@@ -595,6 +597,29 @@ function NewReceptionContent() {
   const watchedStatus = form.watch("status")
   const isValidated = ["Validée", "Finalisé", "Finalisée"].includes(receptionStatus) || ["Validée", "Finalisé", "Finalisée"].includes(watchedStatus)
 
+  // ─── Sauvegarde automatique & Restauration après sortie inopinée ────────
+  const {
+    pendingDraft,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+    lastSavedAt,
+  } = useFormAutosave<FormValues, { dciLists: { dci: string; dosage: string }[][]; attachedFiles: any[] }>({
+    formKey: "reception_echantillon",
+    form,
+    enabled: !isEditMode && !isValidated,
+    getExtra: () => ({ dciLists, attachedFiles }),
+    setExtra: (extra) => {
+      if (extra?.dciLists && Array.isArray(extra.dciLists)) {
+        setDciLists(extra.dciLists)
+      }
+      if (extra?.attachedFiles && Array.isArray(extra.attachedFiles)) {
+        setAttachedFiles(extra.attachedFiles)
+      }
+    },
+    extraDeps: [dciLists, attachedFiles],
+  })
+
   React.useEffect(() => {
     if (!editId) return
 
@@ -1082,6 +1107,7 @@ function NewReceptionContent() {
     try {
       const statusToSave = isEditMode ? (receptionStatus || "En attente de validation") : "En attente de validation"
       await saveReceptionToSupabase(statusToSave)
+      clearDraft()
       localStorage.removeItem(AUTO_SAVE_KEY)
       toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Réception enregistrée avec succès !", { duration: 2500 })
       router.push("/dashboard/receptions?status=en_attente")
@@ -1103,6 +1129,7 @@ function NewReceptionContent() {
     try {
       const statusToSave = isEditMode ? (receptionStatus || "En attente de validation") : "En attente de validation"
       await saveReceptionToSupabase(statusToSave)
+      clearDraft()
       localStorage.removeItem(AUTO_SAVE_KEY)
       toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Réception soumise avec succès !", { duration: 2500 })
       router.push("/dashboard/receptions")
@@ -1123,6 +1150,7 @@ function NewReceptionContent() {
     setIsSaving(true)
     try {
       await saveReceptionToSupabase("Validée")
+      clearDraft()
       localStorage.removeItem(AUTO_SAVE_KEY)
       toast.success("Réception validée avec succès ! (Statut: Finalisé)", { duration: 2500 })
       router.push("/dashboard/receptions")
@@ -1319,6 +1347,17 @@ function NewReceptionContent() {
           )}
         </div>
       </div>
+
+      {/* BANNIÈRE DE RESTAURATION DE BROUILLON APRÈS SORTIE INOPINÉE */}
+      {!isEditMode && (
+        <DraftRestoreBanner
+          pendingDraft={pendingDraft}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+          lastSavedAt={lastSavedAt}
+          entityName="réception d'échantillons"
+        />
+      )}
 
       {/* BANNIÈRE MODE MODIFICATION */}
       {isEditMode && (

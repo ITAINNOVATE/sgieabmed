@@ -45,6 +45,8 @@ import {
   parseFinancesFromBatch, 
   encodeFinancesInObservations 
 } from "@/utils/waste-finances"
+import { useFormAutosave } from "@/hooks/use-form-autosave"
+import { DraftRestoreBanner } from "@/components/draft-restore-banner"
 
 // --- CONSTANTES OFFICIELLES ABMed ---
 export const WASTE_WAREHOUSES = [
@@ -292,6 +294,26 @@ function NewWasteReceptionContent() {
     setCustomYearInput("")
     toast.success(`Année ${y} ajoutée.`)
   }
+
+  // ─── Sauvegarde automatique & Restauration après sortie inopinée ────────
+  const {
+    pendingDraft,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+    lastSavedAt,
+  } = useFormAutosave<FormValues, { attachedDocs: AttachedWasteDocument[] }>({
+    formKey: "reception_dechets",
+    form,
+    enabled: !isEditMode,
+    getExtra: () => ({ attachedDocs }),
+    setExtra: (extra) => {
+      if (extra?.attachedDocs && Array.isArray(extra.attachedDocs)) {
+        setAttachedDocs(extra.attachedDocs)
+      }
+    },
+    extraDeps: [attachedDocs],
+  })
 
   useEffect(() => {
     if (editParam) {
@@ -1016,6 +1038,7 @@ function NewWasteReceptionContent() {
         id: values.reception_number,
       })
 
+      clearDraft()
       setSavedSlipData(previewData)
       setShowPreviewModal(false)
       setShowSlipModal(true)
@@ -1078,6 +1101,19 @@ function NewWasteReceptionContent() {
           </Button>
         </div>
       </div>
+
+      {/* BANNIÈRE DE RESTAURATION DE BROUILLON APRÈS SORTIE INOPINÉE */}
+      {!isEditMode && (
+        <div className="print:hidden">
+          <DraftRestoreBanner
+            pendingDraft={pendingDraft}
+            onRestore={restoreDraft}
+            onDiscard={discardDraft}
+            lastSavedAt={lastSavedAt}
+            entityName="réception de déchets pharmaceutiques"
+          />
+        </div>
+      )}
 
       {isEditMode && (
         <div className="p-3.5 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
