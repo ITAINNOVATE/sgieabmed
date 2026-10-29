@@ -66,9 +66,29 @@ export default function CentersPage() {
       setLoading(true)
     }
     try {
-      // 1. Charger centres
-      const fetchedCenters = await getRegisteredCenters()
-      setCenters(fetchedCenters)
+      // 1. Charger lots de déchets (local + remote) et rafraîchir le cache local
+      let localBatches: any[] = []
+      try {
+        const storedBatches = localStorage.getItem("waste_batches_custom_v1")
+        if (storedBatches) localBatches = JSON.parse(storedBatches)
+      } catch (e) {}
+
+      let remoteBatches: any[] = []
+      try {
+        const { data } = await supabase.from("waste_batches").select("*").order("created_at", { ascending: false })
+        if (data) remoteBatches = data
+      } catch (e) {}
+
+      const batchesMap = new Map<string, any>()
+      localBatches.forEach(b => batchesMap.set(b.batch_number || b.id, b))
+      remoteBatches.forEach(b => batchesMap.set(b.batch_number || b.id, b))
+      const mergedBatches = Array.from(batchesMap.values())
+      setWasteBatches(mergedBatches)
+      if (mergedBatches.length > 0) {
+        try {
+          localStorage.setItem("waste_batches_custom_v1", JSON.stringify(mergedBatches))
+        } catch (e) {}
+      }
 
       // 2. Charger réceptions d'échantillons (local + remote)
       let localRecs: any[] = []
@@ -89,24 +109,9 @@ export default function CentersPage() {
       const mergedRecs = Array.from(recsMap.values())
       setReceptions(mergedRecs)
 
-      // 3. Charger lots de déchets (local + remote)
-      let localBatches: any[] = []
-      try {
-        const storedBatches = localStorage.getItem("waste_batches_custom_v1")
-        if (storedBatches) localBatches = JSON.parse(storedBatches)
-      } catch (e) {}
-
-      let remoteBatches: any[] = []
-      try {
-        const { data } = await supabase.from("waste_batches").select("*").order("created_at", { ascending: false })
-        if (data) remoteBatches = data
-      } catch (e) {}
-
-      const batchesMap = new Map<string, any>()
-      localBatches.forEach(b => batchesMap.set(b.batch_number || b.id, b))
-      remoteBatches.forEach(b => batchesMap.set(b.batch_number || b.id, b))
-      const mergedBatches = Array.from(batchesMap.values())
-      setWasteBatches(mergedBatches)
+      // 3. Charger centres (synchronisés depuis Supabase Cloud et déchets)
+      const fetchedCenters = await getRegisteredCenters()
+      setCenters(fetchedCenters)
 
     } catch (err) {
       console.warn("Erreur chargement centres & données:", err)
@@ -121,7 +126,7 @@ export default function CentersPage() {
   }, [loadData])
 
   useRealtimeSync({
-    tables: ["centers", "receptions", "waste_batches"],
+    tables: ["waste_movements", "receptions", "waste_batches"],
     onSync: () => loadData(false),
     pollIntervalMs: 3000,
   })

@@ -44,6 +44,7 @@ const CLOUD_KV_EXACT_KEYS = new Set([
   "local_storage_cabinets",
   "local_storage_shelves",
   "local_sample_overrides",
+  "registered_centers_v1",
   "eged_registered_centers_v1",
   "reception_deleted_ids",
   "waste_packages_deleted_ids",
@@ -408,17 +409,18 @@ export async function syncPendingLocalDataToCloud() {
     if (localWasteStr) {
       const localBatches = JSON.parse(localWasteStr)
       if (Array.isArray(localBatches) && localBatches.length > 0) {
-        const { data: remoteBatches } = await supabase.from("waste_batches").select("batch_number, observations")
-        const remoteMap = new Map<string, string>()
+        const { data: remoteBatches } = await supabase.from("waste_batches").select("batch_number, observations, quantity")
+        const remoteMap = new Map<string, { obs: string; qty: number }>()
         ;(remoteBatches || []).forEach((r: any) => {
-          if (r.batch_number) remoteMap.set(r.batch_number, r.observations || "")
+          if (r.batch_number) remoteMap.set(r.batch_number, { obs: r.observations || "", qty: Number(r.quantity) || 0 })
         })
         const unsynced = localBatches.filter((b: any) => {
           if (!b.batch_number) return false
           if (!remoteMap.has(b.batch_number)) return true
-          const remoteObs = remoteMap.get(b.batch_number) || ""
+          const remote = remoteMap.get(b.batch_number)!
           const localObs = b.observations || ""
-          if (localObs.includes("[FIN:") && !remoteObs.includes("[FIN:")) return true
+          if (localObs.includes("[FIN:") && !remote.obs.includes("[FIN:")) return true
+          if (Math.abs(remote.qty - (Number(b.quantity) || 0)) > 0.001) return true
           return false
         })
 
@@ -450,14 +452,16 @@ export async function syncPendingLocalDataToCloud() {
             observations: lb.observations || "",
           }))
 
-          const { error } = await supabase.from("waste_batches").upsert(payload, { onConflict: "batch_number" })
-          if (!error) {
-            broadcastDataMutation({
-              entity: "waste_batches",
-              action: "catchup_sync",
-              id: `count-${unsynced.length}`,
-            })
+          for (let i = 0; i < payload.length; i += 40) {
+            const chunk = payload.slice(i, i + 40)
+            await supabase.from("waste_batches").upsert(chunk, { onConflict: "batch_number" })
           }
+
+          broadcastDataMutation({
+            entity: "waste_batches",
+            action: "catchup_sync",
+            id: `count-${unsynced.length}`,
+          })
         }
       }
     }
@@ -580,6 +584,29 @@ export async function syncPendingLocalDataToCloud() {
           }
         }
       }
+    }
+
+    // 4. Rattrapage du registre des centres vers Supabase Cloud
+    const localCentersStr = localStorage.getItem("registered_centers_v1")
+    if (localCentersStr) {
+      try {
+        const localCenters = JSON.parse(localCentersStr)
+        if (Array.isArray(localCenters) && localCenters.length >= 50) {
+          await supabase.from("waste_movements").upsert([
+            {
+              mvt_number: "KV-registered_centers_v1",
+              date: new Date().toISOString(),
+              type: "CLOUD_KV_SYNC",
+              batch: "registered_centers_v1",
+              waste_type: "Synchronisation Système",
+              commercial_name: "Sync registered_centers_v1",
+              quantity: `${localCenters.length} Centres`,
+              operator: "Système Temps Réel eGED",
+              observations: localCentersStr,
+            }
+          ], { onConflict: "mvt_number" })
+        }
+      } catch (e) {}
     }
   } catch (err) {
     console.warn("[RealtimeBus] Erreur rattrapage automatique Cloud:", err)

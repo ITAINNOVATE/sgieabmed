@@ -157,9 +157,38 @@ export async function getRegisteredCenters(): Promise<Center[]> {
   const centerMap = new Map<string, Center>()
   baseList.forEach(c => centerMap.set(c.center_code, c))
 
-  // 1. Synchroniser avec Supabase Cloud via waste_movements (table universelle active)
+  // 1. Synchroniser avec Supabase Cloud via KV-registered_centers_v1 et waste_movements (table universelle active)
   try {
     const supabase = createClient()
+
+    // A. Récupérer le registre complet KV depuis Supabase Cloud
+    const { data: kvData } = await supabase
+      .from("waste_movements")
+      .select("observations")
+      .eq("type", "CLOUD_KV_SYNC")
+      .eq("batch", "registered_centers_v1")
+      .maybeSingle()
+
+    if (kvData && kvData.observations) {
+      try {
+        const cloudCenters = JSON.parse(kvData.observations)
+        if (Array.isArray(cloudCenters) && cloudCenters.length > 0) {
+          cloudCenters.forEach((c: Center) => {
+            if (c.center_code) {
+              const existing = centerMap.get(c.center_code)
+              centerMap.set(c.center_code, {
+                ...(existing || c),
+                ...c,
+                password: c.password || existing?.password || getCenterDefaultPassword(c.center_code),
+                account_status: c.account_status || existing?.account_status || "Actif",
+              })
+            }
+          })
+        }
+      } catch {}
+    }
+
+    // B. Récupérer les centres individuels synchronisés (type = 'Synchronisation Centre')
     const { data: syncMvts } = await supabase
       .from("waste_movements")
       .select("batch, observations, created_at")
@@ -193,11 +222,42 @@ export async function getRegisteredCenters(): Promise<Center[]> {
         } catch {}
       })
     }
+
+    // C. Découverte directe depuis Supabase waste_batches pour garantir 100% de concordance multi-postes
+    const { data: cloudBatches } = await supabase
+      .from("waste_batches")
+      .select("source_structure, source_type, city, depositor_name, depositor_phone, reception_date")
+
+    if (Array.isArray(cloudBatches) && cloudBatches.length > 0) {
+      const existingNames = new Set(Array.from(centerMap.values()).map(c => (c.name || "").trim().toUpperCase()))
+      cloudBatches.forEach((b: any) => {
+        const name = (b.source_structure || "").trim()
+        if (name && name !== "Interne ABMed" && !existingNames.has(name.toUpperCase())) {
+          existingNames.add(name.toUpperCase())
+          const code = generateNextCenterCode(Array.from(centerMap.values()))
+          const newCenter: Center = {
+            id: `ctr-auto-${Date.now()}-${centerMap.size}`,
+            center_code: code,
+            name: name,
+            center_type: b.source_type || "Officine privée de pharmacie",
+            city: b.city || "Cotonou",
+            country: "Bénin",
+            contact_person: b.depositor_name || "",
+            phone: b.depositor_phone || "",
+            email: `${code.toLowerCase()}@portail-abmed.bj`,
+            password: getCenterDefaultPassword(code),
+            account_status: "Actif",
+            created_at: b.reception_date ? new Date(b.reception_date).toISOString() : new Date().toISOString(),
+          }
+          centerMap.set(code, newCenter)
+        }
+      })
+    }
   } catch (err) {
     console.warn("Notice fetch centers Supabase:", err)
   }
 
-  // 2. Découverte automatique additive à partir des réceptions et lots existants
+  // 2. Découverte automatique additive à partir du localStorage local (si existant)
   if (typeof window !== "undefined") {
     const existingList = Array.from(centerMap.values())
     const autoDiscovered = autoDiscoverCentersFromExistingData(existingList)
