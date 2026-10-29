@@ -71,6 +71,7 @@ export const WASTE_SOURCE_TYPES = [
 export const PRODUCT_NATURES = [
   "compléments nutritionnels",
   "médicaments",
+  "médicaments vétérinaires",
   "psychotropes",
   "dispositifs médicaux",
   "cosmétiques",
