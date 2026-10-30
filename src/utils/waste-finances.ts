@@ -40,39 +40,46 @@ export const RECEPTION_FINANCE_DEFAULTS: Record<string, WasteFinancialData> = {
  * Extrait les données financières depuis la balise [FIN:...] d'un texte d'observations
  */
 export function extractFinancesFromObservations(obs?: string): WasteFinancialData | null {
-  if (!obs || typeof obs !== "string") return null
-  const match = obs.match(/\[FIN:([^\]]+)\]/)
-  if (!match) return null
+  if (!obs || typeof obs !== "string" || !obs.includes("[FIN:")) return null
 
   try {
-    const raw = match[1]
-    if (raw.startsWith("{")) {
-      const parsed = JSON.parse(raw)
-      const amt = Number(parsed.amount || parsed.transfer_cost_amount) || 0
-      const mode = parsed.mode || parsed.transfer_cost_mode || (amt > 0 ? "chiffre" : "na")
-      const fee = parsed.fee !== undefined ? Number(parsed.fee) : (mode === "chiffre" ? Math.round(amt * 0.08) : 0)
-      return {
-        transfer_cost_amount: amt,
-        transfer_cost_mode: mode,
-        abmed_fee_8_percent: fee,
-        exercise_years: parsed.years || parsed.exercise_years || ["2026"],
-      }
-    } else {
-      // Format simple amount:mode:fee
-      const parts = raw.split(":")
-      const amt = Number(parts[0]) || 0
-      const mode = parts[1] || (amt > 0 ? "chiffre" : "na")
-      const fee = parts[2] !== undefined ? Number(parts[2]) : (mode === "chiffre" ? Math.round(amt * 0.08) : 0)
-      return {
-        transfer_cost_amount: amt,
-        transfer_cost_mode: mode,
-        abmed_fee_8_percent: fee,
-        exercise_years: parts[3] ? [parts[3]] : ["2026"],
+    const startIdx = obs.indexOf("[FIN:") + 5
+    const endIdx = obs.lastIndexOf("]")
+    if (startIdx >= 5 && endIdx > startIdx) {
+      const raw = obs.substring(startIdx, endIdx).trim()
+      if (raw.startsWith("{")) {
+        const parsed = JSON.parse(raw)
+        const amt = Number(parsed.amount ?? parsed.transfer_cost_amount) || 0
+        const mode = parsed.mode || parsed.transfer_cost_mode || (amt > 0 ? "chiffre" : "na")
+        const fee = parsed.fee !== undefined && parsed.fee !== null
+          ? Number(parsed.fee)
+          : (mode === "chiffre" ? Math.round(amt * 0.08) : 0)
+        return {
+          transfer_cost_amount: amt,
+          transfer_cost_mode: mode,
+          abmed_fee_8_percent: fee,
+          exercise_years: parsed.years || parsed.exercise_years || ["2026"],
+        }
+      } else {
+        // Format simple amount:mode:fee
+        const parts = raw.split(":")
+        const amt = Number(parts[0]) || 0
+        const mode = parts[1] || (amt > 0 ? "chiffre" : "na")
+        const fee = parts[2] !== undefined && parts[2] !== null
+          ? Number(parts[2])
+          : (mode === "chiffre" ? Math.round(amt * 0.08) : 0)
+        return {
+          transfer_cost_amount: amt,
+          transfer_cost_mode: mode,
+          abmed_fee_8_percent: fee,
+          exercise_years: parts[3] ? [parts[3]] : ["2026"],
+        }
       }
     }
   } catch (e) {
     return null
   }
+  return null
 }
 
 /**
@@ -83,7 +90,7 @@ export function parseFinancesFromBatch(batch: any): WasteFinancialData {
 
   // 1. Priorité absolue à l'étiquette financière [FIN:...] synchronisée dans Supabase Cloud (observations)
   const fromObs = extractFinancesFromObservations(batch?.observations)
-  if (fromObs && fromObs.transfer_cost_amount > 0) {
+  if (fromObs) {
     return fromObs
   }
 
@@ -93,13 +100,16 @@ export function parseFinancesFromBatch(batch: any): WasteFinancialData {
       const localFin = localStorage.getItem("waste_reception_finances_" + recNum)
       if (localFin) {
         const parsed = JSON.parse(localFin)
-        if (parsed.transfer_cost_amount > 0) {
-          return {
-            transfer_cost_amount: Number(parsed.transfer_cost_amount) || 0,
-            transfer_cost_mode: parsed.transfer_cost_mode || "chiffre",
-            abmed_fee_8_percent: Number(parsed.abmed_fee_8_percent) || Math.round(Number(parsed.transfer_cost_amount) * 0.08),
-            exercise_years: parsed.exercise_years || ["2026"],
-          }
+        const amt = Number(parsed.transfer_cost_amount) || 0
+        const mode = parsed.transfer_cost_mode || (amt > 0 ? "chiffre" : "na")
+        const fee = parsed.abmed_fee_8_percent !== undefined
+          ? Number(parsed.abmed_fee_8_percent)
+          : (mode === "chiffre" ? Math.round(amt * 0.08) : 0)
+        return {
+          transfer_cost_amount: amt,
+          transfer_cost_mode: mode,
+          abmed_fee_8_percent: fee,
+          exercise_years: parsed.exercise_years || ["2026"],
         }
       }
 
@@ -107,12 +117,16 @@ export function parseFinancesFromBatch(batch: any): WasteFinancialData {
       if (draftRaw) {
         const d = JSON.parse(draftRaw)
         const fData = d.formData || d
-        if (fData.transfer_cost_amount > 0) {
-          const amt = Number(fData.transfer_cost_amount)
+        if (fData.transfer_cost_amount !== undefined || fData.transfer_cost_mode) {
+          const amt = Number(fData.transfer_cost_amount) || 0
+          const mode = fData.transfer_cost_mode || (amt > 0 ? "chiffre" : "na")
+          const fee = fData.abmed_fee_8_percent !== undefined
+            ? Number(fData.abmed_fee_8_percent)
+            : (mode === "chiffre" ? Math.round(amt * 0.08) : 0)
           return {
             transfer_cost_amount: amt,
-            transfer_cost_mode: fData.transfer_cost_mode || "chiffre",
-            abmed_fee_8_percent: Number(fData.abmed_fee_8_percent) || Math.round(amt * 0.08),
+            transfer_cost_mode: mode,
+            abmed_fee_8_percent: fee,
             exercise_years: fData.exercise_years || ["2026"],
           }
         }
@@ -120,8 +134,8 @@ export function parseFinancesFromBatch(batch: any): WasteFinancialData {
     } catch (e) {}
   }
 
-  // 3. Valeurs directes sur l'objet si existantes et non nulles
-  if (batch?.transfer_cost_amount && Number(batch.transfer_cost_amount) > 0) {
+  // 3. Valeurs directes sur l'objet si existantes
+  if (batch?.transfer_cost_amount !== undefined && batch?.transfer_cost_amount !== null && !isNaN(Number(batch.transfer_cost_amount)) && Number(batch.transfer_cost_amount) > 0) {
     const amt = Number(batch.transfer_cost_amount)
     const mode = batch.transfer_cost_mode || "chiffre"
     const fee = batch.abmed_fee_8_percent !== undefined ? Number(batch.abmed_fee_8_percent) : Math.round(amt * 0.08)
@@ -133,18 +147,26 @@ export function parseFinancesFromBatch(batch: any): WasteFinancialData {
     }
   }
 
-  // 4. Utilisation des valeurs de référence réelles par numéro de réception
+  // 4. Si mode explicitement spécifié à 'dons' ou 'na'
+  if (batch?.transfer_cost_mode === 'dons' || batch?.transfer_cost_mode === 'na') {
+    return {
+      transfer_cost_amount: 0,
+      transfer_cost_mode: batch.transfer_cost_mode,
+      abmed_fee_8_percent: 0,
+      exercise_years: batch.exercise_years || ["2026"],
+    }
+  }
+
+  // 5. Utilisation des valeurs de référence réelles par numéro de réception
   if (recNum && RECEPTION_FINANCE_DEFAULTS[recNum]) {
     return RECEPTION_FINANCE_DEFAULTS[recNum]
   }
 
-  // 5. Calcul proportionnel si déchet non répertorié (base standard ~60 000 FCFA/kg de valeur pharmaceutique)
-  const weight = Number(batch?.quantity) || 1
-  const estimatedCost = Math.max(250000, Math.round(weight * 50000))
+  // 6. Si aucune information financière déclarée
   return {
-    transfer_cost_amount: estimatedCost,
-    transfer_cost_mode: "chiffre",
-    abmed_fee_8_percent: Math.round(estimatedCost * 0.08),
+    transfer_cost_amount: 0,
+    transfer_cost_mode: "na",
+    abmed_fee_8_percent: 0,
     exercise_years: ["2026"],
   }
 }

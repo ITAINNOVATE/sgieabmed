@@ -1,10 +1,29 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { 
-  Trash2, Clock, Flame, ShieldAlert, AlertTriangle, RefreshCw
+  Trash2, Clock, Flame, ShieldAlert, AlertTriangle, RefreshCw,
+  Download, FileSpreadsheet, Printer, Search, ChevronLeft, ChevronRight,
+  Building2, Coins, ArrowUpDown, DollarSign, Scale, Layers
 } from "lucide-react"
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, Tooltip as RechartsTooltip
@@ -12,6 +31,9 @@ import {
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { exportToExcel, exportToCSV } from "@/utils/exportUtils"
+import { parseFinancesFromBatch } from "@/utils/waste-finances"
+import { toast } from "sonner"
 
 const WASTE_CATEGORIES_COLORS = ['#E53935', '#FB8C00', '#1E88E5', '#43A047']
 const WASTE_STATUS_COLORS = ['#1E88E5', '#FB8C00', '#43A047', '#D81B60', '#E53935']
@@ -22,6 +44,14 @@ export default function WasteAnalyticsPage() {
   const [lastUpdated, setLastUpdated] = useState<string>("")
   const [isSyncing, setIsSyncing] = useState(false)
   const hasLoadedOnceRef = useRef(false)
+
+  // Filtres et pagination pour le tableau récapitulatif financier
+  const [centerSearch, setCenterSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all") // all | assujetti | exonere
+  const [sortBy, setSortBy] = useState<"amount" | "fee" | "weight" | "name">("amount")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [tablePage, setTablePage] = useState(1)
+  const [tablePageSize, setTablePageSize] = useState(15)
 
   const loadWasteDashboardData = useCallback(async (manual = false) => {
     if (typeof window === "undefined") return
@@ -103,6 +133,227 @@ export default function WasteAnalyticsPage() {
     onSync: loadWasteDashboardData,
     pollIntervalMs: 8000,
   })
+
+  // Agrégation financière par centre apporteur (déduplication préalable par réception)
+  const centersFinancialList = useMemo(() => {
+    const receptionMap = new Map<string, {
+      centerKey: string
+      centerName: string
+      city: string
+      lotsCount: number
+      weight: number
+      amount: number
+      fee: number
+      mode: string
+      years: string[]
+    }>()
+
+    batches.forEach((w) => {
+      const recKey = w.reception_number || w.batch_number || w.id
+      if (!receptionMap.has(recKey)) {
+        const fin = parseFinancesFromBatch(w)
+        const centerName = (w.source_structure || w.depositor_name || "Structure non déclarée").trim()
+        const centerCode = (w.source_structure_code || w.center_code || "").trim()
+        const centerKey = (centerCode || centerName).toLowerCase()
+        const city = w.city || w.locality || "Bénin"
+
+        receptionMap.set(recKey, {
+          centerKey,
+          centerName,
+          city,
+          lotsCount: 0,
+          weight: 0,
+          amount: fin.transfer_cost_amount || 0,
+          fee: fin.abmed_fee_8_percent || 0,
+          mode: fin.transfer_cost_mode || "chiffre",
+          years: Array.isArray(fin.exercise_years) ? fin.exercise_years.map(String) : (fin.exercise_years ? [String(fin.exercise_years)] : []),
+        })
+      }
+      const cur = receptionMap.get(recKey)!
+      cur.lotsCount += 1
+      cur.weight += Number(w.quantity) || 0
+    })
+
+    const centersMap = new Map<string, {
+      centerName: string
+      city: string
+      receptionsCount: number
+      lotsCount: number
+      weight: number
+      amount: number
+      fee: number
+      yearsSet: Set<string>
+      isExempt: boolean
+    }>()
+
+    receptionMap.forEach((rec) => {
+      if (!centersMap.has(rec.centerKey)) {
+        centersMap.set(rec.centerKey, {
+          centerName: rec.centerName,
+          city: rec.city,
+          receptionsCount: 0,
+          lotsCount: 0,
+          weight: 0,
+          amount: 0,
+          fee: 0,
+          yearsSet: new Set<string>(),
+          isExempt: true,
+        })
+      }
+      const c = centersMap.get(rec.centerKey)!
+      c.receptionsCount += 1
+      c.lotsCount += rec.lotsCount
+      c.weight += rec.weight
+      c.amount += rec.amount
+      c.fee += rec.fee
+      rec.years.forEach((y) => c.yearsSet.add(y))
+      if (rec.mode === 'chiffre' || rec.amount > 0) {
+        c.isExempt = false
+      }
+    })
+
+    return Array.from(centersMap.values()).map((c) => ({
+      name: c.centerName,
+      city: c.city,
+      receptionsCount: c.receptionsCount,
+      lotsCount: c.lotsCount,
+      weight: c.weight,
+      amount: c.amount,
+      fee: c.fee,
+      years: Array.from(c.yearsSet).sort().join(', ') || '2026',
+      isExempt: c.isExempt,
+      statusLabel: c.isExempt ? "Exonéré / Dons / N/A" : "Assujetti (8%)",
+    }))
+  }, [batches])
+
+  const filteredCenters = useMemo(() => {
+    return centersFinancialList.filter((c) => {
+      const matchSearch =
+        !centerSearch.trim() ||
+        c.name.toLowerCase().includes(centerSearch.toLowerCase()) ||
+        c.city.toLowerCase().includes(centerSearch.toLowerCase())
+      const matchStatus =
+        statusFilter === "all"
+          ? true
+          : statusFilter === "assujetti"
+          ? !c.isExempt
+          : c.isExempt
+      return matchSearch && matchStatus
+    }).sort((a, b) => {
+      let comparison = 0
+      if (sortBy === 'amount') comparison = a.amount - b.amount
+      else if (sortBy === 'fee') comparison = a.fee - b.fee
+      else if (sortBy === 'weight') comparison = a.weight - b.weight
+      else if (sortBy === 'name') comparison = a.name.localeCompare(b.name, 'fr')
+      return sortOrder === 'desc' ? -comparison : comparison
+    })
+  }, [centersFinancialList, centerSearch, statusFilter, sortBy, sortOrder])
+
+  const financialTotals = useMemo(() => {
+    return filteredCenters.reduce(
+      (acc, c) => ({
+        centersCount: acc.centersCount + 1,
+        receptionsCount: acc.receptionsCount + c.receptionsCount,
+        lotsCount: acc.lotsCount + c.lotsCount,
+        weight: acc.weight + c.weight,
+        amount: acc.amount + c.amount,
+        fee: acc.fee + c.fee,
+      }),
+      { centersCount: 0, receptionsCount: 0, lotsCount: 0, weight: 0, amount: 0, fee: 0 }
+    )
+  }, [filteredCenters])
+
+  const totalTablePages = Math.max(1, Math.ceil(filteredCenters.length / tablePageSize))
+  const paginatedCenters = useMemo(() => {
+    const start = (tablePage - 1) * tablePageSize
+    return filteredCenters.slice(start, start + tablePageSize)
+  }, [filteredCenters, tablePage, tablePageSize])
+
+  const handleExportExcel = () => {
+    const headers = [
+      "N°",
+      "Centre / Structure Apporteuse",
+      "Ville / Localité",
+      "Nb Bordereaux",
+      "Nb Lots",
+      "Poids Total (kg)",
+      "Coût Cession HT (FCFA)",
+      "Redevance 8% ABMeD (FCFA)",
+      "Années d'exercice",
+      "Statut Cession",
+    ]
+    const data: Record<string, any>[] = filteredCenters.map((c, idx) => ({
+      "N°": idx + 1,
+      "Centre / Structure Apporteuse": c.name,
+      "Ville / Localité": c.city,
+      "Nb Bordereaux": c.receptionsCount,
+      "Nb Lots": c.lotsCount,
+      "Poids Total (kg)": Number(c.weight.toFixed(2)),
+      "Coût Cession HT (FCFA)": Math.round(c.amount),
+      "Redevance 8% ABMeD (FCFA)": Math.round(c.fee),
+      "Années d'exercice": c.years,
+      "Statut Cession": c.statusLabel,
+    }))
+    data.push({
+      "N°": "TOTAL",
+      "Centre / Structure Apporteuse": `${financialTotals.centersCount} Structure(s)`,
+      "Ville / Localité": "-",
+      "Nb Bordereaux": financialTotals.receptionsCount,
+      "Nb Lots": financialTotals.lotsCount,
+      "Poids Total (kg)": Number(financialTotals.weight.toFixed(2)),
+      "Coût Cession HT (FCFA)": Math.round(financialTotals.amount),
+      "Redevance 8% ABMeD (FCFA)": Math.round(financialTotals.fee),
+      "Années d'exercice": "-",
+      "Statut Cession": "-",
+    })
+    exportToExcel(data, headers, `Recap_Financier_Centres_Cessions_Redevances_8_ABMeD_${new Date().toISOString().slice(0, 10)}`)
+    toast.success("Tableau exporté en Excel (.xlsx) avec succès")
+  }
+
+  const handleExportCSV = () => {
+    const headers = [
+      "N°",
+      "Centre / Structure Apporteuse",
+      "Ville / Localité",
+      "Nb Bordereaux",
+      "Nb Lots",
+      "Poids Total (kg)",
+      "Coût Cession HT (FCFA)",
+      "Redevance 8% ABMeD (FCFA)",
+      "Années d'exercice",
+      "Statut Cession",
+    ]
+    const data: Record<string, any>[] = filteredCenters.map((c, idx) => ({
+      "N°": idx + 1,
+      "Centre / Structure Apporteuse": c.name,
+      "Ville / Localité": c.city,
+      "Nb Bordereaux": c.receptionsCount,
+      "Nb Lots": c.lotsCount,
+      "Poids Total (kg)": Number(c.weight.toFixed(2)),
+      "Coût Cession HT (FCFA)": Math.round(c.amount),
+      "Redevance 8% ABMeD (FCFA)": Math.round(c.fee),
+      "Années d'exercice": c.years,
+      "Statut Cession": c.statusLabel,
+    }))
+    data.push({
+      "N°": "TOTAL",
+      "Centre / Structure Apporteuse": `${financialTotals.centersCount} Structure(s)`,
+      "Ville / Localité": "-",
+      "Nb Bordereaux": financialTotals.receptionsCount,
+      "Nb Lots": financialTotals.lotsCount,
+      "Poids Total (kg)": Number(financialTotals.weight.toFixed(2)),
+      "Coût Cession HT (FCFA)": Math.round(financialTotals.amount),
+      "Redevance 8% ABMeD (FCFA)": Math.round(financialTotals.fee),
+      "Années d'exercice": "-",
+      "Statut Cession": "-",
+    })
+    exportToCSV(data, headers, `Recap_Financier_Centres_Cessions_Redevances_8_ABMeD_${new Date().toISOString().slice(0, 10)}`)
+    toast.success("Tableau exporté en CSV avec succès")
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
 
   const activeBatches = batches.filter(b => b.status !== 'Détruit' && b.status !== 'detruit')
   const totalWasteWeight = Math.round(activeBatches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0) * 100) / 100
@@ -419,6 +670,306 @@ export default function WasteAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 4. TABLEAU RÉCAPITULATIF FINANCIER PAR CENTRE : CESSIONS & REDEVANCE 8% ABMeD */}
+      <Card className="shadow-xs border-emerald-500/30 border rounded-xl bg-card overflow-hidden">
+        <CardHeader className="p-4 sm:p-5 border-b border-border/60 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-600 text-white">
+                  <Coins className="h-4 w-4" />
+                </div>
+                <CardTitle className="text-base sm:text-lg font-bold text-foreground">
+                  Récapitulatif Financier par Centre : Cessions & Redevance 8% ABMeD
+                </CardTitle>
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold">
+                  8% Trésor ABMeD
+                </Badge>
+              </div>
+              <CardDescription className="text-xs text-muted-foreground">
+                Synthèse officielle et consolidée des déclarations de cessions de déchets et des redevances légales de 8% par structure apporteuse.
+              </CardDescription>
+            </div>
+
+            {/* Boutons d'exportation instantanés */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border-transparent gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                Exporter en Excel (.xlsx)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                className="h-8 text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Exporter en CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="h-8 text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Imprimer
+              </Button>
+            </div>
+          </div>
+
+          {/* Bandeau KPIs consolidés */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 mt-2 border-t border-emerald-500/20">
+            <div className="p-2.5 rounded-lg bg-background/80 border border-border/60">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">Centres Répertoriés</span>
+              <div className="text-lg font-black text-foreground mt-0.5">
+                {financialTotals.centersCount.toLocaleString('fr-FR')} <span className="text-xs font-normal text-muted-foreground">structure(s)</span>
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-background/80 border border-border/60">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">Poids Total Cumulé</span>
+              <div className="text-lg font-black text-foreground mt-0.5">
+                {financialTotals.weight.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">kg ({(financialTotals.weight / 1000).toFixed(2)} T)</span>
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-background/80 border border-border/60">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">Cessions Déclarées HT</span>
+              <div className="text-lg font-black text-foreground mt-0.5 text-blue-600 dark:text-blue-400">
+                {Math.round(financialTotals.amount).toLocaleString('fr-FR')} <span className="text-xs font-normal text-muted-foreground">FCFA</span>
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/40">
+              <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">Redevance 8% ABMeD</span>
+              <div className="text-lg font-black text-emerald-700 dark:text-emerald-400 mt-0.5">
+                {Math.round(financialTotals.fee).toLocaleString('fr-FR')} <span className="text-xs font-normal text-emerald-600 dark:text-emerald-500">FCFA</span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          {/* Barre de recherche et filtres de tableau */}
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher une structure ou une ville..."
+                value={centerSearch}
+                onChange={(e) => {
+                  setCenterSearch(e.target.value)
+                  setTablePage(1)
+                }}
+                className="h-8 pl-8 text-xs bg-background"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Select
+                value={statusFilter}
+                onValueChange={(val) => {
+                  if (val) {
+                    setStatusFilter(val)
+                    setTablePage(1)
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs w-[180px] bg-background">
+                  <SelectValue placeholder="Statut Cession" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts ({centersFinancialList.length})</SelectItem>
+                  <SelectItem value="assujetti">Assujettis 8%</SelectItem>
+                  <SelectItem value="exonere">Exonérés / Dons / NA</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={sortBy}
+                onValueChange={(val) => {
+                  if (val) setSortBy(val as any)
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs w-[170px] bg-background">
+                  <SelectValue placeholder="Trier par" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="amount">Cession Décroissante</SelectItem>
+                  <SelectItem value="fee">Redevance 8%</SelectItem>
+                  <SelectItem value="weight">Poids Déchets</SelectItem>
+                  <SelectItem value="name">Nom du Centre (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="h-8 px-2 text-xs"
+                title={sortOrder === 'asc' ? "Ordre croissant" : "Ordre décroissant"}
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Table interactive */}
+          <div className="rounded-lg border border-border/70 overflow-hidden overflow-x-auto shadow-2xs">
+            <Table>
+              <TableHeader className="bg-muted/70">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-12 text-center text-[11px] font-bold text-foreground">N°</TableHead>
+                  <TableHead className="min-w-[240px] text-[11px] font-bold text-foreground">Centre / Structure Apporteuse</TableHead>
+                  <TableHead className="min-w-[110px] text-[11px] font-bold text-foreground">Ville</TableHead>
+                  <TableHead className="text-right text-[11px] font-bold text-foreground">Nb Lots</TableHead>
+                  <TableHead className="text-right text-[11px] font-bold text-foreground">Poids Total (kg)</TableHead>
+                  <TableHead className="text-right text-[11px] font-bold text-foreground">Coût Cession HT (FCFA)</TableHead>
+                  <TableHead className="text-right text-[11px] font-bold text-emerald-700 dark:text-emerald-400">Redevance 8% (FCFA)</TableHead>
+                  <TableHead className="text-center text-[11px] font-bold text-foreground">Années d&apos;exercice</TableHead>
+                  <TableHead className="text-center text-[11px] font-bold text-foreground">Statut</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedCenters.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center text-xs text-muted-foreground">
+                      Aucune structure ne correspond à votre recherche.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedCenters.map((item, idx) => {
+                    const rowNumber = (tablePage - 1) * tablePageSize + idx + 1
+                    return (
+                      <TableRow key={idx} className="hover:bg-muted/40 transition-colors text-xs">
+                        <TableCell className="text-center font-mono text-[11px] text-muted-foreground">
+                          {rowNumber}
+                        </TableCell>
+                        <TableCell className="font-semibold text-foreground">
+                          {item.name}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {item.city}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-[11px]">
+                          {item.lotsCount}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-[11px] font-medium">
+                          {item.weight.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                          {item.amount > 0 ? `${Math.round(item.amount).toLocaleString('fr-FR')} FCFA` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                          {item.fee > 0 ? `${Math.round(item.fee).toLocaleString('fr-FR')} FCFA` : '-'}
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-[10px] text-muted-foreground">
+                          {item.years}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.isExempt ? (
+                            <Badge variant="outline" className="text-[9.5px] font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300">
+                              Exonéré / Dons
+                            </Badge>
+                          ) : (
+                            <Badge className="text-[9.5px] font-semibold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/60">
+                              Assujetti (8%)
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+
+              {/* Ligne de totalisation officielle */}
+              {paginatedCenters.length > 0 && (
+                <tfoot className="bg-slate-900 text-white font-bold text-xs border-t-2 border-emerald-500">
+                  <TableRow className="hover:bg-slate-900">
+                    <TableCell colSpan={3} className="py-2.5 px-3 uppercase tracking-wider text-[11px] text-emerald-400">
+                      TOTAL CONSOLIDÉ ({financialTotals.centersCount} structures)
+                    </TableCell>
+                    <TableCell className="text-right py-2.5 px-3 font-mono text-white">
+                      {financialTotals.lotsCount}
+                    </TableCell>
+                    <TableCell className="text-right py-2.5 px-3 font-mono text-white">
+                      {financialTotals.weight.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                    </TableCell>
+                    <TableCell className="text-right py-2.5 px-3 font-mono text-white">
+                      {Math.round(financialTotals.amount).toLocaleString('fr-FR')} FCFA
+                    </TableCell>
+                    <TableCell className="text-right py-2.5 px-3 font-mono text-emerald-400 text-sm">
+                      {Math.round(financialTotals.fee).toLocaleString('fr-FR')} FCFA
+                    </TableCell>
+                    <TableCell colSpan={2} className="text-center py-2.5 px-3 text-[10px] text-slate-300">
+                      Revue Complète ABMeD
+                    </TableCell>
+                  </TableRow>
+                </tfoot>
+              )}
+            </Table>
+          </div>
+
+          {/* Contrôles de pagination */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>Afficher</span>
+              <Select
+                value={String(tablePageSize)}
+                onValueChange={(val) => {
+                  if (val) {
+                    setTablePageSize(Number(val))
+                    setTablePage(1)
+                  }
+                }}
+              >
+                <SelectTrigger className="h-7 w-16 text-xs bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="15">15</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+              <span>lignes par page • <strong>{filteredCenters.length}</strong> structure(s) au total</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs">
+                Page <strong>{tablePage}</strong> sur <strong>{totalTablePages}</strong>
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                  disabled={tablePage <= 1}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTablePage(p => Math.min(totalTablePages, p + 1))}
+                  disabled={tablePage >= totalTablePages}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
     </div>
   )

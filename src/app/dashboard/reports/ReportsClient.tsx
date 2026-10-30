@@ -196,6 +196,7 @@ const PIE_COLORS = ['#1B5C2E', '#22c55e', '#0ea5e9', '#f59e0b', '#ef4444', '#8b5
 // -------------------------------------------------------------
 function ReportThumbnail({ type }: { type: string }) {
   switch (type) {
+    case 'centers_financial_recap':
     case 'financial_detailed_audit':
       return (
         <div className="w-22 h-15 rounded-lg border border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/40 p-1 flex flex-col justify-between shadow-2xs select-none pointer-events-none">
@@ -571,7 +572,7 @@ export default function ReportsClient({
   destructions: initialDestructions = [],
 }: Props) {
   // Navigation & Rapport actif
-  const [reportType, setReportType] = useState('financial_detailed_audit')
+  const [reportType, setReportType] = useState('centers_financial_recap')
   const [cardCategoryFilter, setCardCategoryFilter] = useState('all')
   const [cardSearchQuery, setCardSearchQuery] = useState('')
 
@@ -983,10 +984,9 @@ export default function ReportsClient({
     filteredWaste.forEach((w) => {
       const recKey = w.reception_number || w.batch_number || w.id
       if (!receptionFinanceMap.has(recKey)) {
-        const amt = Number(w.transfer_cost_amount) || 0
-        const fee = w.abmed_fee_8_percent !== undefined && w.abmed_fee_8_percent !== null
-          ? Number(w.abmed_fee_8_percent)
-          : Math.round(amt * 0.08)
+        const fin = parseFinancesFromBatch(w)
+        const amt = fin.transfer_cost_amount || 0
+        const fee = fin.abmed_fee_8_percent || 0
         const st = (w.status || '').toLowerCase()
         const isPaid = st.includes('payé') || st.includes('acquitt') || st.includes('encaiss') || st.includes('exécut')
         receptionFinanceMap.set(recKey, { cession: amt, fee, paid: isPaid })
@@ -1049,7 +1049,7 @@ export default function ReportsClient({
   }, [filteredSamples])
 
   // -------------------------------------------------------------
-  // DÉFINITION EXHAUSTIVE DES 16 RAPPORTS OFFICIELS eGED ABMed
+  // DÉFINITION EXHAUSTIVE DES 17 RAPPORTS OFFICIELS eGED ABMed
   // -------------------------------------------------------------
   const reportDefinitions: Record<
     string,
@@ -1066,6 +1066,147 @@ export default function ReportsClient({
     }
   > = useMemo(() => {
     return {
+      // 0. TABLEAU RÉCAPITULATIF PAR CENTRE : CESSIONS & REDEVANCE 8% ABMeD (PRIORITAIRE)
+      centers_financial_recap: {
+        id: 'centers_financial_recap',
+        title: "Récapitulatif Financier par Centre : Cessions & Redevances 8% ABMeD",
+        shortTitle: "Cessions & 8% par Centre",
+        category: 'financial',
+        categoryLabel: "Finances & 8%",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300",
+        infoText: "Synthèse exhaustive par centre apporteur des tonnages déposés, du coût total de cession HT déclaré, et de la redevance légale de 8% due à l'ABMeD.",
+        description: "Tableau récapitulatif officiel par structure : nombre de bordereaux et de lots, poids total en kg, coût de cession HT, redevance 8% ABMeD, années d'exercice et statut de cession.",
+        getRows: () => {
+          const headers = [
+            "N°",
+            "Centre / Structure Apporteuse",
+            "Ville / Localité",
+            "Type Établissement",
+            "Nb Bordereaux",
+            "Nb Lots Déchets",
+            "Poids Total (kg)",
+            "Coût Cession HT (FCFA)",
+            "Redevance 8% ABMeD (FCFA)",
+            "Années d'exercice",
+            "Statut Cession",
+          ]
+
+          // 1. Déduplication par bordereau de réception
+          const receptionMap = new Map<string, {
+            centerKey: string
+            centerName: string
+            city: string
+            centerType: string
+            lotsCount: number
+            weight: number
+            amount: number
+            fee: number
+            mode: string
+            years: string[]
+          }>()
+
+          filteredWaste.forEach((w) => {
+            const recKey = w.reception_number || w.batch_number || w.id
+            if (!receptionMap.has(recKey)) {
+              const fin = parseFinancesFromBatch(w)
+              const centerName = w.source_structure || w.depositor_name || "Structure non déclarée"
+              const centerCode = w.source_structure_code || w.center_code || ""
+              const centerKey = (centerCode || centerName).trim().toLowerCase()
+
+              const matchedCenter = centersList.find((c) =>
+                (centerCode && c.center_code?.toLowerCase() === centerCode.toLowerCase()) ||
+                c.name?.toLowerCase().trim() === centerName.toLowerCase().trim()
+              )
+              const city: string = String(matchedCenter?.city || (typeof w.city === 'string' ? w.city : '') || (typeof w.locality === 'string' ? w.locality : '') || "Bénin")
+              const centerType: string = String(matchedCenter?.center_type || (typeof w.source_structure_type === 'string' ? w.source_structure_type : '') || "Officine / Grossiste")
+
+              receptionMap.set(recKey, {
+                centerKey,
+                centerName,
+                city,
+                centerType,
+                lotsCount: 0,
+                weight: 0,
+                amount: fin.transfer_cost_amount || 0,
+                fee: fin.abmed_fee_8_percent || 0,
+                mode: fin.transfer_cost_mode || "chiffre",
+                years: Array.isArray(fin.exercise_years) ? fin.exercise_years.map(String) : (fin.exercise_years ? [String(fin.exercise_years)] : []),
+              })
+            }
+            const cur = receptionMap.get(recKey)!
+            cur.lotsCount += 1
+            cur.weight += Number(w.quantity) || 0
+          })
+
+          // 2. Consolidation par centre apporteur
+          const centersMap = new Map<string, {
+            centerName: string
+            city: string
+            centerType: string
+            receptionsCount: number
+            lotsCount: number
+            weight: number
+            amount: number
+            fee: number
+            yearsSet: Set<string>
+            isExempt: boolean
+          }>()
+
+          receptionMap.forEach((rec) => {
+            if (!centersMap.has(rec.centerKey)) {
+              centersMap.set(rec.centerKey, {
+                centerName: rec.centerName,
+                city: rec.city,
+                centerType: rec.centerType,
+                receptionsCount: 0,
+                lotsCount: 0,
+                weight: 0,
+                amount: 0,
+                fee: 0,
+                yearsSet: new Set<string>(),
+                isExempt: true,
+              })
+            }
+            const c = centersMap.get(rec.centerKey)!
+            c.receptionsCount += 1
+            c.lotsCount += rec.lotsCount
+            c.weight += rec.weight
+            c.amount += rec.amount
+            c.fee += rec.fee
+            rec.years.forEach((y) => c.yearsSet.add(y))
+            if (rec.mode === 'chiffre' || rec.amount > 0) {
+              c.isExempt = false
+            }
+          })
+
+          const sortedCenters = Array.from(centersMap.values()).sort((a, b) =>
+            a.centerName.localeCompare(b.centerName, 'fr')
+          )
+
+          const exportData: Record<string, any>[] = sortedCenters.map((c, idx) => {
+            const yearsArr = Array.from(c.yearsSet).sort()
+            const yearsStr = yearsArr.length > 0 ? yearsArr.join(', ') : '2026'
+            const statusCession = c.isExempt ? "Exonéré / Dons / N/A" : "Assujetti (8%)"
+            return {
+              "N°": idx + 1,
+              "Centre / Structure Apporteuse": c.centerName,
+              "Ville / Localité": c.city,
+              "Type Établissement": c.centerType,
+              "Nb Bordereaux": c.receptionsCount,
+              "Nb Lots Déchets": c.lotsCount,
+              "Poids Total (kg)": `${c.weight.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`,
+              "Coût Cession HT (FCFA)": `${Math.round(c.amount).toLocaleString('fr-FR')} FCFA`,
+              "Redevance 8% ABMeD (FCFA)": `${Math.round(c.fee).toLocaleString('fr-FR')} FCFA`,
+              "Années d'exercice": yearsStr,
+              "Statut Cession": statusCession,
+            }
+          })
+
+          const rows = exportData.map((d) => headers.map((h) => String(d[h] || '')))
+          return { headers, rows, exportData }
+        },
+      },
+
       // 1. RAPPORT FINANCIER DÉTAILLÉ & RECOUVREMENT (NOUVEAU - REQUIS PAR L'UTILISATEUR)
       financial_detailed_audit: {
         id: 'financial_detailed_audit',
@@ -1098,10 +1239,11 @@ export default function ReportsClient({
           filteredWaste.forEach((w) => {
             const recKey = w.reception_number || w.batch_number || w.id
             if (!recAuditMap.has(recKey)) {
-              const amt = Number(w.transfer_cost_amount) || 0
-              const fee = w.abmed_fee_8_percent !== undefined ? Number(w.abmed_fee_8_percent) : Math.round(amt * 0.08)
+              const fin = parseFinancesFromBatch(w)
+              const amt = fin.transfer_cost_amount || 0
+              const fee = fin.abmed_fee_8_percent || 0
               const code = w.source_structure_code || w.center_code || 'CTR-2026'
-              const mode = w.transfer_cost_mode === 'dons' ? 'Dons (Exonéré)' : w.transfer_cost_mode === 'na' ? 'Non Applicable' : 'À titre onéreux'
+              const mode = fin.transfer_cost_mode === 'dons' ? 'Dons (Exonéré)' : fin.transfer_cost_mode === 'na' ? 'Non Applicable' : 'À titre onéreux'
               const isSettled = (w.status || '').toLowerCase().includes('payé') || (w.status || '').toLowerCase().includes('acquitt') || (w.status || '').toLowerCase().includes('exécut')
 
               recAuditMap.set(recKey, {
