@@ -426,6 +426,16 @@ export default function WasteClient({
       grp.batches.push(batch)
       grp.total_weight += Number(batch.quantity) || 0
       grp.total_items += 1
+
+      // Si le premier lot n'avait pas encore la balise financière mais que ce lot l'a, on met à jour le groupe
+      if (!grp.transfer_cost_amount || grp.transfer_cost_amount === 0) {
+        const lotFin = parseFinancesFromBatch(batch)
+        if (lotFin.transfer_cost_amount > 0) {
+          grp.transfer_cost_amount = lotFin.transfer_cost_amount
+          grp.transfer_cost_mode = lotFin.transfer_cost_mode
+          grp.abmed_fee_8_percent = lotFin.abmed_fee_8_percent
+        }
+      }
     })
 
     return Array.from(map.values()).sort((a, b) => {
