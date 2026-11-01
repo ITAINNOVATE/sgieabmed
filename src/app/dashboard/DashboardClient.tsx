@@ -10,10 +10,15 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, Tooltip as RechartsTooltip
 } from "recharts"
 import Link from "next/link"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Plus, ArrowLeftRight, PackageCheck, Eye, Calendar, Building2 } from "lucide-react"
+import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory } from "@/types/sample-types"
 
 const QRCodeScannerDialog = dynamic(
   () => import("@/components/qrcode-scanner-dialog").then((mod) => mod.QRCodeScannerDialog),
@@ -33,6 +38,11 @@ export default function DashboardClient({
   wasteBatches?: any[],
   destructions?: any[]
 }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const typeParam = searchParams?.get('type') || searchParams?.get('category')
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam])
+
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [samples, setSamples] = useState<any[]>(initialSamples)
   const [receptions, setReceptions] = useState<any[]>(initialReceptions)
@@ -63,7 +73,8 @@ export default function DashboardClient({
           localRecs.forEach((r: any) => {
             const rKey = r.rec_number || r.reception_number || r.id
             if (!rKey || deletedIds.includes(rKey) || deletedIds.includes(r.id)) return
-            receptionMap.set(rKey, r)
+            const rType = r.type_reception || r.formData?.type_reception || r.reception_type
+            receptionMap.set(rKey, { ...r, type_reception: rType })
 
             let sList = Array.isArray(r.samples_data) ? r.samples_data : []
             if (sList.length === 0) {
@@ -91,6 +102,8 @@ export default function DashboardClient({
                 quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.qty ?? s.quantity ?? s.received_quantity ?? 1),
                 status: ov.status || s.status || "Disponible",
                 expiry_date: s.expiry_date || s.exp_date || null,
+                type_reception: s.type_reception || rType,
+                reception_ref: rKey,
               })
             })
           })
@@ -119,7 +132,8 @@ export default function DashboardClient({
         rRes.data.forEach((r: any) => {
           const rKey = r.rec_number || r.reception_number || r.id
           if (!rKey || deletedIds.includes(rKey) || deletedIds.includes(r.id)) return
-          receptionMap.set(rKey, r)
+          const rType = r.type_reception || r.formData?.type_reception || r.reception_type
+          receptionMap.set(rKey, { ...r, type_reception: rType })
           if (Array.isArray(r.samples_data)) {
             r.samples_data.forEach((s: any, idx: number) => {
               if (!s.commercial_name) return
@@ -134,6 +148,8 @@ export default function DashboardClient({
                   quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.qty ?? s.quantity ?? s.received_quantity ?? 1),
                   status: ov.status || s.status || "Disponible",
                   expiry_date: s.expiry_date || s.exp_date || null,
+                  type_reception: s.type_reception || rType,
+                  reception_ref: rKey,
                 })
               }
             })
@@ -147,11 +163,13 @@ export default function DashboardClient({
           const sid = s.sample_number || s.id
           if (!sid || deletedIds.includes(sid) || deletedIds.includes(s.id) || (s.reception_ref && deletedIds.includes(s.reception_ref))) return
           const ov = sampleOverrides[sid] || sampleOverrides[s.id] || {}
+          const matchingRec = s.reception_ref ? receptionMap.get(s.reception_ref) : null
           sampleMap.set(sid, {
             ...s,
             category: s.category || s.dosage_form || "Médicaments",
             quantity: ov.quantity !== undefined ? Number(ov.quantity) : Number(s.quantity ?? 1),
             status: ov.status || s.status || "Disponible",
+            type_reception: s.type_reception || (matchingRec ? (matchingRec.type_reception || matchingRec.formData?.type_reception) : undefined),
           })
         })
       }
@@ -177,13 +195,24 @@ export default function DashboardClient({
     pollIntervalMs: 3000,
   })
 
+  // ─── 0. FILTRAGE STRICT PAR SOUS-MODULE D'ÉCHANTILLON ───────────────────
+  const filteredSamples = useMemo(() => {
+    if (!activeCategory) return samples
+    return samples.filter(s => matchesSampleCategory(s.type_reception, activeCategory.slug))
+  }, [samples, activeCategory])
+
+  const filteredReceptions = useMemo(() => {
+    if (!activeCategory) return receptions
+    return receptions.filter(r => matchesSampleCategory(r.type_reception || r.formData?.type_reception, activeCategory.slug))
+  }, [receptions, activeCategory])
+
   // ─── 1. CALCUL DES KPIs ÉCHANTILLONS EN TEMPS RÉEL ──────────────────────
-  const activeSamples = samples.filter(s => s.status !== 'Détruit' && (Number(s.quantity) || 0) >= 0)
+  const activeSamples = filteredSamples.filter(s => s.status !== 'Détruit' && (Number(s.quantity) || 0) >= 0)
   const totalSamples = activeSamples.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0)
   const totalLotsCount = activeSamples.length
   const quarantineCount = activeSamples.filter(s => (s.status || '').toLowerCase().includes('quarantaine')).length
   const expiringCount = activeSamples.filter(s => s.expiry_date && new Date(s.expiry_date) <= new Date(Date.now() + 30*24*60*60*1000)).length
-  const totalReceptions = receptions?.length || 0
+  const totalReceptions = filteredReceptions.length
 
   const KPIData = [
     { title: "ÉCHANTILLONS EN STOCK", value: `${totalSamples} (${totalLotsCount} lot${totalLotsCount > 1 ? 's' : ''})`, trend: "Temps réel", isUp: true, icon: Box, color: "text-[#2E7D32]", bg: "bg-[#2E7D32]/10", sparkline: [totalSamples, totalSamples] },
@@ -247,12 +276,20 @@ export default function DashboardClient({
     <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
       {/* EN-TÊTE DU TABLEAU DE BORD ÉCHANTILLONS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 pb-1">
+        <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-base font-black tracking-tight text-foreground flex items-center gap-2">
             <Beaker className="h-4 w-4 text-[#1B5C2E]" />
-            Tableau de Bord & Statistiques Échantillons
+            {activeCategory ? `Tableau de Bord — ${activeCategory.label}` : "Tableau de Bord & Statistiques Échantillons"}
           </h2>
+          {activeCategory && (
+            <Badge 
+              className="text-[10px] font-bold font-mono px-2 py-0.2"
+              style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+            >
+              {activeCategory.code}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
@@ -264,6 +301,91 @@ export default function DashboardClient({
           </Button>
         </div>
       </div>
+
+      {/* SÉLECTEUR RAPIDE DES 5 SOUS-MODULES DE TABLEAUX DE BORD */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/analytics")}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Vue Globale ({samples.length})
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          const catCount = samples.filter(s => matchesSampleCategory(s.type_reception, cat.slug)).length
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => router.push(`/dashboard/analytics?type=${cat.slug}`)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.shortLabel}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}>
+                {catCount}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* BANNIÈRE CONTEXTUELLE DU SOUS-MODULE ACTIF */}
+      {activeCategory && (
+        <div 
+          className="rounded-xl p-3 border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 relative overflow-hidden mb-1"
+          style={{ backgroundColor: `${activeCategory.color}08`, borderColor: `${activeCategory.color}35` }}
+        >
+          <div className="flex items-center gap-2.5">
+            <span 
+              className="px-2 py-0.5 text-[11px] font-mono font-bold rounded uppercase shrink-0"
+              style={{ backgroundColor: `${activeCategory.color}25`, color: activeCategory.color }}
+            >
+              {activeCategory.code}
+            </span>
+            <div>
+              <h3 className="text-xs font-bold text-foreground">
+                Sous-module : {activeCategory.label}
+              </h3>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {activeCategory.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Link href={`/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}`}>
+              <Button size="sm" className="h-7 text-xs font-bold bg-[#1B5C2E] hover:bg-[#144823] text-white shadow-2xs gap-1">
+                <Plus className="h-3 w-3" /> Nouvelle Réception
+              </Button>
+            </Link>
+            <Link href={`/dashboard/samples?type=${activeCategory.slug}`}>
+              <Button size="sm" variant="outline" className="h-7 text-xs font-semibold gap-1 bg-background/80">
+                <Box className="h-3 w-3" /> Stocks ({filteredSamples.length})
+              </Button>
+            </Link>
+            <Link href={`/dashboard/movements?type=${activeCategory.slug}`}>
+              <Button size="sm" variant="outline" className="h-7 text-xs font-semibold gap-1 bg-background/80">
+                <ArrowLeftRight className="h-3 w-3" /> Mouvements
+              </Button>
+            </Link>
+            <Link href={`/dashboard/documents?type=${activeCategory.slug}`}>
+              <Button size="sm" variant="outline" className="h-7 text-xs font-semibold gap-1 bg-background/80">
+                <Eye className="h-3 w-3" /> Documents
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* LIGNE 1 : KPIs ÉCHANTILLONS (4 CARTES COMPACTES) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -394,6 +516,92 @@ export default function DashboardClient({
         </Card>
 
       </div>
+
+      {/* TABLEAU DES DERNIERS ARRIVAGES REFLÉTANT LE SOUS-MODULE */}
+      <Card className="shadow-2xs border border-border/70 rounded-xl bg-card overflow-hidden mt-1">
+        <CardHeader className="p-2.5 pb-2 border-b border-border/50 flex flex-row items-center justify-between">
+          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <PackageCheck className="h-4 w-4 text-[#1B5C2E]" />
+            {activeCategory 
+              ? `Derniers arrivages enregistrés — ${activeCategory.label} (${filteredReceptions.length})` 
+              : `Derniers arrivages toutes catégories confondues (${filteredReceptions.length})`}
+          </CardTitle>
+          <Link 
+            href={activeCategory ? `/dashboard/receptions?type=${activeCategory.slug}` : "/dashboard/receptions"}
+            className="text-xs font-bold text-[#1B5C2E] hover:underline"
+          >
+            Voir tout le registre →
+          </Link>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground">
+              <TableRow>
+                <TableHead className="py-2 pl-3">N° Réception</TableHead>
+                <TableHead className="py-2">Date d&apos;arrivée</TableHead>
+                <TableHead className="py-2">Structure Apportrice</TableHead>
+                <TableHead className="py-2">Sous-Module</TableHead>
+                <TableHead className="py-2">Échantillons</TableHead>
+                <TableHead className="py-2 text-right pr-3">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredReceptions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-14 text-center text-xs text-muted-foreground">
+                    Aucun arrivage enregistré pour {activeCategory ? activeCategory.label : "cette sélection"}.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredReceptions.slice(0, 5).map((rec: any) => {
+                  const cat = getSampleCategory(rec.type_reception || rec.formData?.type_reception)
+                  const sCount = Array.isArray(rec.samples_data) 
+                    ? rec.samples_data.length 
+                    : Array.isArray(rec.formData?.samples) 
+                    ? rec.formData.samples.length 
+                    : 1
+
+                  return (
+                    <TableRow key={rec.rec_number || rec.id} className="text-xs hover:bg-muted/30">
+                      <TableCell className="font-bold text-foreground py-2 pl-3">
+                        {rec.rec_number || rec.id}
+                      </TableCell>
+                      <TableCell className="py-2 text-muted-foreground">
+                        {rec.date_reception ? new Date(rec.date_reception).toLocaleDateString("fr-FR") : "-"}
+                      </TableCell>
+                      <TableCell className="py-2 font-semibold">
+                        {rec.supplier || rec.formData?.supplier || "N/A"}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {cat ? (
+                          <span 
+                            className="inline-block text-[9.5px] font-mono font-bold px-2 py-0.5 rounded"
+                            style={{ backgroundColor: `${cat.color}15`, color: cat.color }}
+                          >
+                            {cat.shortLabel}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-[10px]">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2 font-mono">
+                        {sCount} produit(s)
+                      </TableCell>
+                      <TableCell className="py-2 text-right pr-3">
+                        <Button variant="ghost" size="sm" asChild className="h-6 text-[11px] px-2 text-[#1B5C2E] font-bold">
+                          <Link href={activeCategory ? `/dashboard/receptions?type=${activeCategory.slug}` : `/dashboard/receptions`}>
+                            <Eye className="h-3 w-3 mr-1" /> Détails
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* BOÎTE SCANNER QR CODE */}
       <QRCodeScannerDialog 

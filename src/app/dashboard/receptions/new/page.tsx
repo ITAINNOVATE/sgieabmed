@@ -963,6 +963,8 @@ function NewReceptionContent() {
         {
           id: `doc-slip-sample-${values.rec_number}`,
           reception_number: values.rec_number,
+          reception_type: values.type_reception,
+          sample_type: values.type_reception,
           source_structure: supplierName,
           source_type: "Structure déposante d'échantillons",
           city: values.city || "Cotonou",
@@ -984,6 +986,8 @@ function NewReceptionContent() {
         ...attachedFiles.map((file, fIdx) => ({
           id: file.id || `doc-att-${values.rec_number}-${fIdx}`,
           reception_number: values.rec_number,
+          reception_type: values.type_reception,
+          sample_type: values.type_reception,
           source_structure: supplierName,
           source_type: "Structure déposante d'échantillons",
           city: values.city || "Cotonou",

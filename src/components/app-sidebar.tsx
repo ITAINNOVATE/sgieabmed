@@ -69,6 +69,7 @@ export function AppSidebar() {
 
   // State pour suivre le sous-module d'échantillon actuellement déroulé
   const [openSampleSubmodule, setOpenSampleSubmodule] = useState<string | null>("pms")
+  const [openSampleDashboards, setOpenSampleDashboards] = useState(true)
 
   // Synchronisation de l'accordéon selon l'URL active
   useEffect(() => {
@@ -132,7 +133,7 @@ export function AppSidebar() {
 
   const isActive = (path: string) => pathname === path
   const statusParam = searchParams?.get('status')
-  const isPendingReceptions = pathname === '/dashboard/receptions' && statusParam === 'en_attente'
+  const typeParam = searchParams?.get('type') || searchParams?.get('category')
   const isAllReceptions = pathname === '/dashboard/receptions' && (!statusParam || statusParam === 'all')
 
   return (
@@ -271,19 +272,69 @@ export function AppSidebar() {
                 </SidebarMenuButton>
                 {openSections.dashboards && (
                   <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/analytics" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/analytics')
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                    {/* ÉCHANTILLONS PHARMACEUTIQUES & SES SOUS-MODULES */}
+                    <div className="space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setOpenSampleDashboards(prev => !prev)}
+                        className={`flex items-center justify-between w-full h-7.5 px-2 text-xs rounded-md transition-colors cursor-pointer ${
+                          pathname === '/dashboard/analytics'
+                            ? "bg-white/20 text-white font-bold"
                             : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
                         }`}
                       >
-                        <Package className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Échantillons pharmaceutiques</span>
-                      </Link>
-                    </SidebarMenuSubItem>
+                        <div className="flex items-center gap-2 truncate">
+                          <Package className="h-3.5 w-3.5 shrink-0 text-current" />
+                          <span className="truncate">Échantillons pharmaceutiques</span>
+                        </div>
+                        {openSampleDashboards ? (
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/90" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/70" />
+                        )}
+                      </button>
+
+                      {openSampleDashboards && (
+                        <div className="border-l border-white/25 ml-2.5 pl-2 py-0.5 space-y-0.5">
+                          {/* Vue Globale */}
+                          <SidebarMenuSubItem>
+                            <Link
+                              href="/dashboard/analytics"
+                              className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                pathname === '/dashboard/analytics' && !typeParam
+                                  ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                  : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                              }`}
+                            >
+                              <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-current" />
+                              <span className="truncate">Vue Globale Échantillons</span>
+                            </Link>
+                          </SidebarMenuSubItem>
+
+                          {/* 5 Sous-modules de Tableaux de bord */}
+                          {SAMPLE_CATEGORIES.map((cat) => {
+                            const isDashActive = pathname === '/dashboard/analytics' && typeParam === cat.slug
+                            return (
+                              <SidebarMenuSubItem key={`dash-${cat.slug}`}>
+                                <Link
+                                  href={`/dashboard/analytics?type=${cat.slug}`}
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    isDashActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                                  <span className="truncate">{cat.label}</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* DÉCHETS PHARMACEUTIQUES */}
                     <SidebarMenuSubItem>
                       <Link 
                         href="/dashboard/waste/analytics" 
@@ -392,22 +443,7 @@ export function AppSidebar() {
 
                           {isCatOpen && (
                             <div className="border-l border-white/25 ml-2.5 pl-2 py-0.5 space-y-0.5">
-                              {/* 1. Vue d'ensemble du sous-module */}
-                              <SidebarMenuSubItem>
-                                <Link
-                                  href={`/dashboard/samples/category/${cat.slug}`}
-                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
-                                    pathname === `/dashboard/samples/category/${cat.slug}`
-                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
-                                  }`}
-                                >
-                                  <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-current" />
-                                  <span className="truncate">Vue d&apos;ensemble</span>
-                                </Link>
-                              </SidebarMenuSubItem>
-
-                              {/* 2. Toutes les Réceptions */}
+                              {/* 1. Toutes les Réceptions */}
                               <SidebarMenuSubItem>
                                 <Link 
                                   href={`/dashboard/receptions?type=${cat.slug}`} 

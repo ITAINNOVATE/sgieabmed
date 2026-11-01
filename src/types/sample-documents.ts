@@ -40,6 +40,8 @@ export interface SampleArchivedDocument {
   data_url?: string
   description?: string
   created_at?: string
+  reception_type?: string
+  sample_type?: string
 }
 
 export const SAMPLE_DOCUMENT_TYPES = [

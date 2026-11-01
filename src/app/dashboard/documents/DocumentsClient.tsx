@@ -56,10 +56,17 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
   const [newDocReceptionRef, setNewDocReceptionRef] = useState("")
   const [newDocTitle, setNewDocTitle] = useState("")
   const [newDocDescription, setNewDocDescription] = useState("")
+  const [newDocCategory, setNewDocCategory] = useState<string>(activeCategory?.slug || "pms")
   const [newDocFile, setNewDocFile] = useState<{ name: string; size: string; type: string; dataUrl: string } | null>(null)
   const [isSubmittingNewDoc, setIsSubmittingNewDoc] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const supabase = createClient()
+
+  useEffect(() => {
+    if (activeCategory?.slug) {
+      setNewDocCategory(activeCategory.slug)
+    }
+  }, [activeCategory])
 
   // Chargement et synchronisation exhaustifs des documents échantillons
   const loadDocuments = async () => {
@@ -84,6 +91,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
         } catch (e) {}
       }
 
+      const receptionTypeMap = new Map<string, string>()
+
       // 2. Extraire systématiquement toutes les réceptions d'échantillons de l'historique
       const historyRaw = localStorage.getItem("reception_history_records")
       if (historyRaw) {
@@ -94,6 +103,9 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
               const supplier = rec.supplier || rec.manufacturer || "Fournisseur / Demandeur"
               const recNum = rec.rec_number || rec.id
               if (!recNum) return
+              const recType = rec.type_reception || rec.formData?.type_reception
+              if (recType) receptionTypeMap.set(recNum, recType)
+
               const date = rec.date_reception || rec.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
               const slipId = `doc-slip-sample-${recNum}`
 
@@ -116,7 +128,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                   file_size_formatted: "PDF Officiel eGED",
                   file_type: "application/pdf",
                   created_at: rec.created_at || new Date().toISOString(),
-                  reception_type: rec.type_reception || rec.formData?.type_reception,
+                  reception_type: recType,
+                  sample_type: recType,
                 } as any)
               }
 
@@ -150,7 +163,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                           data_url: f.url || f.data_url,
                           file_data: f.url || f.data_url,
                           created_at: new Date().toISOString(),
-                          reception_type: rec.type_reception || draft.formData?.type_reception,
+                          reception_type: recType || draft.formData?.type_reception,
+                          sample_type: recType || draft.formData?.type_reception,
                         } as any)
                       }
                     })
@@ -172,6 +186,11 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
               if (val) {
                 const parsed = JSON.parse(val)
                 const recNum = parsed.reception_number || parsed.formData?.reception_number || parsed.formData?.rec_number || key.replace("reception_draft_details_", "")
+                const recType = parsed.formData?.type_reception || parsed.type_reception
+                if (recNum && recType && !receptionTypeMap.has(recNum)) {
+                  receptionTypeMap.set(recNum, recType)
+                }
+
                 const files = parsed.attachedFiles || parsed.attached_files || parsed.formData?.attachedFiles || parsed.attachedDocs || parsed.formData?.attachedDocs
                 const supplier = parsed.formData?.supplier || parsed.formData?.source_structure || parsed.supplier || "Structure Déposante"
                 const date = parsed.formData?.date_reception || parsed.date_reception || new Date().toISOString().split("T")[0]
@@ -200,6 +219,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                         data_url: f.url || f.data_url || f.dataUrl,
                         file_data: f.url || f.data_url || f.dataUrl,
                         created_at: new Date().toISOString(),
+                        reception_type: recType,
+                        sample_type: recType,
                       })
                     }
                   })
@@ -228,6 +249,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                       file_size_formatted: "Déclaré apporteur",
                       file_type: "application/pdf",
                       created_at: new Date().toISOString(),
+                      reception_type: recType,
+                      sample_type: recType,
                     })
                   }
                 }
@@ -248,6 +271,11 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
           cloudRecs.forEach((rec: any) => {
             const recNum = rec.rec_number || rec.id
             if (!recNum) return
+            const recType = rec.type_reception
+            if (recType && !receptionTypeMap.has(recNum)) {
+              receptionTypeMap.set(recNum, recType)
+            }
+
             const slipId = `doc-slip-sample-${recNum}`
             const supplier = rec.supplier || rec.manufacturer || "Fournisseur / Demandeur"
             const date = rec.date_reception || rec.created_at?.split("T")[0] || new Date().toISOString().split("T")[0]
@@ -270,11 +298,22 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                 file_size_formatted: "PDF Officiel eGED",
                 file_type: "application/pdf",
                 created_at: rec.created_at || new Date().toISOString(),
+                reception_type: recType,
+                sample_type: recType,
               })
             }
           })
         }
       } catch (err) {}
+
+      // Taguer rétroactivement tous les documents existants par leur type de réception
+      docsMap.forEach((doc) => {
+        if (!doc.reception_type && doc.reception_number && receptionTypeMap.has(doc.reception_number)) {
+          const matchedType = receptionTypeMap.get(doc.reception_number)
+          doc.reception_type = matchedType
+          doc.sample_type = matchedType
+        }
+      })
 
       const finalList = Array.from(docsMap.values()).sort((a, b) => {
         const dateA = new Date(a.created_at || a.date || 0).getTime()
@@ -343,7 +382,7 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
         (categoryFilter === "PIECES_APPORTEUR" && !isOfficial) ||
         (categoryFilter === "OFFICIEL" && isOfficial)
 
-      const matchesSubmodule = !activeCategory || matchesSampleCategory((doc as any).reception_type, activeCategory.slug)
+      const matchesSubmodule = !activeCategory || matchesSampleCategory((doc as any).reception_type || (doc as any).sample_type, activeCategory.slug)
 
       return matchesSearch && matchesApporteur && matchesDocType && matchesCategory && matchesSubmodule
     })
@@ -561,8 +600,10 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
         reception_number: newDocReceptionRef.trim() || undefined,
         reception_date: now.toISOString().split("T")[0],
         created_at: now.toISOString(),
-        description: newDocDescription.trim() || undefined
-      }
+        description: newDocDescription.trim() || undefined,
+        reception_type: getSampleCategory(newDocCategory)?.label || activeCategory?.label,
+        sample_type: getSampleCategory(newDocCategory)?.label || activeCategory?.label,
+      } as any
 
       const updated = [newArchivedDoc, ...documents]
       setDocuments(updated)
@@ -1363,6 +1404,28 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
+            {/* Sous-module / Type d'échantillon */}
+            <div className="space-y-1.5">
+              <label className="font-semibold text-foreground">
+                Sous-module d&apos;échantillon associé <span className="text-red-500">*</span>
+              </label>
+              <Select value={newDocCategory} onValueChange={(val) => setNewDocCategory(val || "pms")}>
+                <SelectTrigger className="h-9 text-xs bg-background">
+                  <SelectValue placeholder="Sélectionnez le type d'échantillon" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAMPLE_CATEGORIES.map(c => (
+                    <SelectItem key={c.slug} value={c.slug} className="text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                        <span>{c.label} ({c.code})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Structure Apportrice */}
             <div className="space-y-1.5">
               <label className="font-semibold text-foreground">
