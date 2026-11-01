@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { 
   FileText, Download, Eye, Plus, Search, Filter, Trash2, 
   Building2, Calendar, HardDrive, CheckCircle2, User, Phone, 
@@ -22,6 +23,7 @@ import { getDocumentFile, saveDocumentFile, deleteDocumentFile, optimizeFileForU
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { createClient } from "@/utils/supabase/client"
+import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory } from "@/types/sample-types"
 
 const STORAGE_KEY = "sample_documents_custom_v1"
 
@@ -31,6 +33,11 @@ interface DocumentsClientProps {
 }
 
 export default function DocumentsClient({ initialDocuments = [], samplesList = [] }: DocumentsClientProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const typeParam = searchParams.get('type') || searchParams.get('category')
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam])
+
   const [documents, setDocuments] = useState<SampleArchivedDocument[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedApporteur, setSelectedApporteur] = useState<string>("ALL")
@@ -109,7 +116,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                   file_size_formatted: "PDF Officiel eGED",
                   file_type: "application/pdf",
                   created_at: rec.created_at || new Date().toISOString(),
-                })
+                  reception_type: rec.type_reception || rec.formData?.type_reception,
+                } as any)
               }
 
               // Extraire les pièces jointes enregistrées dans le brouillon ou les détails
@@ -142,7 +150,8 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
                           data_url: f.url || f.data_url,
                           file_data: f.url || f.data_url,
                           created_at: new Date().toISOString(),
-                        })
+                          reception_type: rec.type_reception || draft.formData?.type_reception,
+                        } as any)
                       }
                     })
                   }
@@ -334,9 +343,11 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
         (categoryFilter === "PIECES_APPORTEUR" && !isOfficial) ||
         (categoryFilter === "OFFICIEL" && isOfficial)
 
-      return matchesSearch && matchesApporteur && matchesDocType && matchesCategory
+      const matchesSubmodule = !activeCategory || matchesSampleCategory((doc as any).reception_type, activeCategory.slug)
+
+      return matchesSearch && matchesApporteur && matchesDocType && matchesCategory && matchesSubmodule
     })
-  }, [documents, searchTerm, selectedApporteur, selectedDocType, categoryFilter])
+  }, [documents, searchTerm, selectedApporteur, selectedDocType, categoryFilter, activeCategory])
 
   // Regroupement par structure apportrice pour la vue dédiée
   const groupedByApporteur = useMemo(() => {
@@ -584,14 +595,26 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
             <span>/</span>
             <span className="text-[#1B5C2E] font-bold">Documentation & Certificats</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <div className="p-2 bg-[#1B5C2E]/10 rounded-xl text-[#1B5C2E]">
               <FileText className="h-6 w-6" />
             </div>
-            Documentation Échantillons
-          </h1>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">
+              Documentation Échantillons
+            </h1>
+            {activeCategory && (
+              <Badge 
+                className="text-xs font-bold font-mono"
+                style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+              >
+                {activeCategory.label}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            Archivage documentaire autonome et traçabilité des pièces déposées par les structures et apporteurs d&apos;échantillons (bordereaux de livraison, certificats d&apos;analyse CoA, factures, attestations eGED).
+            {activeCategory 
+              ? `Archivage autonome et pièces justificatives pour le sous-module : ${activeCategory.description}`
+              : "Archivage documentaire autonome et traçabilité des pièces déposées par les structures et apporteurs d'échantillons (bordereaux de livraison, certificats d'analyse CoA, factures, attestations eGED)."}
           </p>
         </div>
 
@@ -622,11 +645,48 @@ export default function DocumentsClient({ initialDocuments = [], samplesList = [
             size="sm"
             className="h-9 text-xs font-bold gap-1.5 bg-[#1B5C2E] hover:bg-[#144723] text-white shadow-xs"
           >
-            <Link href="/dashboard/receptions/new">
-              <Plus className="h-4 w-4" /> Nouvelle Réception
+            <Link href={activeCategory ? `/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}` : "/dashboard/receptions/new"}>
+              <Plus className="h-4 w-4" /> Nouvelle Réception {activeCategory ? `(${activeCategory.shortLabel})` : ""}
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Sélecteur des 5 sous-modules d'échantillons */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => router.replace('/dashboard/documents')}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Tous les Documents ({documents.length})
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          const catCount = documents.filter(d => matchesSampleCategory((d as any).reception_type, cat.slug)).length
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => router.replace(`/dashboard/documents?type=${cat.slug}`)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}>
+                {catCount}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* KPI CARDS (INTERACTIFS) */}

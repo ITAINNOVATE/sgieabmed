@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,10 +16,16 @@ import { toast } from "sonner"
 import { clearAllTestData } from "@/utils/clean-test-data"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ArrowRightLeft, ArrowUpRight, ArrowDownRight, Plus, ShieldAlert, CheckCircle2, RotateCcw, Search, FileText, Trash2, Eye } from "lucide-react"
+import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory } from "@/types/sample-types"
 
 const MOCK_MOVEMENTS: any[] = []
 
-export default function MovementsPage() {
+function MovementsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const typeParam = searchParams?.get('type') || searchParams?.get('category')
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam])
+
   const [movements, setMovements] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -103,6 +110,7 @@ export default function MovementsPage() {
               new_status: isFinalized ? "Disponible" : "À localiser",
               new_location: sample.location || "Zone de Quarantaine / Réception",
               reference_document: rec.rec_number,
+              type_reception: rec.type_reception || rec.formData?.type_reception,
             })
             newEntriesGenerated = true
           }
@@ -195,15 +203,30 @@ export default function MovementsPage() {
     pollIntervalMs: 6000,
   });
 
-  const filteredMovements = movements.filter(mvt => {
+  const categoryScopedMovements = useMemo(() => {
+    if (!activeCategory) return movements
+    return movements.filter(mvt => matchesSampleCategory(mvt.type_reception, activeCategory.slug))
+  }, [movements, activeCategory])
+
+  const filteredMovements = categoryScopedMovements.filter(mvt => {
     const matchesSearch = 
       (mvt.mvt_number && mvt.mvt_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (mvt.commercial_name && mvt.commercial_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (mvt.batch_number && mvt.batch_number.toLowerCase().includes(searchTerm.toLowerCase()))
+      (mvt.batch_number && mvt.batch_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (mvt.reference_document && mvt.reference_document.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (mvt.type_reception && mvt.type_reception.toLowerCase().includes(searchTerm.toLowerCase()))
       
     const matchesType = typeFilter === "all" || mvt.movement_type === typeFilter
     return matchesSearch && matchesType
   })
+
+  const handleCategorySwitch = (slug: string | null) => {
+    if (!slug || slug === 'all') {
+      router.replace('/dashboard/movements')
+    } else {
+      router.replace(`/dashboard/movements?type=${slug}`)
+    }
+  }
 
   return (
     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -211,13 +234,32 @@ export default function MovementsPage() {
       {/* BANDEAU EN-TÊTE COMPACT */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5 text-[#1B5C2E]" />
-            Mouvements & Cartographie Échantillons
-          </h2>
-          <p className="text-muted-foreground text-xs">Traçabilité complète des entrées, sorties, transferts et mises en quarantaine.</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-[#1B5C2E]" />
+              Mouvements & Cartographie Échantillons
+            </h2>
+            {activeCategory && (
+              <Badge 
+                className="text-xs font-bold font-mono"
+                style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+              >
+                {activeCategory.label}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {activeCategory 
+              ? `Traçabilité exclusive des mouvements pour : ${activeCategory.description}`
+              : "Traçabilité complète des entrées, sorties, transferts et mises en quarantaine."}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href={activeCategory ? `/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}` : "/dashboard/receptions/new"}>
+            <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+              <Plus className="h-3.5 w-3.5" /> Nouvelle Réception {activeCategory ? `(${activeCategory.shortLabel})` : ""}
+            </Button>
+          </Link>
           <Button 
             size="sm" 
             variant="outline"
@@ -238,6 +280,43 @@ export default function MovementsPage() {
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Sélecteur des 5 sous-modules d'échantillons */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => handleCategorySwitch(null)}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Tous les Flux ({movements.length})
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          const catCount = movements.filter(m => matchesSampleCategory(m.type_reception, cat.slug)).length
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => handleCategorySwitch(cat.slug)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}>
+                {catCount}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* CARTE DE TABLEAU COMPACT STATIQUE 1-ÉCRAN */}
@@ -434,5 +513,13 @@ export default function MovementsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function MovementsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Chargement des mouvements...</div>}>
+      <MovementsContent />
+    </Suspense>
   )
 }

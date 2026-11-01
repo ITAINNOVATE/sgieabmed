@@ -48,6 +48,7 @@ import {
 import React from 'react'
 import { useFormAutosave } from "@/hooks/use-form-autosave"
 import { DraftRestoreBanner } from "@/components/draft-restore-banner"
+import { getSampleCategory } from "@/types/sample-types"
 
 // --- ZOD SCHEMA ---
 const formSchema = z.object({
@@ -568,11 +569,14 @@ function NewReceptionContent() {
   const router = useRouter()
   const nextSearchParams = useSearchParams()
   const supabase = createClient()
+  const initialTypeParam = nextSearchParams.get("type")
+  const initialCategory = initialTypeParam ? getSampleCategory(initialTypeParam) : null
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
       rec_number: "REC-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000),
+      type_reception: initialCategory ? initialCategory.label : "",
       date_reception: new Date().toISOString().split('T')[0],
       time_reception: new Date().toTimeString().split(' ')[0].substring(0, 5),
       inspector: "Admin EGED",
@@ -609,6 +613,18 @@ function NewReceptionContent() {
   const isEditMode = Boolean(editId)
   const watchedStatus = form.watch("status")
   const isValidated = ["Validée", "Finalisé", "Finalisée"].includes(receptionStatus) || ["Validée", "Finalisé", "Finalisée"].includes(watchedStatus)
+
+  // Synchroniser le type de réception si passé dans l'URL
+  React.useEffect(() => {
+    if (isEditMode) return
+    const currentParam = nextSearchParams.get("type")
+    if (currentParam) {
+      const cat = getSampleCategory(currentParam)
+      if (cat && form.getValues("type_reception") !== cat.label) {
+        form.setValue("type_reception", cat.label)
+      }
+    }
+  }, [nextSearchParams, isEditMode, form])
 
   // ─── Sauvegarde automatique & Restauration après sortie inopinée ────────
   const {
@@ -1447,6 +1463,36 @@ function NewReceptionContent() {
           </Badge>
         </div>
       )}
+
+      {/* BANNIÈRE SOUS-MODULE D'ÉCHANTILLON */}
+      {(() => {
+        const cat = getSampleCategory(form.watch("type_reception") || nextSearchParams.get("type"))
+        if (!cat) return null
+        return (
+          <div 
+            className="rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border shadow-xs"
+            style={{ backgroundColor: `${cat.color}08`, borderColor: `${cat.color}30` }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+              <div>
+                <span className="text-xs font-bold text-foreground">
+                  Sous-module : {cat.label} ({cat.code})
+                </span>
+                <p className="text-[11px] text-muted-foreground">
+                  {cat.description}
+                </p>
+              </div>
+            </div>
+            <Badge 
+              className="text-[10px] font-mono font-bold shrink-0"
+              style={{ backgroundColor: `${cat.color}20`, color: cat.color, border: `1px solid ${cat.color}40` }}
+            >
+              Traçabilité {cat.code}
+            </Badge>
+          </div>
+        )
+      })()}
 
       <Form {...form}>
         <form onSubmit={(e) => { if (isValidated && !isEditMode) { e.preventDefault(); return; } form.handleSubmit(onSubmit)(e) }} className="space-y-8">

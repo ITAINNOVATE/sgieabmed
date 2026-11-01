@@ -16,11 +16,14 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
+import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory } from "@/types/sample-types"
 
 function ReceptionsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const statusParam = searchParams.get('status')
+  const typeParam = searchParams.get('type')
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam])
 
   const [receptions, setReceptions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -188,10 +191,20 @@ function ReceptionsContent() {
 
   const handleFilterClick = (filter: string) => {
     setStatusFilter(filter)
+    const typeQuery = typeParam ? `type=${encodeURIComponent(typeParam)}` : ''
     if (filter === 'all') {
-      router.replace('/dashboard/receptions')
+      router.replace(`/dashboard/receptions${typeQuery ? `?${typeQuery}` : ''}`)
     } else {
-      router.replace(`/dashboard/receptions?status=${filter}`)
+      router.replace(`/dashboard/receptions?${typeQuery ? `${typeQuery}&` : ''}status=${filter}`)
+    }
+  }
+
+  const handleCategorySwitch = (slug: string | null) => {
+    const statusQuery = statusFilter !== 'all' ? `status=${statusFilter}` : ''
+    if (!slug || slug === 'all') {
+      router.replace(`/dashboard/receptions${statusQuery ? `?${statusQuery}` : ''}`)
+    } else {
+      router.replace(`/dashboard/receptions?type=${slug}${statusQuery ? `&${statusQuery}` : ''}`)
     }
   }
 
@@ -452,13 +465,19 @@ function ReceptionsContent() {
     pollIntervalMs: 6000,
   })
 
-  const filteredReceptions = receptions.filter(rec => {
+  const categoryScopedReceptions = useMemo(() => {
+    if (!activeCategory) return receptions
+    return receptions.filter(rec => matchesSampleCategory(rec.type_reception, activeCategory.slug))
+  }, [receptions, activeCategory])
+
+  const filteredReceptions = categoryScopedReceptions.filter(rec => {
     const resolvedCode = rec.center_code || (rec.supplier ? centerCodeMap.get(rec.supplier.trim().toUpperCase()) : null)
     const matchesSearch = 
       rec.rec_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (resolvedCode && resolvedCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (rec.supplier && rec.supplier.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (rec.inspector && rec.inspector.toLowerCase().includes(searchTerm.toLowerCase()))
+      (rec.inspector && rec.inspector.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (rec.type_reception && rec.type_reception.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const isFinalized = rec.status === "Validée" || rec.status === "Finalisé" || rec.status === "Finalisée"
     const isPendingValidation = !isFinalized
@@ -476,14 +495,65 @@ function ReceptionsContent() {
     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-xl font-black tracking-tight">Réception des Échantillons</h2>
-          <p className="text-muted-foreground text-xs">Gestion des entrées d'échantillons et inspections à réception.</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-black tracking-tight">Réception des Échantillons</h2>
+            {activeCategory && (
+              <Badge 
+                className="text-xs font-bold font-mono"
+                style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+              >
+                {activeCategory.label}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {activeCategory 
+              ? `Gestion exclusive et traçabilité pour : ${activeCategory.description}`
+              : "Gestion des entrées d'échantillons et inspections à réception."}
+          </p>
         </div>
         <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8.5 px-3" asChild>
-          <Link href="/dashboard/receptions/new">
-            <Plus className="h-3.5 w-3.5" /> Enregistrer une réception
+          <Link href={activeCategory ? `/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}` : "/dashboard/receptions/new"}>
+            <Plus className="h-3.5 w-3.5" /> Enregistrer une réception {activeCategory ? `(${activeCategory.shortLabel})` : ""}
           </Link>
         </Button>
+      </div>
+
+      {/* Sélecteur des 5 sous-modules d'échantillons */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => handleCategorySwitch(null)}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Tous ({receptions.length})
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          const catCount = receptions.filter(r => matchesSampleCategory(r.type_reception, cat.slug)).length
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => handleCategorySwitch(cat.slug)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}>
+                {catCount}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
@@ -494,8 +564,10 @@ function ReceptionsContent() {
           <CardContent className="p-3 flex items-center gap-3">
             <div className="bg-[#1B5C2E]/10 p-2 rounded-lg"><PackageCheck className="h-5 w-5 text-[#1B5C2E]" /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Toutes les réceptions</p>
-              <h3 className="text-xl font-black text-foreground">{receptions.length}</h3>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {activeCategory ? `Toutes les réceptions (${activeCategory.shortLabel})` : "Toutes les réceptions"}
+              </p>
+              <h3 className="text-xl font-black text-foreground">{categoryScopedReceptions.length}</h3>
             </div>
           </CardContent>
         </Card>
@@ -508,7 +580,7 @@ function ReceptionsContent() {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Réceptions en instance (À valider)</p>
               <h3 className="text-xl font-black text-amber-600">
-                {receptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length}
+                {categoryScopedReceptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length}
               </h3>
             </div>
           </CardContent>
@@ -519,7 +591,9 @@ function ReceptionsContent() {
         <CardHeader className="p-3 pb-2 border-b border-border/50">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
             <div>
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Historique des arrivages</CardTitle>
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {activeCategory ? `Historique des arrivages (${activeCategory.label})` : "Historique des arrivages"}
+              </CardTitle>
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
@@ -621,7 +695,23 @@ function ReceptionsContent() {
 
                     return (
                       <TableRow key={rec.id} className="text-xs hover:bg-muted/30">
-                        <TableCell className="font-bold text-foreground py-2">{rec.rec_number}</TableCell>
+                        <TableCell className="font-bold text-foreground py-2">
+                          <div>{rec.rec_number}</div>
+                          {(() => {
+                            const cat = getSampleCategory(rec.type_reception)
+                            if (cat) {
+                              return (
+                                <span 
+                                  className="inline-block mt-0.5 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded"
+                                  style={{ backgroundColor: `${cat.color}15`, color: cat.color }}
+                                >
+                                  {cat.shortLabel}
+                                </span>
+                              )
+                            }
+                            return null
+                          })()}
+                        </TableCell>
                         <TableCell className="py-2 text-muted-foreground">
                           {rec.date_reception ? new Date(rec.date_reception).toLocaleDateString("fr-FR") : '-'}
                         </TableCell>

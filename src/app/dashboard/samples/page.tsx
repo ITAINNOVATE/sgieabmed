@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react"
 import { 
   ColumnDef, 
   flexRender, 
@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
@@ -32,6 +33,7 @@ import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory } from "@/types/sample-types"
 
 export type Sample = {
   id: string
@@ -47,6 +49,7 @@ export type Sample = {
   shelf_id?: string | null
   supplier_name?: string
   center_code?: string
+  type_reception?: string
 }
 
 export const columns: ColumnDef<Sample>[] = [
@@ -109,9 +112,25 @@ export const columns: ColumnDef<Sample>[] = [
             )}
           </div>
           {row.original.reception_ref && (
-            <span className="text-[10px] text-muted-foreground font-mono">
-              {row.original.reception_ref}
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span className="text-[10px] text-muted-foreground font-mono">
+                {row.original.reception_ref}
+              </span>
+              {(() => {
+                const cat = getSampleCategory(row.original.type_reception)
+                if (cat) {
+                  return (
+                    <span 
+                      className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded"
+                      style={{ backgroundColor: `${cat.color}15`, color: cat.color }}
+                    >
+                      {cat.shortLabel}
+                    </span>
+                  )
+                }
+                return null
+              })()}
+            </div>
           )}
         </div>
       )
@@ -196,7 +215,12 @@ export const columns: ColumnDef<Sample>[] = [
 
 const DEFAULT_SAMPLES: Sample[] = []
 
-export default function SamplesDataTable() {
+function SamplesContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const typeParam = searchParams.get('type') || searchParams.get('category')
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam])
+
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [data, setData] = useState<Sample[]>([])
@@ -243,6 +267,7 @@ export default function SamplesDataTable() {
           if (parsed.formData && parsed.formData.samples) {
             const supplierName = parsed.formData.supplier || rec.supplier || 'ABMed'
             const centerCode = parsed.formData.center_code || rec.center_code || (supplierName ? centerCodeMap.get(supplierName.trim().toUpperCase()) : undefined)
+            const recType = parsed.formData?.type_reception || rec.type_reception
 
             parsed.formData.samples.forEach((s: any, idx: number) => {
               if (s.commercial_name && s.commercial_name.trim() !== '') {
@@ -263,6 +288,7 @@ export default function SamplesDataTable() {
                   current_location: s.location || 'Magasin Central (Zone A)',
                   supplier_name: supplierName,
                   center_code: centerCode,
+                  type_reception: recType,
                 })
               }
             })
@@ -391,6 +417,7 @@ export default function SamplesDataTable() {
               ...s,
               supplier_name: supplierName,
               center_code: centerCode,
+              type_reception: s.type_reception || linkedRec?.type_reception,
             })
           }
         })
@@ -425,6 +452,7 @@ export default function SamplesDataTable() {
                   current_location: s.location || 'Magasin Central (Zone A)',
                   supplier_name: supplierName,
                   center_code: centerCode,
+                  type_reception: r.type_reception,
                 })
               }
             })
@@ -452,21 +480,35 @@ export default function SamplesDataTable() {
     pollIntervalMs: 3000,
   })
 
+  const categoryScopedData = useMemo(() => {
+    if (!activeCategory) return data
+    return data.filter(item => matchesSampleCategory(item.type_reception, activeCategory.slug))
+  }, [data, activeCategory])
+
   const filteredData = useMemo(() => {
-    if (!globalSearch) return data
+    if (!globalSearch) return categoryScopedData
     const q = globalSearch.toUpperCase()
-    return data.filter((item) => 
+    return categoryScopedData.filter((item) => 
       (item.commercial_name || "").toUpperCase().includes(q) ||
       (item.dci || "").toUpperCase().includes(q) ||
       (item.sample_number || "").toUpperCase().includes(q) ||
       (item.batch_number || "").toUpperCase().includes(q) ||
       (item.supplier_name || "").toUpperCase().includes(q) ||
       (item.center_code || "").toUpperCase().includes(q) ||
-      (item.current_location || "").toUpperCase().includes(q)
+      (item.current_location || "").toUpperCase().includes(q) ||
+      (item.type_reception || "").toUpperCase().includes(q)
     )
-  }, [data, globalSearch])
+  }, [categoryScopedData, globalSearch])
 
-  const unlocatedCount = useMemo(() => data.filter(s => s.status === 'À localiser').length, [data])
+  const unlocatedCount = useMemo(() => categoryScopedData.filter(s => s.status === 'À localiser').length, [categoryScopedData])
+
+  const handleCategorySwitch = (slug: string | null) => {
+    if (!slug || slug === 'all') {
+      router.replace('/dashboard/samples')
+    } else {
+      router.replace(`/dashboard/samples?type=${slug}`)
+    }
+  }
 
   const tableMeta = useMemo(() => ({
     onPrintLabel: (sample: Sample) => {
@@ -572,28 +614,47 @@ export default function SamplesDataTable() {
           </div>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Liste des échantillons</h2>
-          <p className="text-muted-foreground text-sm">Gestion complète du stock pharmaceutique.</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-2xl font-bold tracking-tight">Liste des échantillons</h2>
+            {activeCategory && (
+              <Badge 
+                className="text-xs font-bold font-mono"
+                style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+              >
+                {activeCategory.label}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm">
+            {activeCategory 
+              ? `Stock & armoires réservés au sous-module : ${activeCategory.description}`
+              : "Gestion complète du stock pharmaceutique et des armoires."}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Link href={activeCategory ? `/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}` : "/dashboard/receptions/new"}>
+            <Button className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-sm rounded-xl text-xs font-bold h-9">
+              <Plus className="mr-1.5 h-4 w-4" /> Nouvelle Réception {activeCategory ? `(${activeCategory.shortLabel})` : ""}
+            </Button>
+          </Link>
           {selectedItems.length > 0 && (
             <Button 
               onClick={() => {
                 setPrintDialogItems(selectedItems)
                 setIsPrintDialogOpen(true)
               }}
-              className="shadow-md bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl"
+              className="shadow-md bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl h-9 text-xs"
             >
               <Printer className="h-4 w-4" /> Étiqueter ({selectedItems.length})
             </Button>
           )}
-          <Button variant="outline" className="shadow-sm rounded-xl" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
-          <Button variant="outline" className="shadow-sm rounded-xl" onClick={handleExportPDF}><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
+          <Button variant="outline" className="shadow-sm rounded-xl text-xs h-9" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Export Excel</Button>
+          <Button variant="outline" className="shadow-sm rounded-xl text-xs h-9" onClick={handleExportPDF}><FileText className="mr-2 h-4 w-4" /> Export PDF</Button>
           <Button 
             variant="outline" 
-            className="shadow-sm rounded-xl text-destructive hover:bg-destructive/10 border-destructive/30"
+            className="shadow-sm rounded-xl text-destructive hover:bg-destructive/10 border-destructive/30 text-xs h-9"
             onClick={async () => {
               if (window.confirm("Êtes-vous sûr de vouloir effacer toutes les données de test ? Cette action réinitialisera les mouvements et les stocks.")) {
                 await clearAllTestData()
@@ -602,9 +663,46 @@ export default function SamplesDataTable() {
               }
             }}
           >
-            <Trash2 className="mr-2 h-4 w-4 text-destructive" /> Effacer données de test
+            <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" /> Effacer test
           </Button>
         </div>
+      </div>
+
+      {/* Sélecteur des 5 sous-modules d'échantillons */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => handleCategorySwitch(null)}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Tous les Échantillons ({data.length})
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          const catCount = data.filter(s => matchesSampleCategory(s.type_reception, cat.slug)).length
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => handleCategorySwitch(cat.slug)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}>
+                {catCount}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <Card className="border-border/50 shadow-sm">
@@ -706,5 +804,13 @@ export default function SamplesDataTable() {
         }}
       />
     </div>
+  )
+}
+
+export default function SamplesPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Chargement des échantillons...</div>}>
+      <SamplesContent />
+    </Suspense>
   )
 }

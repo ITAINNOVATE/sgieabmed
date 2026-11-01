@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { clearAllTestData } from '@/utils/clean-test-data';
+import { SAMPLE_CATEGORIES, getSampleCategory } from '@/types/sample-types';
 
 interface InventorySample {
   commercial_name: string;
@@ -86,7 +88,12 @@ function getStatusBadge(status: string) {
 
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
-export default function InventoryPage() {
+function InventoryContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const typeParam = searchParams?.get('type') || searchParams?.get('category');
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam]);
+
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(false);
   const hasLoadedOnceRef = useRef(false);
@@ -193,13 +200,32 @@ export default function InventoryPage() {
       {/* BANDEAU EN-TÊTE COMPACT */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-            <PackageSearch className="h-5 w-5 text-[#1B5C2E]" />
-            Inventaire & Rapprochement des Échantillons
-          </h2>
-          <p className="text-muted-foreground text-xs">Contrôle physique périodique des stocks et traçabilité des écarts.</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <PackageSearch className="h-5 w-5 text-[#1B5C2E]" />
+              Inventaire & Rapprochement des Échantillons
+            </h2>
+            {activeCategory && (
+              <Badge 
+                className="text-xs font-bold font-mono"
+                style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+              >
+                {activeCategory.label}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {activeCategory 
+              ? `Contrôles physiques et inventaires pour : ${activeCategory.description}`
+              : "Contrôle physique périodique des stocks et traçabilité des écarts."}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href={activeCategory ? `/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}` : "/dashboard/receptions/new"}>
+            <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+              <Plus className="h-3.5 w-3.5" /> Nouvelle Réception {activeCategory ? `(${activeCategory.shortLabel})` : ""}
+            </Button>
+          </Link>
           <Button 
             size="sm" 
             variant="outline"
@@ -220,6 +246,39 @@ export default function InventoryPage() {
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Sélecteur des 5 sous-modules d'échantillons */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => router.replace('/dashboard/inventory')}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Tous les Inventaires ({inventories.length})
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => router.replace(`/dashboard/inventory?type=${cat.slug}`)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* KPIS COMPACTS SANS SCROLL */}
@@ -327,5 +386,13 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Chargement des inventaires...</div>}>
+      <InventoryContent />
+    </Suspense>
   );
 }

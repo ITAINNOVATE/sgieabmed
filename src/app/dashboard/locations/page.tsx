@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import { SAMPLE_CATEGORIES, getSampleCategory } from "@/types/sample-types"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from "@/components/ui/dialog"
@@ -406,7 +409,12 @@ function ShelfOccupancyBar({ shelf }: { shelf: ShelfWithSamples }) {
 }
 
 // ---- Main Page ----
-export default function LocationsPage() {
+function LocationsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const typeParam = searchParams.get('type') || searchParams.get('category')
+  const activeCategory = useMemo(() => getSampleCategory(typeParam), [typeParam])
+
   const supabase = createClient()
   const [rooms,    setRooms]    = useState<RoomWithZones[]>([])
   const [rawRooms,    setRawRooms]    = useState<Room[]>([])
@@ -765,16 +773,68 @@ export default function LocationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestion des Emplacements</h2>
-          <p className="text-muted-foreground text-sm mt-1">Structure hiérarchique et taux d'occupation des échantillonthèques.</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-2xl font-bold tracking-tight">Gestion des Emplacements</h2>
+            {activeCategory && (
+              <Badge 
+                className="text-xs font-bold font-mono"
+                style={{ backgroundColor: `${activeCategory.color}20`, color: activeCategory.color, border: `1px solid ${activeCategory.color}40` }}
+              >
+                {activeCategory.label}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm mt-1">
+            {activeCategory 
+              ? `Structure hiérarchique et armoires pour : ${activeCategory.description}`
+              : "Structure hiérarchique et taux d'occupation des échantillonthèques."}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Link href={activeCategory ? `/dashboard/receptions/new?type=${encodeURIComponent(activeCategory.label)}` : "/dashboard/receptions/new"}>
+            <Button size="sm" className="bg-[#1B5C2E] hover:bg-[#154824] text-white shadow-2xs text-xs font-bold gap-1.5 h-8 px-3 border-0">
+              <Plus className="h-3.5 w-3.5" /> Nouvelle Réception {activeCategory ? `(${activeCategory.shortLabel})` : ""}
+            </Button>
+          </Link>
           <Button variant="ghost" size="sm" onClick={loadData} className="gap-2"><RefreshCw className="h-4 w-4" /> Actualiser</Button>
           <AddRoomDialog onSuccess={loadData} />
           <AddZoneDialog rooms={rawRooms} onSuccess={loadData} />
           <AddCabinetDialog rooms={rawRooms} zones={rawZones} onSuccess={loadData} />
           <AddShelfDialog rooms={rawRooms} zones={rawZones} cabinets={rawCabinets} onSuccess={loadData} />
         </div>
+      </div>
+
+      {/* Sélecteur des 5 sous-modules d'échantillons */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => router.replace('/dashboard/locations')}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            !activeCategory
+              ? "bg-[#1B5C2E] text-white shadow-2xs"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          Tous les Emplacements
+        </button>
+        {SAMPLE_CATEGORIES.map((cat) => {
+          const isSelected = activeCategory?.slug === cat.slug
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => router.replace(`/dashboard/locations?type=${cat.slug}`)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                isSelected
+                  ? "bg-[#1B5C2E] text-white shadow-2xs"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span>{cat.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* KPI Cards */}
@@ -1069,6 +1129,14 @@ export default function LocationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function LocationsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Chargement des localisations...</div>}>
+      <LocationsContent />
+    </Suspense>
   )
 }
 

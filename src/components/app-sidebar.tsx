@@ -21,13 +21,14 @@ import {
   Settings, Inbox, ArrowLeftRight, ClipboardCheck, Folder, 
   Flame, MapPin, Building2, LogOut, ChevronRight, ChevronDown,
   Users, History, PackageCheck, AlertCircle, BarChart3, Shield, ShieldCheck, Boxes,
-  CalendarDays, FileCheck
+  CalendarDays, FileCheck, Plus
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { logout } from "@/app/actions/auth"
 import { LOGO_ABMED_B64 } from "@/lib/logoabmed-b64"
 import { getCurrentUser, canAccessAdminModule, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
+import { SAMPLE_CATEGORIES, getSampleCategorySlug } from "@/types/sample-types"
 import "@/utils/waste-locations"
 import "@/utils/sample-reset"
 
@@ -66,8 +67,18 @@ export function AppSidebar() {
     admin: false,
   })
 
+  // State pour suivre le sous-module d'échantillon actuellement déroulé
+  const [openSampleSubmodule, setOpenSampleSubmodule] = useState<string | null>("pms")
+
   // Synchronisation de l'accordéon selon l'URL active
   useEffect(() => {
+    const typeParam = searchParams?.get('type') || searchParams?.get('category')
+    const detectedSlug = getSampleCategorySlug(typeParam) || (pathname.includes('/category/') ? pathname.split('/category/')[1]?.split('/')[0] : null)
+    
+    if (detectedSlug) {
+      setOpenSampleSubmodule(detectedSlug)
+    }
+
     if (pathname === '/dashboard/analytics') {
       setOpenSections({ dashboards: true, samples: false, waste: false, reports: false, alerts: false, admin: false })
     } else if (pathname === '/dashboard/waste/analytics') {
@@ -101,7 +112,7 @@ export function AppSidebar() {
     } else {
       setOpenSections({ dashboards: false, samples: false, waste: false, reports: false, alerts: false, admin: false })
     }
-  }, [pathname])
+  }, [pathname, searchParams])
 
   // Clic manuel : Mode Accordéon fluide (ouvre la section demandée et referme les autres)
   const toggleSection = (section: string) => {
@@ -113,6 +124,10 @@ export function AppSidebar() {
       alerts: section === 'alerts' ? !prev.alerts : false,
       admin: section === 'admin' ? !prev.admin : false,
     }))
+  }
+
+  const toggleSampleSubmodule = (catSlug: string) => {
+    setOpenSampleSubmodule(prev => prev === catSlug ? null : catSlug)
   }
 
   const isActive = (path: string) => pathname === path
@@ -343,98 +358,179 @@ export function AppSidebar() {
                   )}
                 </SidebarMenuButton>
                 {openSections.samples && (
-                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-3.5 pl-2 space-y-0.5">
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/receptions" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isAllReceptions
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Toutes les Réceptions</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/receptions?status=en_attente" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isPendingReceptions
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <ShieldCheck className={`h-3.5 w-3.5 shrink-0 ${isPendingReceptions ? "text-amber-600" : "text-amber-300"}`} />
-                        <span className="truncate">Réceptions en instance</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/movements" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/movements')
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Mouvements & Cartographie</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/inventory" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/inventory')
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Inventaires & Contrôles</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/locations" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/locations')
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <MapPin className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Localisations</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/samples" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/samples')
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <MapPin className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Stocks & Armoires</span>
-                      </Link>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <Link 
-                        href="/dashboard/documents" 
-                        className={`flex items-center gap-2 h-7.5 px-2 text-xs rounded-md transition-colors w-full ${
-                          isActive('/dashboard/documents')
-                            ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                            : "text-white/90 hover:text-white hover:bg-white/15 font-semibold"
-                        }`}
-                      >
-                        <Folder className="h-3.5 w-3.5 shrink-0 text-current" />
-                        <span className="truncate">Documentation & Certificats</span>
-                      </Link>
-                    </SidebarMenuSubItem>
+                  <SidebarMenuSub className="my-1 border-l border-white/30 ml-2.5 pl-1.5 space-y-1">
+                    {SAMPLE_CATEGORIES.map((cat) => {
+                      const isCatOpen = openSampleSubmodule === cat.slug
+                      const activeTypeParam = searchParams?.get('type') || searchParams?.get('category')
+                      const currentSlug = getSampleCategorySlug(activeTypeParam) || (pathname.includes('/category/') ? pathname.split('/category/')[1]?.split('/')[0] : null)
+                      const isCatActive = currentSlug === cat.slug
+
+                      return (
+                        <div key={cat.slug} className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleSampleSubmodule(cat.slug)}
+                            className={`w-full flex items-center justify-between h-8 px-2 rounded-md text-[11px] font-bold transition-all text-left cursor-pointer ${
+                              isCatActive
+                                ? "bg-white/20 text-white font-extrabold shadow-2xs border-l-2 border-emerald-400"
+                                : "text-white/90 hover:bg-white/15 hover:text-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span 
+                                className="w-2 h-2 rounded-full shrink-0" 
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <span className="truncate">{cat.label}</span>
+                            </div>
+                            {isCatOpen ? (
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/90" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/70" />
+                            )}
+                          </button>
+
+                          {isCatOpen && (
+                            <div className="border-l border-white/25 ml-2.5 pl-2 py-0.5 space-y-0.5">
+                              {/* 1. Vue d'ensemble du sous-module */}
+                              <SidebarMenuSubItem>
+                                <Link
+                                  href={`/dashboard/samples/category/${cat.slug}`}
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === `/dashboard/samples/category/${cat.slug}`
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Vue d&apos;ensemble</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 2. Toutes les Réceptions */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/receptions?type=${cat.slug}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/receptions' && (!statusParam || statusParam === 'all') && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <Inbox className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Toutes les Réceptions</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 3. Réceptions en instance */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/receptions?type=${cat.slug}&status=en_attente`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/receptions' && statusParam === 'en_attente' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+                                  <span className="truncate">Réceptions en instance</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 4. Nouvelle Réception */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/receptions/new?type=${encodeURIComponent(cat.label)}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/receptions/new' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                                  <span className="truncate">Nouvelle Réception</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 5. Stocks & Armoires */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/samples?type=${cat.slug}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/samples' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <Package className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Stocks & Armoires</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 6. Mouvements & Traçabilité */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/movements?type=${cat.slug}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/movements' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Mouvements & Traçabilité</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 7. Inventaires & Contrôles */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/inventory?type=${cat.slug}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/inventory' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Inventaires & Contrôles</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 8. Localisations */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/locations?type=${cat.slug}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/locations' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Localisations</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+
+                              {/* 9. Documentation & Certificats */}
+                              <SidebarMenuSubItem>
+                                <Link 
+                                  href={`/dashboard/documents?type=${cat.slug}`} 
+                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
+                                    pathname === '/dashboard/documents' && isCatActive
+                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
+                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
+                                  }`}
+                                >
+                                  <Folder className="h-3.5 w-3.5 shrink-0 text-current" />
+                                  <span className="truncate">Documentation & Certificats</span>
+                                </Link>
+                              </SidebarMenuSubItem>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
