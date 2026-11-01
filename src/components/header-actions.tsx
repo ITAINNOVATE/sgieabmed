@@ -170,8 +170,8 @@ export function HeaderActions() {
             type: "reception",
             title: `Réception ${r.rec_number || "en cours"}`,
             description: `Bordereau ${r.rec_number} (${r.supplier || "Apporteur"}) en attente de validation qualité.`,
-            time: r.date_reception ? `Date : ${r.date_reception}` : "En instance",
-            href: "/dashboard/receptions?status=en_attente",
+            time: r.date_reception ? `Date : ${r.date_reception}` : "Enregistré",
+            href: "/dashboard/receptions",
             read: readNotifIds.includes(`notif-rec-${r.rec_number || r.id}`),
           })
         })

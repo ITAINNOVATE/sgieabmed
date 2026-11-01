@@ -422,22 +422,7 @@ export function AppSidebar() {
                                 </Link>
                               </SidebarMenuSubItem>
 
-                              {/* 3. Réceptions en instance */}
-                              <SidebarMenuSubItem>
-                                <Link 
-                                  href={`/dashboard/receptions?type=${cat.slug}&status=en_attente`} 
-                                  className={`flex items-center gap-2 h-7 px-2 text-[11px] rounded-md transition-colors w-full ${
-                                    pathname === '/dashboard/receptions' && statusParam === 'en_attente' && isCatActive
-                                      ? "bg-white text-[#1B5C2E] font-bold shadow-xs"
-                                      : "text-white/80 hover:text-white hover:bg-white/10 font-medium"
-                                  }`}
-                                >
-                                  <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-300" />
-                                  <span className="truncate">Réceptions en instance</span>
-                                </Link>
-                              </SidebarMenuSubItem>
-
-                              {/* 4. Nouvelle Réception */}
+                              {/* 3. Nouvelle Réception */}
                               <SidebarMenuSubItem>
                                 <Link 
                                   href={`/dashboard/receptions/new?type=${encodeURIComponent(cat.label)}`} 

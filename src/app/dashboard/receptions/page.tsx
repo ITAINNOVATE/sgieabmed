@@ -572,15 +572,15 @@ function ReceptionsContent() {
           </CardContent>
         </Card>
         <Card 
-          className={`shadow-2xs border border-border/70 rounded-xl bg-card cursor-pointer transition-all hover:border-amber-500/60 ${statusFilter === 'en_attente' ? 'ring-2 ring-amber-500 bg-amber-50/15' : ''}`}
-          onClick={() => handleFilterClick("en_attente")}
+          className={`shadow-2xs border border-border/70 rounded-xl bg-card cursor-pointer transition-all hover:border-emerald-500/60 ${statusFilter === 'finalise' ? 'ring-2 ring-emerald-500 bg-emerald-50/15' : ''}`}
+          onClick={() => handleFilterClick("finalise")}
         >
           <CardContent className="p-3 flex items-center gap-3">
-            <div className="bg-amber-500/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div>
+            <div className="bg-emerald-500/10 p-2 rounded-lg"><CheckCircle2 className="h-5 w-5 text-emerald-600" /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Réceptions en instance (À valider)</p>
-              <h3 className="text-xl font-black text-amber-600">
-                {categoryScopedReceptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length}
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Réceptions validées & finalisées</p>
+              <h3 className="text-xl font-black text-emerald-600">
+                {categoryScopedReceptions.filter(r => ['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length}
               </h3>
             </div>
           </CardContent>
@@ -617,26 +617,26 @@ function ReceptionsContent() {
                   variant="ghost"
                   size="sm"
                   className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
-                    statusFilter === "en_cours"
+                    statusFilter === "finalise"
                       ? "!bg-[#1B5C2E] !text-white shadow-xs hover:!bg-[#154824] hover:!text-white focus:!text-white focus:!bg-[#1B5C2E] active:!text-white"
-                      : "text-red-600 dark:text-red-400 hover:!bg-[#1B5C2E] hover:!text-white"
+                      : "text-emerald-600 dark:text-emerald-400 hover:!bg-[#1B5C2E] hover:!text-white"
                   }`}
-                  onClick={() => handleFilterClick("en_cours")}
+                  onClick={() => handleFilterClick("finalise")}
                 >
-                  En cours
+                  Validés ({receptions.filter(r => ['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length})
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className={`h-7 text-xs px-2.5 rounded-md font-bold transition-all cursor-pointer ${
-                    statusFilter === "en_attente"
+                    statusFilter === "en_cours"
                       ? "!bg-[#1B5C2E] !text-white shadow-xs hover:!bg-[#154824] hover:!text-white focus:!text-white focus:!bg-[#1B5C2E] active:!text-white"
-                      : "text-amber-600 dark:text-amber-400 hover:!bg-[#1B5C2E] hover:!text-white"
+                      : "text-muted-foreground hover:!bg-[#1B5C2E] hover:!text-white"
                   }`}
-                  onClick={() => handleFilterClick("en_attente")}
+                  onClick={() => handleFilterClick("en_cours")}
                 >
-                  En instance ({receptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length})
+                  Brouillons ({receptions.filter(r => !['Validée', 'Finalisé', 'Finalisée'].includes(r.status)).length})
                 </Button>
                 <Button
                   type="button"

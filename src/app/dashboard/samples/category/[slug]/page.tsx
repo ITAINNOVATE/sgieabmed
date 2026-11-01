@@ -252,10 +252,10 @@ export default function SampleCategoryHubPage() {
         <Card className="border-border/60 shadow-xs">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase">Réceptions Déposées</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase">Réceptions Enregistrées</p>
               <h3 className="text-2xl font-black text-foreground mt-0.5">{receptions.length}</h3>
               <p className="text-[10px] text-emerald-600 font-medium mt-1">
-                {validatedCount} validée{validatedCount > 1 ? "s" : ""} • {pendingCount} en attente
+                {receptions.length} réception{receptions.length > 1 ? "s" : ""} validée{receptions.length > 1 ? "s" : ""}
               </p>
             </div>
             <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-950 flex items-center justify-center text-blue-600">

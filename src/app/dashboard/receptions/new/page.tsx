@@ -1139,7 +1139,8 @@ function NewReceptionContent() {
       clearDraft()
       localStorage.removeItem(AUTO_SAVE_KEY)
       toast.success(isEditMode ? "Modifications enregistrées avec succès !" : "Brouillon de réception enregistré avec succès !", { duration: 2500 })
-      router.push("/dashboard/receptions?status=en_attente")
+      const currentCat = getSampleCategory(form.getValues("type_reception"))
+      router.push(currentCat ? `/dashboard/receptions?type=${currentCat.slug}` : "/dashboard/receptions")
     } catch (err: any) {
       console.error(err)
       toast.error(`Erreur : ${err.message || "Impossible de sauvegarder la réception."}`)
