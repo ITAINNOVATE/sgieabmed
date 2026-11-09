@@ -33,9 +33,9 @@ import { SampleLocationDialog } from "@/components/sample-location-dialog"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { getRegisteredCentersSync, getRegisteredCenters, buildCenterCodeMap, Center } from "@/utils/centers-storage"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
-import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory } from "@/types/sample-types"
+import { SAMPLE_CATEGORIES, getSampleCategory, matchesSampleCategory, Sample } from "@/types/sample-types"
 
-export type Sample = {
+type _UnusedSample = {
   id: string
   sample_number: string
   reception_ref: string
@@ -52,7 +52,7 @@ export type Sample = {
   type_reception?: string
 }
 
-export const columns: ColumnDef<Sample>[] = [
+const columns: ColumnDef<Sample>[] = [
   {
     id: "select",
     header: ({ table }) => (

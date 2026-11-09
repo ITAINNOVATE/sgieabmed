@@ -15,10 +15,10 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/client"
-import { Sample } from "../page"
+import { Sample } from "@/types/sample-types"
 import { resolveCenterCode } from "@/utils/centers-storage"
 
-export type DetailedSample = Sample & {
+type DetailedSample = Sample & {
   form?: string
   dosage?: string
   manufacturer?: string

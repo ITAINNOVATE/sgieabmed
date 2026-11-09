@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { 
   CalendarDays, Clock, MapPin, Plus, CheckCircle2, AlertCircle, 
   Search, Users, Building2, FileText, Download, Printer, XCircle, 
@@ -48,7 +49,11 @@ import {
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportToExcel } from "@/utils/exportUtils"
 
-export default function AppointmentsPage() {
+function AppointmentsContent() {
+  const searchParams = useSearchParams()
+  const isNewlyRegistered = searchParams?.get("registered") === "true"
+  const newCenterCode = searchParams?.get("code")
+
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null)
   const [schedules, setSchedules] = useState<ReceptionSchedule[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -458,6 +463,39 @@ export default function AppointmentsPage() {
           )}
         </div>
       </div>
+
+      {/* ─── BANDEAU DE BIENVENUE APRÈS ENREGISTREMENT DU CENTRE ─── */}
+      {isNewlyRegistered && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/80 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-black text-sm text-emerald-950 dark:text-emerald-100">
+                  Félicitations ! Votre structure est officiellement enregistrée auprès de l&apos;ABMeD.
+                </span>
+                {(newCenterCode || userCenter?.center_code) && (
+                  <Badge className="bg-emerald-600 text-white font-mono font-bold text-xs">
+                    {newCenterCode || userCenter?.center_code}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed max-w-2xl">
+                Sélectionnez ci-dessous l&apos;une des dates de réception disponibles pour réserver votre créneau de passage. Votre identifiant de connexion est votre code centre.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setActiveTab("schedules")}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-9 px-4 rounded-xl shrink-0 cursor-pointer"
+          >
+            Réserver un Créneau
+          </Button>
+        </div>
+      )}
 
       {/* ─── CARTES KPI SYNTHÉTIQUES ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1338,3 +1376,12 @@ export default function AppointmentsPage() {
     </div>
   )
 }
+
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-xs text-muted-foreground">Chargement des rendez-vous...</div>}>
+      <AppointmentsContent />
+    </Suspense>
+  )
+}
+

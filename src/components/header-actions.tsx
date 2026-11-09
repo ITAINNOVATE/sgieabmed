@@ -651,12 +651,14 @@ export function HeaderActions() {
               <User className="mr-2 h-4 w-4 text-[#1B5C2E]" />
               <span>Voir Mon Profil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild className="cursor-pointer text-xs">
-              <Link href="/dashboard/settings">
-                <Settings className="mr-2 h-4 w-4 text-blue-600" />
-                <span>Paramètres Système</span>
-              </Link>
-            </DropdownMenuItem>
+            {!(currentUser?.role === "Centre Apporteur" || currentUser?.matricule?.startsWith("CTR-") || currentUser?.username?.startsWith("CTR-")) && (
+              <DropdownMenuItem asChild className="cursor-pointer text-xs">
+                <Link href="/dashboard/settings">
+                  <Settings className="mr-2 h-4 w-4 text-blue-600" />
+                  <span>Paramètres Système</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <form action={logout} onSubmit={() => {

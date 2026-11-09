@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/client"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { GroupedWastePackage } from "@/components/waste-grouping-dialog"
-import { WasteStockItem } from "@/app/dashboard/waste/stock/page"
+import { WasteStockItem } from "@/types/waste-stock"
 import { normalizeWasteLocation } from "@/utils/waste-locations"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
 

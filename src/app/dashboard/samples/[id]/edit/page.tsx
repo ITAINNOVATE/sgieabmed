@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Box, AlertCircle } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
-import { Sample } from "../../page"
+import { Sample } from "@/types/sample-types"
 
 const formSchema = z.object({
   commercial_name: z.string().min(1, "Nom commercial requis"),

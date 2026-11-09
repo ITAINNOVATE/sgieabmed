@@ -15,7 +15,7 @@ import {
   MapPin, AlertTriangle, Undo2, Pencil, Save
 } from "lucide-react"
 import { toast } from "sonner"
-import { WasteStockItem } from "@/app/dashboard/waste/stock/page"
+import { WasteStockItem } from "@/types/waste-stock"
 import { GroupedWastePackage, PACKAGE_CONTAINERS } from "./waste-grouping-dialog"
 import { WASTE_LOCATION_OPTIONS, normalizeWasteLocation } from "@/utils/waste-locations"
 import { saveGroupedPackageToCloud } from "@/utils/waste-packages-sync"

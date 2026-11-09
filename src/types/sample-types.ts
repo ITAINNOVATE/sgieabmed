@@ -118,3 +118,21 @@ export function matchesSampleCategory(
   if (!itemSlug || !targetSlug) return false
   return itemSlug === targetSlug
 }
+
+export type Sample = {
+  id: string
+  sample_number: string
+  reception_ref: string
+  commercial_name: string
+  dci: string
+  batch_number: string
+  quantity: number
+  status: string
+  expiry_date: string
+  current_location: string
+  shelf_id?: string | null
+  supplier_name?: string
+  center_code?: string
+  type_reception?: string
+}
+

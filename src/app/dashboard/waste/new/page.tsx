@@ -49,13 +49,13 @@ import { useFormAutosave } from "@/hooks/use-form-autosave"
 import { DraftRestoreBanner } from "@/components/draft-restore-banner"
 
 // --- CONSTANTES OFFICIELLES ABMed ---
-export const WASTE_WAREHOUSES = [
+const WASTE_WAREHOUSES = [
   "Magasin Cotonou",
   "Magasin Parakou",
   "Autres",
 ]
 
-export const WASTE_SOURCE_TYPES = [
+const WASTE_SOURCE_TYPES = [
   "Officine privée de pharmacie",
   "Établissement hospitalier / Clinique",
   "Zone Sanitaire",
@@ -68,7 +68,7 @@ export const WASTE_SOURCE_TYPES = [
   "Autre",
 ]
 
-export const PRODUCT_NATURES = [
+const PRODUCT_NATURES = [
   "compléments nutritionnels",
   "médicaments",
   "médicaments vétérinaires",
@@ -79,7 +79,7 @@ export const PRODUCT_NATURES = [
   "autres (à préciser)",
 ]
 
-export const PRODUCT_CATEGORIES = [
+const PRODUCT_CATEGORIES = [
   "Catégorie 1 : Produits solides et semi-solides (comprimés, gélules, granulés, poudres, crèmes, pommades, gels, suppositoires, etc.)",
   "Catégorie 2 : Produits liquides (solutions, émulsions, suspensions liquides, sirops, lotions, etc.)",
   "Catégorie 3 : Produits gazeux ou liquéfiés (bombes aérosols, y compris atomiseurs avec gaz propulseur et inhalateurs)",
@@ -88,7 +88,7 @@ export const PRODUCT_CATEGORIES = [
   "Catégorie Mixte : Produits mixtes (Solides, Liquides, Sirops & Divers — Non triés / Spécifique Zones Sanitaires)",
 ]
 
-export const WASTE_CLASSIFICATIONS = [
+const WASTE_CLASSIFICATIONS = [
   "Médicaments périmés (Formes solides)",
   "Médicaments périmés (Formes liquides / sirops)",
   "Médicaments périmés (Formes mixtes : Solides, Liquides & Divers)",
@@ -101,7 +101,7 @@ export const WASTE_CLASSIFICATIONS = [
   "Autres déchets pharmaceutiques",
 ]
 
-export const WASTE_PACKAGINGS = [
+const WASTE_PACKAGINGS = [
   "Cartons fermés & scotchés",
   "Fûts étanches scellés",
   "Boîtes jaunes DASRI sécurisées",
@@ -111,14 +111,14 @@ export const WASTE_PACKAGINGS = [
   "Autres",
 ]
 
-export const PACKAGING_CONDITIONS = [
+const PACKAGING_CONDITIONS = [
   "Conforme et scellé",
   "Emballage détérioré / Avec réserves",
   "Fuite constatée / Reconditionné",
   "Autres",
 ]
 
-export const DESTRUCTION_MOTIVES = [
+const DESTRUCTION_MOTIVES = [
   "Péremption",
   "Détérioration physique / Casse",
   "Rupture de chaîne de froid",

@@ -149,7 +149,7 @@ const UppercaseTextarea = React.forwardRef<HTMLTextAreaElement, React.ComponentP
 ))
 UppercaseTextarea.displayName = 'UppercaseTextarea'
 
-export const GALENIC_FORM_GROUPS = [
+const GALENIC_FORM_GROUPS = [
   {
     group: "Formes orales sèches / solides",
     items: [
@@ -218,9 +218,9 @@ export const GALENIC_FORM_GROUPS = [
   },
 ]
 
-export const ALL_GALENIC_FORMS = GALENIC_FORM_GROUPS.flatMap((g) => g.items)
+const ALL_GALENIC_FORMS = GALENIC_FORM_GROUPS.flatMap((g) => g.items)
 
-export const DOSAGE_GROUPS = [
+const DOSAGE_GROUPS = [
   {
     group: "Milligrammes (mg) - Doses courantes",
     items: [
@@ -366,7 +366,7 @@ export const DOSAGE_GROUPS = [
   },
 ]
 
-export const ALL_DOSAGES = DOSAGE_GROUPS.flatMap((g) => g.items)
+const ALL_DOSAGES = DOSAGE_GROUPS.flatMap((g) => g.items)
 
 // Composant DCI + Dosage dynamique par produit
 function DciDosageList({ value, onChange }: { value: {dci: string, dosage: string}[], onChange: (v: {dci: string, dosage: string}[]) => void }) {

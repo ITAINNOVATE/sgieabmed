@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { HeaderActions } from "@/components/header-actions"
 import { MotionWrapper } from "@/components/motion-wrapper"
+import { CenterAccessGuard } from "@/components/center-access-guard"
 import { ShieldCheck } from "lucide-react"
 import { Suspense } from "react"
 
@@ -38,9 +39,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* CONTENU PRINCIPAL DE LA PAGE */}
         <div className="flex-1 p-2.5 sm:p-5 lg:p-7 max-w-[1600px] mx-auto w-full min-w-0">
-          <MotionWrapper>
-            {children}
-          </MotionWrapper>
+          <CenterAccessGuard>
+            <MotionWrapper>
+              {children}
+            </MotionWrapper>
+          </CenterAccessGuard>
         </div>
 
         {/* PIED DE PAGE */}

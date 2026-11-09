@@ -14,7 +14,7 @@ import {
   Package, Boxes, Scale, Trash2, Layers, CheckCircle2
 } from "lucide-react"
 import { toast } from "sonner"
-import { WasteStockItem } from "@/app/dashboard/waste/stock/page"
+import { WasteStockItem } from "@/types/waste-stock"
 import { WASTE_LOCATION_OPTIONS, normalizeWasteLocation } from "@/utils/waste-locations"
 import { saveGroupedPackageToCloud } from "@/utils/waste-packages-sync"
 import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"

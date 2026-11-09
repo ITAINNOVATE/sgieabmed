@@ -9,8 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { 
   ShieldCheck, Lock, User, Eye, EyeOff, QrCode, HelpCircle, 
   ChevronDown, Phone, Mail, Headphones, Shield, Package, Trash2, BarChart3,
-  Key, ArrowRight, CheckCircle2, AlertCircle
+  Key, ArrowRight, CheckCircle2, AlertCircle, Building2
 } from "lucide-react"
+import Link from "next/link"
 import { login } from "./actions/auth"
 import { 
   authenticateUser, updateUserPassword, setCurrentUser, 
@@ -508,6 +509,32 @@ export default function LoginPage({
                   <QrCode className="h-3.5 w-3.5 text-[#1B5C2E]" />
                   Scanner un QR code
                 </Button>
+
+                {/* ─── BLOC NOUVEAU CENTRE APPORTEUR (PORTAIL DIRECT) ─── */}
+                <div className="pt-2 border-t border-border/70">
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/25 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1 rounded-md bg-emerald-600 text-white shrink-0">
+                        <Building2 className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="text-xs font-bold text-foreground">
+                        Nouveau Centre Apporteur ?
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-tight">
+                      Vous souhaitez déposer des déchets ou des échantillons ? Enregistrez votre établissement pour réserver votre créneau de dépôt.
+                    </p>
+                    <Button
+                      asChild
+                      className="w-full h-8 bg-[#1B5C2E] hover:bg-[#154824] text-white font-bold text-xs rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <Link href="/portal/register">
+                        <span>Enregistrer mon établissement & Réserver un RDV</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               </>
             )}
 
