@@ -218,7 +218,6 @@ export function WastePackageEditDialog({
             <Textarea
               value={observations}
               onChange={(e) => setObservations(e.target.value)}
-              placeholder="Ex: Lots regroupés pour incinération par filière cytotoxique. Fût scellé et étiqueté..."
               className="text-xs min-h-[75px] bg-background resize-y"
             />
           </div>

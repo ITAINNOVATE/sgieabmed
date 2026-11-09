@@ -99,8 +99,8 @@ function AddRoomDialog({ onSuccess }: { onSuccess: () => void }) {
             <DialogDescription>Ajouter une salle ou un espace physique de stockage.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="space-y-1"><Label>Nom *</Label><Input placeholder="Ex: ECHANTIOTHEQUE PRINCIPALE" value={name} onChange={e => setName(e.target.value)} /></div>
-            <div className="space-y-1"><Label>Description</Label><Input placeholder="Ex: Salle principale de stockage" value={desc} onChange={e => setDesc(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom *</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Description</Label><Input value={desc} onChange={e => setDesc(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
@@ -165,7 +165,7 @@ function AddZoneDialog({ rooms, onSuccess }: { rooms: Room[]; onSuccess: () => v
                 ))}
               </select>
             </div>
-            <div className="space-y-1"><Label>Nom de la zone *</Label><Input placeholder="Ex: Zone A" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom de la zone *</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
@@ -248,7 +248,7 @@ function AddCabinetDialog({ rooms, zones, onSuccess }: { rooms: Room[]; zones: Z
                 ))}
               </select>
             </div>
-            <div className="space-y-1"><Label>Nom de l'armoire *</Label><Input placeholder="Ex: Armoire A1" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom de l'armoire *</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
@@ -356,10 +356,10 @@ function AddShelfDialog({ rooms, zones, cabinets, onSuccess }: { rooms: Room[]; 
                 ))}
               </select>
             </div>
-            <div className="space-y-1"><Label>Nom de l'étagère *</Label><Input placeholder="Ex: Étagère 1" value={name} onChange={e => setName(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Nom de l'étagère *</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
             <div className="space-y-1">
               <Label>Capacité max (optionnel)</Label>
-              <Input type="number" placeholder="Ex: 50" value={capacityMax} onChange={e => setCapacityMax(e.target.value)} min={1} />
+              <Input type="number" value={capacityMax} onChange={e => setCapacityMax(e.target.value)} min={1} />
             </div>
           </div>
           <DialogFooter>
@@ -1099,7 +1099,6 @@ function LocationsContent() {
                       min={1}
                       value={editTarget.capacity_max || ''}
                       onChange={(e) => setEditTarget({ ...editTarget, capacity_max: e.target.value })}
-                      placeholder="Ex: 50"
                     />
                   </div>
                   <div className="flex items-center gap-2 pt-1">

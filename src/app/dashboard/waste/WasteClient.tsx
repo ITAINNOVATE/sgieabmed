@@ -1713,7 +1713,6 @@ export default function WasteClient({
                       value={financeAmountInput}
                       onChange={(e) => setFinanceAmountInput(e.target.value)}
                       className="h-9 text-xs font-mono font-bold pr-14 bg-background"
-                      placeholder="ex: 1500000"
                     />
                     <span className="absolute right-2.5 top-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
                       FCFA

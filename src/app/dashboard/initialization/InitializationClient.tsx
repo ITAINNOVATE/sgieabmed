@@ -484,7 +484,6 @@ export default function InitializationClient() {
                       {/* Location */}
                       <TableCell>
                         <Input
-                          placeholder="Ex: A1-E2..."
                           className="h-8 text-xs font-mono"
                           value={item.current_location}
                           onChange={(e) => handleEdit(item.id, "current_location", e.target.value)}

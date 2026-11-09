@@ -670,7 +670,6 @@ export default function CentersPage() {
                 Nom du Centre / Établissement <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Ex: Pharmacie de l'Étoile, Hôpital Ménontin..."
                 value={editingCenter?.name || ""}
                 onChange={(e) => setEditingCenter(prev => prev ? { ...prev, name: e.target.value.toUpperCase() } : null)}
                 className="h-9 text-xs uppercase font-semibold"
@@ -683,11 +682,11 @@ export default function CentersPage() {
                   Type d&apos;Établissement
                 </label>
                 <Select
-                  value={editingCenter?.center_type || "Officine privée de pharmacie"}
+                  value={editingCenter?.center_type || ""}
                   onValueChange={(val) => setEditingCenter(prev => prev ? { ...prev, center_type: val || undefined } : null)}
                 >
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
+                    <SelectValue placeholder="Sélectionnez un type" />
                   </SelectTrigger>
                   <SelectContent>
                     {CENTER_TYPES.map(t => (
@@ -702,7 +701,6 @@ export default function CentersPage() {
                   Ville / Commune
                 </label>
                 <Input
-                  placeholder="Ex: Cotonou"
                   value={editingCenter?.city || ""}
                   onChange={(e) => setEditingCenter(prev => prev ? { ...prev, city: e.target.value } : null)}
                   className="h-9 text-xs"
@@ -715,7 +713,6 @@ export default function CentersPage() {
                 Adresse Géographique / Quartier
               </label>
               <Input
-                placeholder="Ex: Quartier Cadjèhoun, Carré 124"
                 value={editingCenter?.address || ""}
                 onChange={(e) => setEditingCenter(prev => prev ? { ...prev, address: e.target.value } : null)}
                 className="h-9 text-xs"
@@ -728,7 +725,6 @@ export default function CentersPage() {
                   Personne de Contact
                 </label>
                 <Input
-                  placeholder="Ex: Dr. AHOUNOU"
                   value={editingCenter?.contact_person || ""}
                   onChange={(e) => setEditingCenter(prev => prev ? { ...prev, contact_person: e.target.value } : null)}
                   className="h-9 text-xs"
@@ -740,7 +736,6 @@ export default function CentersPage() {
                   Téléphone
                 </label>
                 <Input
-                  placeholder="Ex: +229 97 00 00 00"
                   value={editingCenter?.phone || ""}
                   onChange={(e) => setEditingCenter(prev => prev ? { ...prev, phone: e.target.value } : null)}
                   className="h-9 text-xs font-mono"
@@ -754,7 +749,6 @@ export default function CentersPage() {
               </label>
               <Input
                 type="email"
-                placeholder="Ex: contact@pharmacie.bj"
                 value={editingCenter?.email || ""}
                 onChange={(e) => setEditingCenter(prev => prev ? { ...prev, email: e.target.value } : null)}
                 className="h-9 text-xs"

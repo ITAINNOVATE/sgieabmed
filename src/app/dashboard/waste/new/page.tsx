@@ -1590,7 +1590,7 @@ function NewWasteReceptionContent() {
                       <FormItem>
                         <FormLabel className="text-xs font-semibold">Désignation commerciale / Spécialité (Optionnel)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: Paracétamol 500mg, Amoxicilline..." {...field} className="h-9 text-xs bg-background" />
+                          <Input {...field} className="h-9 text-xs bg-background" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

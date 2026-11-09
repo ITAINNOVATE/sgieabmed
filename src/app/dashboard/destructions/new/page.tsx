@@ -339,7 +339,7 @@ export default function NewDestructionPlanPage() {
               <FormField control={form.control} name="destruction_site" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs font-semibold">Site / Lieu de l&apos;Opération</FormLabel>
-                  <FormControl><Input {...field} placeholder="Ex: Incinérateur agréé Cotonou..." className="h-9 text-xs bg-background" /></FormControl>
+                  <FormControl><Input {...field} className="h-9 text-xs bg-background" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

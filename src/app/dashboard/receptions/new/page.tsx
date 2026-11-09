@@ -1682,7 +1682,7 @@ function NewReceptionContent() {
                       <FormLabel className="text-xs font-bold">
                         Nom de la Structure / Demandeur <span className="text-red-500">*</span>
                       </FormLabel>
-                      <FormControl><UppercaseInput placeholder="Ex: PHARMACIE DU PORT, CHNU, LABO..." {...field} value={field.value ?? ""} /></FormControl>
+                      <FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -1690,10 +1690,10 @@ function NewReceptionContent() {
                   <FormField control={form.control} name="center_type" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-semibold">Type de structure</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || "Officine privée de pharmacie"}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger className="h-9 text-xs bg-background">
-                            <SelectValue />
+                            <SelectValue placeholder="Sélectionnez un type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1709,42 +1709,42 @@ function NewReceptionContent() {
                   <FormField control={form.control} name="manufacturer" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-semibold">Fabricant</FormLabel>
-                      <FormControl><UppercaseInput placeholder="Ex: SANOFI, PFIZER..." {...field} value={field.value ?? ""} /></FormControl>
+                      <FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl>
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="city" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-semibold">Ville / Commune</FormLabel>
-                      <FormControl><UppercaseInput placeholder="Ex: COTONOU" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl>
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="country" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-semibold">Pays d&apos;origine</FormLabel>
-                      <FormControl><UppercaseInput placeholder="Ex: BÉNIN" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl>
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="contact_person" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-semibold">Personne de contact</FormLabel>
-                      <FormControl><UppercaseInput placeholder="Ex: DR. AHOUNOU" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl>
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="phone" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-semibold">Téléphone</FormLabel>
-                      <FormControl><UppercaseInput placeholder="Ex: +229 97 00 00 00" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormControl><UppercaseInput {...field} value={field.value ?? ""} /></FormControl>
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="email" render={({ field }) => (
                     <FormItem className="sm:col-span-2">
                       <FormLabel className="text-xs font-semibold">Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="Ex: contact@structure.bj" {...field} value={field.value ?? ""} className="h-9 text-xs" /></FormControl>
+                      <FormControl><Input type="email" {...field} value={field.value ?? ""} className="h-9 text-xs" /></FormControl>
                     </FormItem>
                   )} />
                 </div>

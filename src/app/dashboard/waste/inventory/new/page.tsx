@@ -234,7 +234,7 @@ export default function NewWasteInventoryPage() {
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-foreground">Nom de la session d'inventaire</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Inventaire Déchets Mars 2026" className="h-9 text-xs bg-background" {...field} />
+                      <Input className="h-9 text-xs bg-background" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

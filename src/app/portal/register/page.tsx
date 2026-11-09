@@ -54,8 +54,8 @@ export default function RegisterPortalPage() {
 
   // Form states
   const [structureName, setStructureName] = useState("")
-  const [centerType, setCenterType] = useState(CENTER_TYPES[0])
-  const [city, setCity] = useState("Cotonou")
+  const [centerType, setCenterType] = useState("")
+  const [city, setCity] = useState("")
   const [customCity, setCustomCity] = useState("")
   const [address, setAddress] = useState("")
   const [contactPerson, setContactPerson] = useState("")
@@ -76,6 +76,21 @@ export default function RegisterPortalPage() {
 
     if (!structureName.trim()) {
       toast.error("Veuillez renseigner le nom officiel de votre établissement.")
+      return
+    }
+
+    if (!centerType) {
+      toast.error("Veuillez sélectionner la catégorie d'établissement.")
+      return
+    }
+
+    if (!city) {
+      toast.error("Veuillez sélectionner la ville ou commune.")
+      return
+    }
+
+    if (city === "Autre commune" && !customCity.trim()) {
+      toast.error("Veuillez préciser le nom de votre commune.")
       return
     }
 
@@ -365,7 +380,6 @@ export default function RegisterPortalPage() {
                           id="structureName"
                           value={structureName}
                           onChange={(e) => setStructureName(e.target.value)}
-                          placeholder="Ex: Pharmacie du Progrès, Clinique Sainte Rita, CHU Cotonou..."
                           required
                           className="h-10 text-xs rounded-xl"
                         />
@@ -419,7 +433,6 @@ export default function RegisterPortalPage() {
                             id="customCity"
                             value={customCity}
                             onChange={(e) => setCustomCity(e.target.value)}
-                            placeholder="Nom de la commune ou localité"
                             required
                             className="h-10 text-xs rounded-xl"
                           />
@@ -437,7 +450,6 @@ export default function RegisterPortalPage() {
                             id="address"
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
-                            placeholder="Ex: Quartier Haie Vive, Rue 412, face pharmacie de garde"
                             className="pl-9 h-10 text-xs rounded-xl"
                           />
                         </div>
@@ -466,7 +478,6 @@ export default function RegisterPortalPage() {
                             id="contactPerson"
                             value={contactPerson}
                             onChange={(e) => setContactPerson(e.target.value)}
-                            placeholder="Ex: Dr. Patrick DOSSOU (Pharmacien / Directeur)"
                             required
                             className="pl-9 h-10 text-xs rounded-xl"
                           />
@@ -485,7 +496,6 @@ export default function RegisterPortalPage() {
                             type="tel"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
-                            placeholder="Ex: +229 97 00 00 00"
                             required
                             className="pl-9 h-10 text-xs rounded-xl"
                           />
@@ -507,7 +517,6 @@ export default function RegisterPortalPage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Ex: contact@etablissement.bj"
                             required
                             className="pl-9 h-10 text-xs rounded-xl"
                           />
@@ -541,7 +550,6 @@ export default function RegisterPortalPage() {
                             type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Minimum 6 caractères"
                             required
                             className="pl-9 pr-9 h-10 text-xs rounded-xl"
                           />
@@ -567,7 +575,6 @@ export default function RegisterPortalPage() {
                             type={showPassword ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Répétez le mot de passe"
                             required
                             className="pl-9 h-10 text-xs rounded-xl"
                           />

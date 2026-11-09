@@ -73,8 +73,8 @@ function AppointmentsContent() {
   const [newScheduleEndTime, setNewScheduleEndTime] = useState("15:30")
   const [newScheduleType, setNewScheduleType] = useState<"Échantillons pharmaceutiques" | "Déchets pharmaceutiques" | "Mixte (Échantillons & Déchets)">("Déchets pharmaceutiques")
   const [newScheduleCapacity, setNewScheduleCapacity] = useState(8)
-  const [newScheduleLocation, setNewScheduleLocation] = useState("Magasin Central Déchets ABMed — Quai N°1")
-  const [newScheduleInstructions, setNewScheduleInstructions] = useState("Bordereau de déclaration signé obligatoire. Conditionnement scellé.")
+  const [newScheduleLocation, setNewScheduleLocation] = useState("")
+  const [newScheduleInstructions, setNewScheduleInstructions] = useState("")
 
   // Modal Réservation (Centres ou Agents)
   const [isBookModalOpen, setIsBookModalOpen] = useState(false)
@@ -1101,7 +1101,6 @@ function AppointmentsContent() {
               <Input
                 value={newScheduleLocation}
                 onChange={(e) => setNewScheduleLocation(e.target.value)}
-                placeholder="Ex: Magasin Déchets ABMed — Quai N°1"
                 className="mt-1 text-xs"
               />
             </div>
@@ -1112,7 +1111,6 @@ function AppointmentsContent() {
                 value={newScheduleInstructions}
                 onChange={(e) => setNewScheduleInstructions(e.target.value)}
                 rows={2}
-                placeholder="Bordereau signé, conditionnement exigé..."
                 className="mt-1 text-xs"
               />
             </div>
@@ -1194,7 +1192,6 @@ function AppointmentsContent() {
               <Input
                 value={bookEstimatedQty}
                 onChange={(e) => setBookEstimatedQty(e.target.value)}
-                placeholder="Ex: 3 cartons (~15 kg) ou 5 flacons"
                 className="mt-1 text-xs"
               />
             </div>
@@ -1205,7 +1202,6 @@ function AppointmentsContent() {
                 <Input
                   value={bookDepositorName}
                   onChange={(e) => setBookDepositorName(e.target.value)}
-                  placeholder="Ex: KOUTON Jean"
                   className="mt-1 text-xs"
                   required
                 />
@@ -1216,7 +1212,6 @@ function AppointmentsContent() {
                 <Input
                   value={bookDepositorPhone}
                   onChange={(e) => setBookDepositorPhone(e.target.value)}
-                  placeholder="Ex: 01 97 00 00 00"
                   className="mt-1 text-xs"
                   required
                 />
@@ -1229,7 +1224,6 @@ function AppointmentsContent() {
                 value={bookObservations}
                 onChange={(e) => setBookObservations(e.target.value)}
                 rows={2}
-                placeholder="Précisions éventuelles sur l'état des colis..."
                 className="mt-1 text-xs"
               />
             </div>
