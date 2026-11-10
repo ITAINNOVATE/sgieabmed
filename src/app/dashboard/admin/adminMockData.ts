@@ -1549,9 +1549,37 @@ export const recordLoginLog = (
   if (typeof window !== "undefined") {
     try {
       const stored = JSON.parse(localStorage.getItem(LOGIN_LOGS_STORAGE_KEY) || "[]")
-      const updated = [newLog, ...stored].slice(0, 100)
+      const updated = [newLog, ...stored].slice(0, 150)
       localStorage.setItem(LOGIN_LOGS_STORAGE_KEY, JSON.stringify(updated))
       window.dispatchEvent(new Event("admin_logs_updated"))
+    } catch (e) {}
+
+    // Sauvegarde Cloud asynchrone non-bloquante dans waste_movements (type 'Journal Connexion')
+    try {
+      const supabase = createClient()
+      Promise.resolve(
+        supabase.from("waste_movements").insert([
+          {
+            mvt_number: `LOG-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+            date: newLog.created_at,
+            type: "Journal Connexion",
+            batch: newLog.event_type,
+            waste_type: "Authentification",
+            commercial_name: `[${newLog.event_type}] ${newLog.username}`,
+            operator: newLog.username,
+            source_structure: "Session Utilisateur",
+            quantity: String(newLog.duration || 0),
+            destination: newLog.ip_address,
+            observations: JSON.stringify(newLog)
+          }
+        ])
+      ).then(() => {
+        broadcastDataMutation({
+          entity: "audit,waste_movements",
+          action: "login_logged",
+          id: newLog.id
+        })
+      }).catch(() => {})
     } catch (e) {}
   }
   return newLog
@@ -1579,9 +1607,37 @@ export const recordAuditLog = (
   if (typeof window !== "undefined") {
     try {
       const stored = JSON.parse(localStorage.getItem(AUDIT_LOGS_STORAGE_KEY) || "[]")
-      const updated = [newLog, ...stored].slice(0, 200)
+      const updated = [newLog, ...stored].slice(0, 300)
       localStorage.setItem(AUDIT_LOGS_STORAGE_KEY, JSON.stringify(updated))
       window.dispatchEvent(new Event("admin_logs_updated"))
+    } catch (e) {}
+
+    // Sauvegarde Cloud asynchrone non-bloquante dans waste_movements (type 'Journal Audit')
+    try {
+      const supabase = createClient()
+      Promise.resolve(
+        supabase.from("waste_movements").insert([
+          {
+            mvt_number: `AUD-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+            date: newLog.created_at,
+            type: "Journal Audit",
+            batch: newLog.action,
+            waste_type: newLog.entity_type,
+            commercial_name: `[${newLog.action}] ${newLog.entity_type}`,
+            operator: newLog.username,
+            source_structure: currentUser?.first_name || newLog.username,
+            quantity: "1",
+            destination: newLog.ip_address,
+            observations: JSON.stringify(newLog)
+          }
+        ])
+      ).then(() => {
+        broadcastDataMutation({
+          entity: "audit,waste_movements",
+          action: "audit_created",
+          id: newLog.id
+        })
+      }).catch(() => {})
     } catch (e) {}
   }
   return newLog
@@ -1598,8 +1654,33 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
     } catch (e) {}
   }
 
-  // Si pas encore d'historique en local, initialiser avec des sessions en direct d'aujourd'hui
-  if (localLogs.length === 0) {
+  // Tenter de récupérer les logs de connexion depuis Supabase Cloud
+  let cloudLogs: LoginLog[] = []
+  try {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('waste_movements')
+      .select('*')
+      .eq('type', 'Journal Connexion')
+      .order('created_at', { ascending: false })
+      .limit(60)
+
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach((mvt: any) => {
+        try {
+          if (mvt.observations) {
+            const parsed = JSON.parse(mvt.observations)
+            if (parsed && parsed.username && parsed.event_type) {
+              cloudLogs.push(parsed)
+            }
+          }
+        } catch {}
+      })
+    }
+  } catch (err) {}
+
+  // Si pas encore d'historique, initialiser avec des sessions d'aujourd'hui
+  if (localLogs.length === 0 && cloudLogs.length === 0) {
     const now = Date.now()
     const currentUser = getCurrentUser()
     const activeUsername = currentUser?.username || "admin"
@@ -1611,7 +1692,7 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
         event_type: "Connexion",
         ip_address: "197.234.221.15",
         user_agent: detectBrowserAndOS(),
-        duration: null, // session active en cours
+        duration: null,
         created_at: new Date(now - 14 * 60000).toISOString()
       },
       {
@@ -1620,7 +1701,7 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
         event_type: "Connexion",
         ip_address: "197.234.221.15",
         user_agent: "Chrome / Windows 11",
-        duration: null, // session active
+        duration: null,
         created_at: new Date(now - 45 * 60000).toISOString()
       },
       {
@@ -1649,15 +1730,6 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
         user_agent: "Chrome / Windows 11",
         duration: 180,
         created_at: new Date(now - 240 * 60000).toISOString()
-      },
-      {
-        id: `log-live-6`,
-        username: "inconnu",
-        event_type: "Échec de connexion",
-        ip_address: "197.234.221.99",
-        user_agent: "Firefox / Linux",
-        duration: null,
-        created_at: new Date(now - 300 * 60000).toISOString()
       }
     ]
     if (typeof window !== "undefined") {
@@ -1667,7 +1739,7 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
     }
   }
 
-  // Vérifier si l'utilisateur actuellement connecté a une session active enregistrée aujourd'hui
+  // Vérifier si l'utilisateur actuellement connecté a une session active enregistrée
   if (typeof window !== "undefined") {
     const currentUser = getCurrentUser()
     if (currentUser) {
@@ -1690,24 +1762,11 @@ export const getLoginLogs = async (): Promise<LoginLog[]> => {
     }
   }
 
-  // Tenter de récupérer également d'éventuels logs Supabase si table disponible
-  try {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('login_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20)
-    if (Array.isArray(data) && data.length > 0) {
-      data.forEach((r: any) => {
-        if (!localLogs.some(l => l.id === r.id)) {
-          localLogs.push(r)
-        }
-      })
-    }
-  } catch (err) {}
+  const logMap = new Map<string, LoginLog>()
+  localLogs.forEach(l => logMap.set(l.id, l))
+  cloudLogs.forEach(l => logMap.set(l.id, l))
 
-  return localLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  return Array.from(logMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
@@ -1721,78 +1780,144 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
     } catch (e) {}
   }
 
-  // Synthétiser les événements réels du système en temps réel
-  const dynamicLogs: AdminAuditLog[] = []
+  // 1. Récupérer les logs d'audit persistés dans Supabase Cloud
+  let cloudLogs: AdminAuditLog[] = []
+  try {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('waste_movements')
+      .select('*')
+      .eq('type', 'Journal Audit')
+      .order('created_at', { ascending: false })
+      .limit(150)
 
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach((mvt: any) => {
+        try {
+          if (mvt.observations) {
+            const parsed = JSON.parse(mvt.observations)
+            if (parsed && parsed.action && parsed.username) {
+              cloudLogs.push(parsed)
+            }
+          }
+        } catch {}
+      })
+    }
+  } catch (err) {}
+
+  // 2. Extraire les actions réelles effectuées sur tous les modules opérationnels
+  const dynamicLogs: AdminAuditLog[] = []
   if (typeof window !== "undefined") {
     try {
-      // 1. Réceptions réelles enregistrées
+      // A. Réceptions de déchets
+      const wasteStored = localStorage.getItem('waste_batches_custom_v1')
+      if (wasteStored) {
+        const batches = JSON.parse(wasteStored)
+        if (Array.isArray(batches)) {
+          const seenRecs = new Set<string>()
+          batches.forEach((b: any) => {
+            const recKey = b.reception_number || b.batch_number
+            if (recKey && !seenRecs.has(recKey)) {
+              seenRecs.add(recKey)
+              dynamicLogs.push({
+                id: `aud-waste-${recKey}`,
+                username: b.recipient_agent || b.depositor_name || 'Agent Déchets ABMeD',
+                action: 'Réception Déchets',
+                entity_type: 'Déchets Pharmaceutiques',
+                details: `Bordereau ${b.reception_number || recKey} - ${b.source_structure || 'Structure'} (${b.waste_type || 'Déchets'}) - Poids: ${b.quantity || 1} Kg`,
+                ip_address: '197.234.221.15',
+                created_at: b.reception_date || b.created_at || new Date().toISOString()
+              })
+            }
+          })
+        }
+      }
+
+      // B. Rendez-vous pris / réservés / annulés
+      const appStored = localStorage.getItem('abmed_appointments_v3')
+      if (appStored) {
+        const apps = JSON.parse(appStored)
+        if (Array.isArray(apps)) {
+          apps.forEach((a: any) => {
+            dynamicLogs.push({
+              id: `aud-app-${a.id || a.appointment_number}`,
+              username: a.depositor_name || a.center_name || 'Centre Apporteur',
+              action: a.status === 'Annulé' ? 'Annulation RDV' : (a.status === 'Effectué' ? 'RDV Effectué' : 'Réservation RDV'),
+              entity_type: 'Planning des Réceptions',
+              details: `Rendez-vous ${a.appointment_number} (${a.type || 'Déchets'}) pour le ${a.date} - ${a.center_name} (${a.center_code})`,
+              ip_address: '197.234.221.15',
+              created_at: a.created_at || new Date().toISOString()
+            })
+          })
+        }
+      }
+
+      // C. Réceptions réelles d'échantillons
       const receptions = JSON.parse(localStorage.getItem('reception_history_records') || '[]')
-      receptions.slice(0, 8).forEach((rec: any) => {
-        dynamicLogs.push({
-          id: `aud-rec-${rec.id || rec.rec_number}`,
-          username: rec.operator || 'Admin EGED',
-          action: 'Création',
-          entity_type: 'Réception Échantillons',
-          details: `Enregistrement du bordereau ${rec.rec_number} (${rec.source || 'Fournisseur'})`,
-          ip_address: '197.234.221.15',
-          created_at: rec.created_at || rec.date || new Date().toISOString()
+      if (Array.isArray(receptions)) {
+        receptions.slice(0, 15).forEach((rec: any) => {
+          dynamicLogs.push({
+            id: `aud-rec-${rec.id || rec.rec_number}`,
+            username: rec.operator || 'Agent Contrôle Échantillons',
+            action: 'Réception Échantillons',
+            entity_type: 'Échantillons Pharmaceutiques',
+            details: `Bordereau ${rec.rec_number} (${rec.source || rec.supplier || 'Fournisseur'}) - Nb éch.: ${rec.samples_data?.length || 1}`,
+            ip_address: '197.234.221.15',
+            created_at: rec.created_at || rec.date || new Date().toISOString()
+          })
         })
-      })
+      }
 
-      // 2. Inventaires échantillons réels
-      const sampleInvs = JSON.parse(localStorage.getItem('sample_inventories_custom_v1') || '[]')
-      sampleInvs.slice(0, 5).forEach((inv: any) => {
-        dynamicLogs.push({
-          id: `aud-inv-${inv.id || inv.inv_number}`,
-          username: inv.controller || 'Admin EGED',
-          action: inv.status === 'Validé' ? 'Validation' : 'Initialisation',
-          entity_type: 'Inventaire Échantillons',
-          details: `Session ${inv.name || inv.inv_number} - Statut : ${inv.status} (${inv.items?.length || 0} articles)`,
-          ip_address: '197.234.221.15',
-          created_at: inv.completed_at || inv.created_at || new Date().toISOString()
-        })
-      })
+      // D. Plans de destruction
+      const destrStored = localStorage.getItem('destruction_plans_custom_v1')
+      if (destrStored) {
+        const plans = JSON.parse(destrStored)
+        if (Array.isArray(plans)) {
+          plans.forEach((p: any) => {
+            dynamicLogs.push({
+              id: `aud-destr-${p.id || p.plan_number}`,
+              username: p.validator || p.created_by || 'Commission Destruction',
+              action: p.status === 'Exécuté' || p.status === 'Clôturé' ? 'Destruction Validée' : 'Plan de Destruction',
+              entity_type: 'Destruction Déchets',
+              details: `Plan ${p.plan_number} (${p.destruction_method || 'Incinération'}) - Poids: ${p.total_weight || 0} Kg - Statut: ${p.status}`,
+              ip_address: '197.234.221.15',
+              created_at: p.created_at || new Date().toISOString()
+            })
+          })
+        }
+      }
 
-      // 3. Inventaires déchets réels
-      const wasteInvs = JSON.parse(localStorage.getItem('waste_inventories_custom_v1') || '[]')
-      wasteInvs.slice(0, 5).forEach((winv: any) => {
-        dynamicLogs.push({
-          id: `aud-winv-${winv.id || winv.inv_number}`,
-          username: winv.controller || 'Admin EGED',
-          action: winv.status === 'Validé' ? 'Validation' : 'Contrôle',
-          entity_type: 'Inventaire Déchets',
-          details: `Session ${winv.name || winv.inv_number} (${winv.location}) - Masse pesée : ${winv.physical_weight || 0} Kg (Écart: ${winv.diff || 0} Kg)`,
-          ip_address: '197.234.221.15',
-          created_at: winv.completed_at || winv.created_at || new Date().toISOString()
-        })
-      })
-
-      // 4. Comptes utilisateurs récents (les 7 comptes créés)
-      const customUsers = JSON.parse(localStorage.getItem('admin_users_custom_v1') || '[]')
-      customUsers.forEach((u: any) => {
-        dynamicLogs.push({
-          id: `aud-usr-${u.id || u.username}`,
-          username: 'Admin EGED',
-          action: 'Création Compte',
-          entity_type: 'Habilitation Utilisateur',
-          details: `Création du compte utilisateur pour ${u.first_name} ${u.last_name} (${u.role}) avec mot de passe initial`,
-          ip_address: '197.234.221.15',
-          created_at: u.created_at || new Date().toISOString()
-        })
-      })
+      // E. Centres enregistrés récents
+      const centersStored = localStorage.getItem('abmed_registered_centers_v2')
+      if (centersStored) {
+        const centers = JSON.parse(centersStored)
+        if (Array.isArray(centers)) {
+          centers.slice(-10).forEach((c: any) => {
+            dynamicLogs.push({
+              id: `aud-ctr-${c.center_code || c.id}`,
+              username: c.contact_person || c.name || 'Auto-enregistrement',
+              action: 'Enregistrement Centre',
+              entity_type: 'Centres Apporteurs',
+              details: `Immatriculation de ${c.name} (${c.center_code}) - Catégorie: ${c.center_type || 'Officine'}`,
+              ip_address: '197.234.221.15',
+              created_at: c.created_at || new Date().toISOString()
+            })
+          })
+        }
+      }
     } catch (e) {}
   }
 
-  // Fusionner les logs explicites et les événements réels du système
+  // Fusionner sans doublon (en privilégiant explicitLogs puis cloudLogs puis dynamicLogs)
   const auditMap = new Map<string, AdminAuditLog>()
-  explicitLogs.forEach(l => auditMap.set(l.id, l))
   dynamicLogs.forEach(l => auditMap.set(l.id, l))
+  cloudLogs.forEach(l => auditMap.set(l.id, l))
+  explicitLogs.forEach(l => auditMap.set(l.id, l))
 
   if (auditMap.size === 0) {
     auditMap.set('aud-initial-1', {
       id: 'aud-initial-1',
-      username: 'Admin EGED',
+      username: 'Système ABMeD',
       action: 'Initialisation',
       entity_type: 'Sécurité & Audit',
       details: 'Activation du moteur de traçabilité et synchronisation temps réel des audits',
@@ -1801,7 +1926,17 @@ export const getAuditLogs = async (): Promise<AdminAuditLog[]> => {
     })
   }
 
-  return Array.from(auditMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const merged = Array.from(auditMap.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(AUDIT_LOGS_STORAGE_KEY, JSON.stringify(merged.slice(0, 300)))
+    } catch (e) {}
+  }
+
+  return merged
 }
 
 export const logAdminAction = async (username: string, action: string, entity: string, details: string) => {

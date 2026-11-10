@@ -54,7 +54,12 @@ function AppointmentsContent() {
   const isNewlyRegistered = searchParams?.get("registered") === "true"
   const newCenterCode = searchParams?.get("code")
 
-  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null)
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(() => {
+    if (typeof window !== "undefined") {
+      return getCurrentUser()
+    }
+    return null
+  })
   const [schedules, setSchedules] = useState<ReceptionSchedule[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [centers, setCenters] = useState<Center[]>([])
@@ -103,11 +108,17 @@ function AppointmentsContent() {
   }, [newCenterCode])
 
   const isCenterUser = useMemo(() => {
+    const role = (currentUser?.role || "").toLowerCase()
     return (
       Boolean(newCenterCode) ||
-      currentUser?.role === "Centre Apporteur" ||
+      role.includes("centre") ||
+      role.includes("apporteur") ||
       currentUser?.matricule?.startsWith("CTR-") ||
-      currentUser?.username?.startsWith("CTR-")
+      currentUser?.username?.startsWith("CTR-") ||
+      (typeof window !== "undefined" && (
+        localStorage.getItem("active_role")?.toLowerCase().includes("centre") ||
+        localStorage.getItem("active_username")?.startsWith("CTR-")
+      ))
     )
   }, [currentUser, newCenterCode])
 

@@ -30,7 +30,7 @@ import {
   Box, Paperclip, ShieldCheck, MessageSquare, Plus, Trash2, Printer, Download, UploadCloud, CheckCircle2, X, FileUp, FileText, Sparkles, Search, Eye, Pencil
 } from "lucide-react"
 import { exportReceptionVoucherPDF } from "@/utils/exportUtils"
-import { getUsers, User } from "@/app/dashboard/admin/adminMockData"
+import { getUsers, User, recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { 
   Center, 
@@ -1124,10 +1124,19 @@ function NewReceptionContent() {
 
     // Diffusion instantanée multi-postes et multi-niveaux (< 50ms)
     broadcastDataMutation({
-      entity: "receptions,samples,movements",
+      entity: "receptions,samples,movements,audit",
       action: isEditMode ? "update" : status,
       id: values.rec_number,
     })
+
+    try {
+      recordAuditLog(
+        isEditMode ? "Modification Réception Échantillons" : "Réception Échantillons",
+        "Échantillons Pharmaceutiques",
+        `${isEditMode ? "Mise à jour" : "Enregistrement"} réception ${values.rec_number} (${validSamples.length} échantillon(s)) - Établissement : ${values.supplier || "Non spécifié"} - Inspecteur : ${values.inspector || "Agent ABMeD"} - Statut : ${status}`,
+        values.inspector || "Agent ABMeD"
+      )
+    } catch (e) {}
   }
 
   // ─── Sauvegarder Brouillon (En instance de validation ou Modifications) ───

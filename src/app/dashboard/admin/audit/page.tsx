@@ -74,11 +74,11 @@ export default function AuditAdminPage() {
     }
   }, [loadData])
 
-  // Synchronisation temps réel automatique Supabase
+  // Synchronisation temps réel automatique Supabase et broadcast local
   useRealtimeSync({
-    tables: ['users', 'receptions', 'samples', 'inventories', 'waste_batches', 'movements'],
+    tables: ['waste_movements', 'audit', 'waste_batches', 'receptions', 'appointments', 'centers'],
     onSync: () => loadData(true),
-    pollIntervalMs: 5000,
+    pollIntervalMs: 3000,
   })
 
   // Formatage relatif temps réel

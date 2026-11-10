@@ -436,7 +436,19 @@ export async function saveCenter(centerData: Partial<Center>): Promise<Center> {
   }
 
   // Notifier l'application en temps réel
-  broadcastDataMutation({ entity: "centers", action: "save" })
+  broadcastDataMutation({ entity: "centers,waste_movements,audit", action: "save" })
+
+  // Tracer dans le Journal d'Audit
+  if (typeof window !== "undefined") {
+    import("@/app/dashboard/admin/adminMockData").then(({ recordAuditLog }) => {
+      recordAuditLog(
+        target ? "Modification Centre" : "Enregistrement Centre",
+        "Centres Apporteurs",
+        `${target ? 'Mise à jour' : 'Enregistrement'} de la structure ${updatedCenter.name} (${updatedCenter.center_code}) - Ville : ${updatedCenter.city}`,
+        updatedCenter.contact_person || updatedCenter.name
+      )
+    }).catch(() => {})
+  }
 
   return updatedCenter
 }
@@ -564,6 +576,18 @@ export async function resetCenterPassword(centerCode: string): Promise<string | 
     has_changed_password: false,
     must_change_password: true,
   })
+
+  if (typeof window !== "undefined") {
+    import("@/app/dashboard/admin/adminMockData").then(({ recordAuditLog }) => {
+      recordAuditLog(
+        "Réinitialisation Mot de Passe",
+        "Sécurité & Accès",
+        `Réinitialisation du mot de passe initial pour l'établissement ${target.name} (${target.center_code}) avec obligation de changement à la reconnexion`,
+        "Administrateur ABMeD"
+      )
+    }).catch(() => {})
+  }
+
   return defaultPass
 }
 
@@ -578,5 +602,17 @@ export async function toggleCenterStatus(centerCode: string, newStatus: "Actif" 
     ...target,
     account_status: newStatus,
   })
+
+  if (typeof window !== "undefined") {
+    import("@/app/dashboard/admin/adminMockData").then(({ recordAuditLog }) => {
+      recordAuditLog(
+        newStatus === "Actif" ? "Activation Compte" : "Suspension Compte",
+        "Sécurité & Accès",
+        `Passage du compte de ${target.name} (${target.center_code}) au statut : ${newStatus}`,
+        "Administrateur ABMeD"
+      )
+    }).catch(() => {})
+  }
+
   return true
 }

@@ -28,7 +28,7 @@ import { exportWasteReceptionSlipPDF } from "@/utils/exportUtils"
 import { broadcastDataMutation, syncPendingLocalDataToCloud } from "@/utils/realtimeBus"
 import { WASTE_ZONES, normalizeWasteLocation } from "@/utils/waste-locations"
 import { AttachedWasteDocument, WasteArchivedDocument, WASTE_DOCUMENT_TYPES } from "@/types/waste-documents"
-import { getCurrentUser } from "@/app/dashboard/admin/adminMockData"
+import { getCurrentUser, recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 import { 
   Center, 
   getRegisteredCenters, 
@@ -1034,10 +1034,20 @@ function NewWasteReceptionContent() {
       }
 
       broadcastDataMutation({
-        entity: "waste_batches,waste_movements,waste_documents",
+        entity: "waste_batches,waste_movements,waste_documents,audit",
         action: isEditMode ? "update" : "create",
         id: values.reception_number,
       })
+
+      try {
+        const totalKg = newBatches.reduce((acc: number, b: any) => acc + (Number(b.quantity) || 0), 0)
+        recordAuditLog(
+          isEditMode ? "Modification Réception Déchets" : "Réception Déchets",
+          "Déchets Pharmaceutiques",
+          `${isEditMode ? "Mise à jour" : "Enregistrement"} réception ${values.reception_number} (${values.waste_items.length} déchet(s), ${Math.round(totalKg * 10) / 10} Kg) pour ${values.source_structure} (${values.center_code || 'CTR'}) - Dépositaire : ${values.depositor_name || "N/A"}`,
+          values.recipient_agent || "Agent ABMeD"
+        )
+      } catch (e) {}
 
       clearDraft()
       setSavedSlipData(previewData)

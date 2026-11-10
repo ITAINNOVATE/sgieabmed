@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/client"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { Center } from "./centers-storage"
+import { recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 
 export interface ReceptionSchedule {
   id: string
@@ -175,11 +176,21 @@ export async function saveReceptionSchedule(schedule: ReceptionSchedule): Promis
     id: schedule.id
   })
 
+  try {
+    recordAuditLog(
+      "Programmation Créneau",
+      "Planning des Réceptions",
+      `Ouverture session du ${schedule.date} (${schedule.start_time}-${schedule.end_time}, capacité: ${schedule.max_capacity} centres) - ${schedule.reception_type}`,
+      schedule.created_by || "Direction ABMeD"
+    )
+  } catch (e) {}
+
   return true
 }
 
 export async function deleteReceptionSchedule(scheduleId: string): Promise<boolean> {
   const list = getReceptionSchedulesSync()
+  const target = list.find((s) => s.id === scheduleId)
   const updatedList = list.filter((s) => s.id !== scheduleId)
   memorySchedulesCache = updatedList
 
@@ -199,6 +210,15 @@ export async function deleteReceptionSchedule(scheduleId: string): Promise<boole
     action: "schedule_delete",
     id: scheduleId
   })
+
+  try {
+    recordAuditLog(
+      "Suppression Créneau",
+      "Planning des Réceptions",
+      `Suppression de la session de réception ${target ? `du ${target.date}` : scheduleId}`,
+      "Agent ABMeD"
+    )
+  } catch (e) {}
 
   return true
 }
@@ -455,6 +475,15 @@ export async function bookAppointment(
     id: newAppointment.id
   })
 
+  try {
+    recordAuditLog(
+      "Réservation RDV",
+      "Planning des Réceptions",
+      `Réservation du rendez-vous ${newAppointment.appointment_number} (${newAppointment.type}) pour le ${newAppointment.date} par ${newAppointment.center_name} (${newAppointment.center_code}) - Dépositaire : ${newAppointment.depositor_name}`,
+      newAppointment.depositor_name || newAppointment.center_name
+    )
+  } catch (e) {}
+
   return { success: true, appointment: newAppointment }
 }
 
@@ -512,6 +541,15 @@ export async function cancelAppointment(appointmentId: string): Promise<boolean>
     id: appointmentId
   })
 
+  try {
+    recordAuditLog(
+      "Annulation RDV",
+      "Planning des Réceptions",
+      `Annulation du rendez-vous ${app.appointment_number} prévu le ${app.date} pour ${app.center_name} (${app.center_code})`,
+      app.center_name
+    )
+  } catch (e) {}
+
   return true
 }
 
@@ -558,6 +596,15 @@ export async function updateAppointmentStatus(
     action: "appointment_status",
     id: appointmentId
   })
+
+  try {
+    recordAuditLog(
+      "Mise à jour RDV",
+      "Planning des Réceptions",
+      `Passage du rendez-vous ${app.appointment_number} (${app.center_name}) au statut "${newStatus}"`,
+      agentName || "Agent ABMeD"
+    )
+  } catch (e) {}
 
   return true
 }
