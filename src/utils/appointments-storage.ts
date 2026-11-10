@@ -240,13 +240,13 @@ export async function getAppointments(): Promise<Appointment[]> {
       .eq("type", "Rendez-vous")
       .order("created_at", { ascending: false })
 
-    if (data && data.length > 0) {
+    if (data) {
       const cloudAppointments: Appointment[] = []
       data.forEach((mvt: any) => {
         try {
           if (mvt.observations) {
             const parsed = JSON.parse(mvt.observations)
-            if (parsed && parsed.appointment_number && parsed.center_code) {
+            if (parsed && (parsed.appointment_number || parsed.id) && parsed.center_code) {
               cloudAppointments.push(parsed)
             }
           }
@@ -254,10 +254,16 @@ export async function getAppointments(): Promise<Appointment[]> {
       })
 
       const appMap = new Map<string, Appointment>()
-      localList.forEach((a) => appMap.set(a.id, a))
-      cloudAppointments.forEach((a) => appMap.set(a.id, a))
+      localList.forEach((a) => {
+        const key = a.appointment_number || a.id
+        if (key) appMap.set(key, a)
+      })
+      cloudAppointments.forEach((a) => {
+        const key = a.appointment_number || a.id
+        if (key) appMap.set(key, a)
+      })
       const merged = Array.from(appMap.values()).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       )
       memoryAppointmentsCache = merged
       if (typeof window !== "undefined") {
@@ -344,7 +350,10 @@ export interface BookAppointmentInput {
 export async function bookAppointment(
   input: BookAppointmentInput
 ): Promise<{ success: boolean; appointment?: Appointment; error?: string }> {
-  const schedules = getReceptionSchedulesSync()
+  let schedules = getReceptionSchedulesSync()
+  if (!schedules.some((s) => s.id === input.schedule_id)) {
+    schedules = await getReceptionSchedules()
+  }
   const schedIdx = schedules.findIndex((s) => s.id === input.schedule_id)
 
   if (schedIdx === -1) {
@@ -352,7 +361,7 @@ export async function bookAppointment(
   }
 
   const sched = schedules[schedIdx]
-  const appointments = getAppointmentsSync()
+  const appointments = await getAppointments()
 
   // Vérifier si le centre a déjà un rendez-vous actif sur ce même créneau
   const alreadyBooked = appointments.some(
@@ -441,7 +450,7 @@ export async function bookAppointment(
   } catch (e) {}
 
   broadcastDataMutation({
-    entity: "appointments,reception_schedules",
+    entity: "appointments,reception_schedules,waste_movements",
     action: "appointment_book",
     id: newAppointment.id
   })
@@ -498,7 +507,7 @@ export async function cancelAppointment(appointmentId: string): Promise<boolean>
   } catch (e) {}
 
   broadcastDataMutation({
-    entity: "appointments,reception_schedules",
+    entity: "appointments,reception_schedules,waste_movements",
     action: "appointment_cancel",
     id: appointmentId
   })
@@ -545,7 +554,7 @@ export async function updateAppointmentStatus(
   } catch (e) {}
 
   broadcastDataMutation({
-    entity: "appointments",
+    entity: "appointments,waste_movements",
     action: "appointment_status",
     id: appointmentId
   })

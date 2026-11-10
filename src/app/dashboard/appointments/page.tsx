@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { 
   CalendarDays, Clock, MapPin, Plus, CheckCircle2, AlertCircle, 
@@ -97,30 +97,32 @@ function AppointmentsContent() {
   useEffect(() => {
     const user = getCurrentUser()
     setCurrentUser(user)
-    if (user?.role === "Centre Apporteur" || user?.matricule?.startsWith("CTR-")) {
+    if (user?.role === "Centre Apporteur" || user?.matricule?.startsWith("CTR-") || newCenterCode) {
       setActiveTab("schedules")
     }
-  }, [])
+  }, [newCenterCode])
 
   const isCenterUser = useMemo(() => {
     return (
+      Boolean(newCenterCode) ||
       currentUser?.role === "Centre Apporteur" ||
       currentUser?.matricule?.startsWith("CTR-") ||
       currentUser?.username?.startsWith("CTR-")
     )
-  }, [currentUser])
+  }, [currentUser, newCenterCode])
 
   // Centre résolu pour l'utilisateur connecté
   const userCenter = useMemo(() => {
-    if (!isCenterUser) return null
-    const all = getRegisteredCentersSync()
-    const code = currentUser?.matricule || currentUser?.username || ""
+    const code = newCenterCode || currentUser?.matricule || currentUser?.username || ""
+    if (!code && !isCenterUser) return null
+    const all = centers.length > 0 ? centers : getRegisteredCentersSync()
     return all.find(
       (c) =>
-        c.center_code.toUpperCase() === code.toUpperCase() ||
-        c.name.toUpperCase() === currentUser?.first_name?.toUpperCase()
+        (code && c.center_code.toUpperCase() === code.toUpperCase()) ||
+        (code && c.id.toUpperCase() === code.toUpperCase()) ||
+        (currentUser?.first_name && c.name.toUpperCase() === currentUser?.first_name?.toUpperCase())
     ) || null
-  }, [isCenterUser, currentUser])
+  }, [isCenterUser, currentUser, newCenterCode, centers])
 
   // Chargement des données
   const loadData = useCallback(async () => {
@@ -147,8 +149,23 @@ function AppointmentsContent() {
   useRealtimeSync({
     tables: ["appointments", "reception_schedules", "waste_movements", "centers"],
     onSync: loadData,
-    pollIntervalMs: 3000
+    pollIntervalMs: 2500
   })
+
+  // Notification automatique en direct lors de la réception d'un nouveau rendez-vous
+  const prevAppointmentsCountRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (prevAppointmentsCountRef.current !== null && appointments.length > prevAppointmentsCountRef.current) {
+      const latest = appointments[0]
+      if (latest) {
+        toast.success(`Nouveau rendez-vous en direct !`, {
+          description: `${latest.center_name} (${latest.center_code}) — Date : ${latest.date} (${latest.time_slot})`,
+          duration: 6000,
+        })
+      }
+    }
+    prevAppointmentsCountRef.current = appointments.length
+  }, [appointments])
 
   // Pré-remplissage du formulaire de réservation lorsque le centre ouvre le modal
   useEffect(() => {
@@ -268,9 +285,9 @@ function AppointmentsContent() {
     let centerToBook: Center | null = null
 
     if (isCenterUser) {
-      centerToBook = userCenter || {
+      centerToBook = userCenter || (newCenterCode ? centers.find((c) => c.center_code === newCenterCode) : null) || {
         id: currentUser?.id || "ctr-curr",
-        center_code: currentUser?.matricule || "CTR-2026-0001",
+        center_code: newCenterCode || currentUser?.matricule || "CTR-2026-0001",
         name: currentUser?.first_name || "Établissement",
         center_type: currentUser?.fonction || "Officine de pharmacie",
         city: "Cotonou",
@@ -376,12 +393,29 @@ function AppointmentsContent() {
     toast.success("Fichier Excel exporté avec succès.")
   }
 
-  // Statistiques KPIs
+  // Table dynamique de correspondance et calcul temps réel pour chaque créneau
+  const scheduleStatsMap = useMemo(() => {
+    const map = new Map<string, { bookedCount: number; appointments: Appointment[] }>()
+    schedules.forEach((s) => {
+      const apps = appointments.filter((a) => a.schedule_id === s.id && a.status !== "Annulé")
+      map.set(s.id, {
+        bookedCount: Math.max(s.booked_count || 0, apps.length),
+        appointments: apps,
+      })
+    })
+    return map
+  }, [schedules, appointments])
+
+  // Statistiques KPIs calculées dynamiquement en temps réel
   const totalOpenSlots = useMemo(() => {
     return schedules
-      .filter((s) => s.status === "Ouvert")
-      .reduce((acc, s) => acc + Math.max(0, s.max_capacity - s.booked_count), 0)
-  }, [schedules])
+      .filter((s) => s.status !== "Clôturé" && s.status !== "Annulé")
+      .reduce((acc, s) => {
+        const stats = scheduleStatsMap.get(s.id)
+        const booked = stats?.bookedCount ?? s.booked_count
+        return acc + Math.max(0, s.max_capacity - booked)
+      }, 0)
+  }, [schedules, scheduleStatsMap])
 
   const totalBookedAppointments = useMemo(() => {
     return appointments.filter((a) => a.status === "Confirmé").length
@@ -410,13 +444,21 @@ function AppointmentsContent() {
             <p className="text-xs text-muted-foreground mt-0.5">
               {isCenterUser
                 ? `Bienvenue, ${userCenter?.name || currentUser?.first_name}. Choisissez votre date d'apport d'échantillons ou de déchets.`
-                : "Planification des journées de réception, définition des jauges de centres attendus et suivi des passages."}
+                : "Planification des journées de réception, définition des jauges de centres attendus et suivi des passages en direct."}
             </p>
           </div>
         </div>
 
         {/* ACTIONS DU BANDEAU */}
         <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="hidden sm:inline">Temps réel actif</span>
+          </div>
+
           {!isCenterUser && (
             <>
               {(schedules.length > 0 || appointments.length > 0) && (
@@ -565,7 +607,12 @@ function AppointmentsContent() {
             ) : (
               <TabsTrigger value="appointments" className="text-xs font-bold gap-1.5 px-3">
                 <Users className="h-3.5 w-3.5 text-blue-600" />
-                Rendez-vous Réservés ({appointments.length})
+                <span>Rendez-vous Réservés</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                  appointments.length > 0 ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
+                }`}>
+                  {appointments.length}
+                </span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -610,9 +657,12 @@ function AppointmentsContent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredSchedules.map((sched) => {
-                const remaining = Math.max(0, sched.max_capacity - sched.booked_count)
-                const isFull = remaining === 0 || sched.status === "Complet"
-                const pct = Math.round((sched.booked_count / sched.max_capacity) * 100)
+                const stats = scheduleStatsMap.get(sched.id)
+                const actualBooked = stats?.bookedCount ?? sched.booked_count
+                const schedApps = stats?.appointments ?? []
+                const remaining = Math.max(0, sched.max_capacity - actualBooked)
+                const isFull = remaining === 0 || sched.status === "Complet" || actualBooked >= sched.max_capacity
+                const pct = Math.round((actualBooked / sched.max_capacity) * 100)
 
                 // Vérifier si le centre connecté a déjà réservé ce jour
                 const alreadyBookedByMe = isCenterUser && myCenterAppointments.some(
@@ -685,7 +735,7 @@ function AppointmentsContent() {
                           <div className="flex justify-between items-center text-[11px] font-bold mb-1">
                             <span className="text-muted-foreground">Jauge d'accueil :</span>
                             <span className={isFull ? "text-red-600" : "text-emerald-700 font-black"}>
-                              {sched.booked_count} / {sched.max_capacity} centres
+                              {actualBooked} / {sched.max_capacity} centres
                             </span>
                           </div>
 
@@ -714,6 +764,23 @@ function AppointmentsContent() {
                             </span>
                           </div>
                         </div>
+
+                        {/* Aperçu direct des centres inscrits en temps réel */}
+                        {schedApps.length > 0 && (
+                          <div className="p-2 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 text-[10.5px] space-y-1">
+                            <div className="flex items-center justify-between text-blue-900 dark:text-blue-300 font-bold">
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3 w-3 text-blue-600 shrink-0" />
+                                {schedApps.length} centre{schedApps.length > 1 ? "s" : ""} inscrit{schedApps.length > 1 ? "s" : ""}
+                              </span>
+                              <span className="text-[9.5px] font-mono text-blue-600 bg-white/80 dark:bg-black/30 px-1 rounded">En direct</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground truncate font-medium">
+                              {schedApps.map((a) => a.center_name).slice(0, 2).join(", ")}
+                              {schedApps.length > 2 ? ` (+${schedApps.length - 2} autre)` : ""}
+                            </div>
+                          </div>
+                        )}
 
                         {sched.instructions && (
                           <p className="text-[10px] text-muted-foreground bg-muted/30 p-2 rounded-lg border border-border/40 italic line-clamp-2">
@@ -758,7 +825,7 @@ function AppointmentsContent() {
                             className="text-xs h-7.5 px-2.5 font-semibold gap-1"
                           >
                             <Users className="h-3 w-3 text-blue-600" />
-                            Inscrits ({sched.booked_count})
+                            Inscrits ({actualBooked})
                           </Button>
 
                           <div className="flex items-center gap-1">
@@ -1249,7 +1316,7 @@ function AppointmentsContent() {
               Centres inscrits pour le {inspectedSchedule?.date}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Capacité : {inspectedSchedule?.booked_count} / {inspectedSchedule?.max_capacity} centres inscrits.
+              Capacité : {inspectedSchedule ? appointments.filter((a) => a.schedule_id === inspectedSchedule.id && a.status !== "Annulé").length : 0} / {inspectedSchedule?.max_capacity} centres inscrits.
             </DialogDescription>
           </DialogHeader>
 

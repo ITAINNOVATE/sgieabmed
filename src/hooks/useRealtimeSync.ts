@@ -180,7 +180,27 @@ function checkIfEventIsRelevant(entity: string, tables: string[]): boolean {
     const dbChannelName = `db-sync-${tablesKey}-${Math.floor(Math.random() * 10000)}`
     const dbChannel = supabase.channel(dbChannelName)
 
-    tables.forEach((table) => {
+    // Filtrer pour n'écouter que les tables réellement existantes dans le schéma public Supabase
+    // et mapper les entités virtuelles (appointments, schedules, centers) vers la table réelle waste_movements
+    const KNOWN_PG_TABLES = new Set(["waste_movements", "waste_batches", "receptions", "destruction_plans"])
+    const tablesToListen = new Set<string>()
+
+    tables.forEach((t) => {
+      const low = t.toLowerCase()
+      if (KNOWN_PG_TABLES.has(low)) {
+        tablesToListen.add(low)
+      } else if (
+        low.includes("appointment") ||
+        low.includes("sched") ||
+        low.includes("rdv") ||
+        low.includes("center") ||
+        low.includes("centre")
+      ) {
+        tablesToListen.add("waste_movements")
+      }
+    })
+
+    tablesToListen.forEach((table) => {
       dbChannel.on(
         "postgres_changes",
         { event: "*", schema: "public", table },
