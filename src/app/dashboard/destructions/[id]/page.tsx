@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { 
   ArrowLeft, CheckCircle2, XCircle, Flame, ShieldCheck, Printer, 
-  Download, Clock, Building2, FileText, Award, Check, Trash2
+  Download, Clock, Building2, FileText, Award, Check, Trash2,
+  Pencil, Calendar
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import { exportDestructionCertificatePDF } from "@/utils/exportUtils"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
 import { recordAuditLog } from "@/app/dashboard/admin/adminMockData"
+import { extractPlanDates } from "../DestructionsClient"
 
 const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {}
 
@@ -350,8 +352,69 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
     )
   }
 
-  const isRespDechetsValidated = plan.validations?.some((v: any) => v.role === 'Responsable Déchets' && v.status === 'Approuvé')
-  const isQualiteValidated = plan.validations?.some((v: any) => v.role === 'Responsable Qualité' && v.status === 'Approuvé')
+  const isRespDechetsValidated = plan?.validations?.some((v: any) => v.role === 'Responsable Déchets' && v.status === 'Approuvé')
+  const isQualiteValidated = plan?.validations?.some((v: any) => v.role === 'Responsable Qualité' && v.status === 'Approuvé')
+  const planDates = useMemo(() => (plan ? extractPlanDates(plan) : { startDate: "", endDate: "", isPeriod: false }), [plan])
+
+  const handleDeletePlan = async () => {
+    if (!plan) return
+    const isExecuted = plan.status === 'Exécuté' || plan.status === 'Archivé'
+    const confirmMsg = isExecuted
+      ? `Attention : Le plan ${plan.plan_number} est déjà marqué comme "${plan.status}". Confirmez-vous sa suppression ?`
+      : `Confirmez-vous la suppression du plan de destruction ${plan.plan_number} ?\n\nLes lots de déchets associés seront immédiatement réintégrés dans les stocks actifs de déchets.`
+
+    if (!confirm(confirmMsg)) return
+    setIsProcessing(true)
+
+    try {
+      try {
+        const stored = localStorage.getItem('destruction_plans_custom_v1')
+        if (stored) {
+          const list = JSON.parse(stored)
+          const updated = list.filter((p: any) => p.id !== plan.id && p.plan_number !== plan.plan_number)
+          localStorage.setItem('destruction_plans_custom_v1', JSON.stringify(updated))
+        }
+
+        const storedBatches = localStorage.getItem('waste_batches_custom_v1')
+        if (storedBatches) {
+          const batches = JSON.parse(storedBatches)
+          const updatedBatches = batches.map((b: any) => {
+            if (b.destruction_plan_ref === plan.plan_number || (plan.items && plan.items.some((it: any) => it.waste_batch_id === b.id || it.waste_batch?.batch_number === b.batch_number))) {
+              return { ...b, status: "Déclaré", destruction_plan_ref: null }
+            }
+            return b
+          })
+          localStorage.setItem('waste_batches_custom_v1', JSON.stringify(updatedBatches))
+        }
+      } catch (e) {}
+
+      await Promise.all([
+        supabase.from('destruction_plans').delete().or(`id.eq.${plan.id},plan_number.eq.${plan.plan_number}`),
+        supabase.from('waste_batches').update({ status: 'Déclaré', destruction_plan_ref: null }).eq('destruction_plan_ref', plan.plan_number)
+      ]).catch(err => console.warn("Notice delete Supabase:", err))
+
+      try {
+        recordAuditLog(
+          "Suppression Plan Destruction",
+          "Destruction Déchets",
+          `Suppression du plan de destruction ${plan.plan_number} depuis la page de détails`,
+          "Agent ABMeD"
+        )
+      } catch (e) {}
+
+      broadcastDataMutation({
+        entity: "destruction_plans,waste_batches,waste_movements,audit",
+        action: "delete",
+        id: plan.plan_number
+      })
+
+      toast.success(`Plan de destruction ${plan.plan_number} supprimé avec succès.`)
+      router.push("/dashboard/destructions")
+    } catch (err: any) {
+      toast.error(`Erreur: ${err.message}`)
+      setIsProcessing(false)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-5xl mx-auto pb-20">
@@ -391,6 +454,27 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
               <Printer className="h-4 w-4" /> Ordre de Destruction
             </Button>
           )}
+          {plan.status !== 'Exécuté' && (
+            <>
+              <Button 
+                variant="outline" 
+                asChild 
+                className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 text-xs font-bold"
+              >
+                <Link href={`/dashboard/destructions/new?edit=${encodeURIComponent(plan.plan_number || plan.id)}`}>
+                  <Pencil className="h-3.5 w-3.5" /> Modifier
+                </Link>
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleDeletePlan} 
+                disabled={isProcessing}
+                className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 text-xs font-bold cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Supprimer
+              </Button>
+            </>
+          )}
           {plan.status === 'En attente exécution' && (
             <Button onClick={executeDestruction} disabled={isProcessing} className="gap-2 shadow-md bg-destructive hover:bg-destructive/90 text-white font-bold">
               <Flame className="h-4 w-4" /> Exécuter la destruction & Sortir du stock
@@ -398,6 +482,46 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+
+      {/* BANDEAU PÉRIODE & SITE */}
+      <Card className="shadow-xs border-border/60 bg-muted/20">
+        <CardContent className="p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="text-[10.5px] uppercase font-bold text-muted-foreground block">Période Planifiée</span>
+              <span className="font-bold text-foreground">
+                {planDates.isPeriod
+                  ? `Du ${new Date(planDates.startDate).toLocaleDateString('fr-FR')} au ${new Date(planDates.endDate).toLocaleDateString('fr-FR')}`
+                  : (planDates.startDate ? `Le ${new Date(planDates.startDate).toLocaleDateString('fr-FR')}` : 'Période non définie')}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+              <Flame className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="text-[10.5px] uppercase font-bold text-muted-foreground block">Site & Méthode</span>
+              <span className="font-bold text-foreground">{plan.destruction_site || "Centre Agréé"}</span>
+              <span className="text-[10px] text-muted-foreground block">{plan.destruction_method}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="text-[10.5px] uppercase font-bold text-muted-foreground block">Superviseur ABMeD</span>
+              <span className="font-bold text-foreground">{plan.supervisor_name || "Admin EGED"}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid md:grid-cols-3 gap-6">
         
@@ -511,7 +635,10 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                 <p className="text-xs text-muted-foreground mt-1">
                   {plan.status === 'Exécuté' 
                     ? (plan.execution_date ? `Exécuté le ${new Date(plan.execution_date).toLocaleDateString('fr-FR')}` : 'Destruction effectuée')
-                    : (plan.planned_date ? `Prévue le ${new Date(plan.planned_date).toLocaleDateString('fr-FR')}` : 'Date non planifiée')
+                    : (planDates.isPeriod
+                        ? `Période planifiée : du ${new Date(planDates.startDate).toLocaleDateString('fr-FR')} au ${new Date(planDates.endDate).toLocaleDateString('fr-FR')}`
+                        : (planDates.startDate ? `Prévue le ${new Date(planDates.startDate).toLocaleDateString('fr-FR')}` : 'Date non planifiée')
+                      )
                   }
                 </p>
                 {plan.status === 'Exécuté' && <Badge className="mt-2 bg-destructive/10 text-destructive border-destructive/20"><Flame className="mr-1 h-3 w-3" /> Incinéré / Détruit</Badge>}
