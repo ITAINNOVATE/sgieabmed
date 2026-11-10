@@ -152,10 +152,10 @@ function AppointmentsContent() {
     pollIntervalMs: 2500
   })
 
-  // Notification automatique en direct lors de la réception d'un nouveau rendez-vous
+  // Notification automatique en direct lors de la réception d'un nouveau rendez-vous (Agents ABMeD uniquement)
   const prevAppointmentsCountRef = useRef<number | null>(null)
   useEffect(() => {
-    if (prevAppointmentsCountRef.current !== null && appointments.length > prevAppointmentsCountRef.current) {
+    if (!isCenterUser && prevAppointmentsCountRef.current !== null && appointments.length > prevAppointmentsCountRef.current) {
       const latest = appointments[0]
       if (latest) {
         toast.success(`Nouveau rendez-vous en direct !`, {
@@ -165,7 +165,7 @@ function AppointmentsContent() {
       }
     }
     prevAppointmentsCountRef.current = appointments.length
-  }, [appointments])
+  }, [appointments, isCenterUser])
 
   // Pré-remplissage du formulaire de réservation lorsque le centre ouvre le modal
   useEffect(() => {
@@ -540,7 +540,7 @@ function AppointmentsContent() {
       )}
 
       {/* ─── CARTES KPI SYNTHÉTIQUES ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid gap-3 ${isCenterUser ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 lg:grid-cols-4"}`}>
         <Card className="rounded-xl border border-border/60 shadow-2xs p-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Créneaux Ouverts</span>
@@ -578,16 +578,18 @@ function AppointmentsContent() {
           </p>
         </Card>
 
-        <Card className="rounded-xl border border-border/60 shadow-2xs p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Centres Enregistrés</span>
-            <Building2 className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="text-xl font-black text-foreground mt-1">
-            {centers.length}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Structures avec code CTR actif</p>
-        </Card>
+        {!isCenterUser && (
+          <Card className="rounded-xl border border-border/60 shadow-2xs p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Centres Enregistrés</span>
+              <Building2 className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="text-xl font-black text-foreground mt-1">
+              {centers.length}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Structures avec code CTR actif</p>
+          </Card>
+        )}
       </div>
 
       {/* ─── ONGLET PRINCIPAL ─── */}
@@ -765,8 +767,8 @@ function AppointmentsContent() {
                           </div>
                         </div>
 
-                        {/* Aperçu direct des centres inscrits en temps réel */}
-                        {schedApps.length > 0 && (
+                        {/* Aperçu direct des centres inscrits en temps réel (Agents ABMeD uniquement) */}
+                        {schedApps.length > 0 && !isCenterUser && (
                           <div className="p-2 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 text-[10.5px] space-y-1">
                             <div className="flex items-center justify-between text-blue-900 dark:text-blue-300 font-bold">
                               <span className="flex items-center gap-1">
