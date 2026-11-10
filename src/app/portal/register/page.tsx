@@ -55,6 +55,7 @@ export default function RegisterPortalPage() {
   // Form states
   const [structureName, setStructureName] = useState("")
   const [centerType, setCenterType] = useState("")
+  const [ifuNumber, setIfuNumber] = useState("")
   const [city, setCity] = useState("")
   const [customCity, setCustomCity] = useState("")
   const [address, setAddress] = useState("")
@@ -134,6 +135,7 @@ export default function RegisterPortalPage() {
       const newCenterData: Partial<Center> = {
         name: structureName.trim(),
         center_type: centerType,
+        ifu_number: ifuNumber.trim(),
         city: selectedCity,
         country: "Bénin",
         address: address.trim(),
@@ -278,6 +280,11 @@ export default function RegisterPortalPage() {
                 </div>
                 <p className="text-xs text-muted-foreground font-medium pt-1">
                   Établissement : <strong className="text-foreground">{createdCenter.name}</strong> ({createdCenter.city})
+                  {createdCenter.ifu_number && (
+                    <span className="ml-2 font-mono text-emerald-700 dark:text-emerald-300 font-semibold">
+                      — IFU : {createdCenter.ifu_number}
+                    </span>
+                  )}
                 </p>
               </div>
 
@@ -403,6 +410,22 @@ export default function RegisterPortalPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* NUMÉRO IFU */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ifuNumber" className="text-xs font-bold flex items-center justify-between">
+                          <span>Numéro IFU de la structure</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">Identifiant Fiscal Unique</span>
+                        </Label>
+                        <Input
+                          id="ifuNumber"
+                          value={ifuNumber}
+                          onChange={(e) => setIfuNumber(e.target.value)}
+                          placeholder="Ex : 0202112345678"
+                          maxLength={25}
+                          className="h-10 text-xs rounded-xl font-mono"
+                        />
                       </div>
 
                       {/* VILLE / COMMUNE */}

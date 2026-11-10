@@ -144,6 +144,7 @@ export default function CentersPage() {
       const matchSearch = !q || 
         (center.center_code || "").toLowerCase().includes(q) ||
         (center.name || "").toLowerCase().includes(q) ||
+        (center.ifu_number || "").toLowerCase().includes(q) ||
         (center.city || "").toLowerCase().includes(q) ||
         (center.contact_person || "").toLowerCase().includes(q) ||
         (center.phone || "").toLowerCase().includes(q) ||
@@ -207,6 +208,7 @@ export default function CentersPage() {
       center_code: nextCode,
       name: "",
       center_type: "Officine privée de pharmacie",
+      ifu_number: "",
       city: "Cotonou",
       country: "Bénin",
       contact_person: "",
@@ -259,6 +261,7 @@ export default function CentersPage() {
     const dataToExport = consolidatedStats.map(s => ({
       "Identifiant Unique": s.center.center_code,
       "Nom du Centre / Structure": s.center.name,
+      "Numéro IFU": s.center.ifu_number || "—",
       "Type d'Établissement": s.center.center_type,
       "Ville": s.center.city,
       "Pays": s.center.country || "Bénin",
@@ -522,11 +525,16 @@ export default function CentersPage() {
                       <TableCell className="font-semibold text-foreground">
                         <div className="flex flex-col">
                           <span>{center.name}</span>
-                          {center.address && (
-                            <span className="text-[10.5px] text-muted-foreground font-normal">
-                              {center.address}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10.5px] text-muted-foreground font-normal mt-0.5">
+                            {center.ifu_number && (
+                              <span className="font-mono text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
+                                IFU: {center.ifu_number}
+                              </span>
+                            )}
+                            {center.address && (
+                              <span>{center.address}</span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
 
@@ -676,6 +684,20 @@ export default function CentersPage() {
               />
             </div>
 
+            <div>
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between mb-1">
+                <span>Numéro IFU de la structure</span>
+                <span className="text-[10px] text-muted-foreground font-normal">Identifiant Fiscal Unique</span>
+              </label>
+              <Input
+                value={editingCenter?.ifu_number || ""}
+                onChange={(e) => setEditingCenter(prev => prev ? { ...prev, ifu_number: e.target.value } : null)}
+                placeholder="Ex : 0202112345678"
+                maxLength={25}
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">
@@ -786,13 +808,18 @@ export default function CentersPage() {
               <div className="p-5 border-b border-border/60 bg-muted/20">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
                       <Badge className="bg-[#1B5C2E] text-white font-mono font-bold text-xs px-2.5 py-0.5">
                         {selectedCenterStats.center.center_code}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
                         {selectedCenterStats.center.center_type}
                       </Badge>
+                      {selectedCenterStats.center.ifu_number && (
+                        <Badge variant="outline" className="text-xs font-mono bg-emerald-50 text-emerald-800 border-emerald-200 font-bold">
+                          IFU : {selectedCenterStats.center.ifu_number}
+                        </Badge>
+                      )}
                     </div>
                     <h2 className="text-lg font-black text-foreground">
                       {selectedCenterStats.center.name}

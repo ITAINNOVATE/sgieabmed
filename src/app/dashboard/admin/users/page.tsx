@@ -395,6 +395,7 @@ Consigne : Lors de votre 1ère connexion avec ce mot de passe temporaire, la pla
       return {
         "Identifiant Unique (Code Centre)": c.center_code,
         "Nom de l'Établissement": c.name,
+        "Numéro IFU": c.ifu_number || "—",
         "Catégorie de Structure": c.center_type,
         "Ville / Commune": c.city,
         "Adresse": c.address || "-",
@@ -410,6 +411,7 @@ Consigne : Lors de votre 1ère connexion avec ce mot de passe temporaire, la pla
     const headers = [
       "Identifiant Unique (Code Centre)",
       "Nom de l'Établissement",
+      "Numéro IFU",
       "Catégorie de Structure",
       "Ville / Commune",
       "Adresse",
@@ -449,6 +451,7 @@ Consigne : Lors de votre 1ère connexion avec ce mot de passe temporaire, la pla
       const matchesSearch = !q || 
         c.center_code.toLowerCase().includes(q) ||
         c.name.toLowerCase().includes(q) ||
+        (c.ifu_number || "").toLowerCase().includes(q) ||
         (c.city || "").toLowerCase().includes(q) ||
         (c.contact_person || "").toLowerCase().includes(q) ||
         (c.phone || "").toLowerCase().includes(q) ||
@@ -898,10 +901,16 @@ Consigne : Lors de votre 1ère connexion avec ce mot de passe temporaire, la pla
                                 <p className="font-bold text-xs text-foreground leading-tight">
                                   {center.name}
                                 </p>
-                                <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-1.5 text-[10.5px] text-muted-foreground">
                                   <span className="font-medium text-emerald-700 dark:text-emerald-400">{center.center_type}</span>
                                   <span>•</span>
                                   <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{center.city}</span>
+                                  {center.ifu_number && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="font-mono text-purple-700 dark:text-purple-300 font-bold">IFU : {center.ifu_number}</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </TableCell>

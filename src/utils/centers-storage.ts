@@ -9,6 +9,7 @@ export interface Center {
   center_code: string // Ex: "CTR-2026-0001"
   name: string
   center_type: string
+  ifu_number?: string // Numéro IFU (Identifiant Fiscal Unique)
   city: string
   country?: string
   address?: string
@@ -380,6 +381,7 @@ export async function saveCenter(centerData: Partial<Center>): Promise<Center> {
     center_code: centerCode,
     name: centerData.name ? centerData.name.trim() : (target?.name || "Centre Inconnu"),
     center_type: centerData.center_type || target?.center_type || "Officine privée de pharmacie",
+    ifu_number: centerData.ifu_number !== undefined ? centerData.ifu_number.trim() : (target?.ifu_number ?? ""),
     city: centerData.city || target?.city || "Cotonou",
     country: centerData.country || target?.country || "Bénin",
     address: centerData.address ?? target?.address ?? "",
