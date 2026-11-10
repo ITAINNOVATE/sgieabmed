@@ -64,6 +64,7 @@ export default function RegisterPortalPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(true)
 
   // Submission state
@@ -551,12 +552,15 @@ export default function RegisterPortalPage() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
+                            disableUppercase
+                            allowMixedCase
                             className="pl-9 pr-9 h-10 text-xs rounded-xl"
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
+                            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                           >
                             {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                           </button>
@@ -572,13 +576,31 @@ export default function RegisterPortalPage() {
                           <Lock className="absolute left-3 top-3 h-3.5 w-3.5 text-muted-foreground" />
                           <Input
                             id="confirmPassword"
-                            type={showPassword ? "text" : "password"}
+                            type={showConfirmPassword ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
-                            className="pl-9 h-10 text-xs rounded-xl"
+                            disableUppercase
+                            allowMixedCase
+                            className="pl-9 pr-9 h-10 text-xs rounded-xl"
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
+                            aria-label={showConfirmPassword ? "Masquer la confirmation" : "Afficher la confirmation"}
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </button>
                         </div>
+                        {confirmPassword && (
+                          <div className="flex items-center gap-1.5 text-[11px] pt-1">
+                            <span className={`h-1.5 w-1.5 rounded-full ${password === confirmPassword ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                            <span className={password === confirmPassword ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-red-600 font-medium'}>
+                              {password === confirmPassword ? "Mots de passe identiques" : "Les mots de passe ne correspondent pas"}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                     </div>

@@ -9,20 +9,25 @@ export interface InputProps extends React.ComponentProps<"input"> {
 }
 
 function Input({ className, type, name, id, onChange, disableUppercase, allowMixedCase, ...props }: InputProps) {
+  const isPasswordLike =
+    type === "password" ||
+    (typeof name === "string" && name.toLowerCase().includes("pass")) ||
+    (typeof id === "string" && id.toLowerCase().includes("pass")) ||
+    (typeof props.autoComplete === "string" && props.autoComplete.toLowerCase().includes("pass")) ||
+    (typeof props.placeholder === "string" && props.placeholder.toLowerCase().includes("passe"))
+
   const isEmailOrPasswordOrMixed = 
+    isPasswordLike ||
     type === "number" || 
     type === "date" || 
     type === "time" || 
     type === "file" || 
     type === "checkbox" || 
-    type === "password" || 
     type === "email" || 
-    name === "email" || 
-    id === "email" || 
-    name === "username" || 
-    id === "username" ||
-    name === "password" ||
-    id === "password" ||
+    (typeof name === "string" && name.toLowerCase().includes("email")) || 
+    (typeof id === "string" && id.toLowerCase().includes("email")) || 
+    (typeof name === "string" && name.toLowerCase().includes("user")) || 
+    (typeof id === "string" && id.toLowerCase().includes("user")) ||
     disableUppercase || 
     allowMixedCase
 

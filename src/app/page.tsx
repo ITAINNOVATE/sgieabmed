@@ -323,6 +323,8 @@ export default function LoginPage({
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         required 
+                        disableUppercase
+                        allowMixedCase
                         className="pl-9 pr-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                       />
                       <button
@@ -348,6 +350,8 @@ export default function LoginPage({
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         required 
+                        disableUppercase
+                        allowMixedCase
                         className="pl-9 pr-9 h-9 text-xs bg-background rounded-lg border-border focus-visible:ring-[#1B5C2E]" 
                       />
                       <button

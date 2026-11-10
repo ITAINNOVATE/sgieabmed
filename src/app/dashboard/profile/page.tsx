@@ -63,6 +63,7 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [savingPwd, setSavingPwd] = useState(false)
 
   useEffect(() => {
@@ -421,14 +422,23 @@ export default function ProfilePage() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold text-foreground">Confirmer le mot de passe</label>
-                      <Input
-                        type={showNewPwd ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirmer"
-                        required
-                        className="h-8 text-xs bg-background"
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPwd ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirmer"
+                          required
+                          className="h-8 text-xs bg-background pr-8"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                          className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          {showConfirmPwd ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">
