@@ -20,6 +20,8 @@ export interface Center {
   last_login?: string
   created_at: string
   updated_at?: string
+  has_changed_password?: boolean
+  must_change_password?: boolean
 }
 
 /**
@@ -385,6 +387,12 @@ export async function saveCenter(centerData: Partial<Center>): Promise<Center> {
     phone: centerData.phone ?? target?.phone ?? "",
     email: centerData.email ?? target?.email ?? "",
     password: centerData.password || target?.password || getCenterDefaultPassword(centerCode),
+    has_changed_password: centerData.has_changed_password !== undefined 
+      ? centerData.has_changed_password 
+      : (target?.has_changed_password ?? false),
+    must_change_password: centerData.must_change_password !== undefined 
+      ? centerData.must_change_password 
+      : (target?.must_change_password ?? (target?.has_changed_password ? false : true)),
     account_status: centerData.account_status || target?.account_status || "Actif",
     last_login: centerData.last_login || target?.last_login,
     created_at: target?.created_at || centerData.created_at || new Date().toISOString(),
@@ -539,4 +547,36 @@ export function calculateCentersData(
       wasteBatches: matchedWasteBatches,
     }
   })
+}
+
+/**
+ * Réinitialise le mot de passe initial pour un centre apporteur
+ * et force l'obligation de changement à la première connexion
+ */
+export async function resetCenterPassword(centerCode: string): Promise<string | null> {
+  const centers = await getRegisteredCenters()
+  const target = centers.find(c => c.center_code === centerCode || c.id === centerCode)
+  if (!target) return null
+  const defaultPass = getCenterDefaultPassword(target.center_code)
+  await saveCenter({
+    ...target,
+    password: defaultPass,
+    has_changed_password: false,
+    must_change_password: true,
+  })
+  return defaultPass
+}
+
+/**
+ * Active ou suspend le compte d'un centre apporteur
+ */
+export async function toggleCenterStatus(centerCode: string, newStatus: "Actif" | "Suspendu"): Promise<boolean> {
+  const centers = await getRegisteredCenters()
+  const target = centers.find(c => c.center_code === centerCode || c.id === centerCode)
+  if (!target) return false
+  await saveCenter({
+    ...target,
+    account_status: newStatus,
+  })
+  return true
 }

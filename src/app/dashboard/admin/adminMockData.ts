@@ -1208,7 +1208,12 @@ export const updateUserPassword = async (
             c.center_code.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() === idLower.replace(/[^a-zA-Z0-9]/g, "")
         )
         if (targetCenter) {
-          await saveCenter({ ...targetCenter, password: newPassword })
+          await saveCenter({
+            ...targetCenter,
+            password: newPassword,
+            has_changed_password: true,
+            must_change_password: false,
+          })
         }
       }
     } catch (e) {}
@@ -1359,7 +1364,7 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
       const cleanAttempt = (passwordAttempt || "").trim()
 
       // Si le centre a personnalisé son mot de passe (différent du mot de passe par défaut), c'est son nouveau mot de passe qui fait foi
-      const hasCustomCenterPass = matchedCenter.password && matchedCenter.password !== defaultPass
+      const hasCustomCenterPass = matchedCenter.has_changed_password === true || (matchedCenter.password && matchedCenter.password !== defaultPass && matchedCenter.must_change_password === false)
       const isMatch = hasCustomCenterPass
         ? (passwordAttempt === matchedCenter.password || cleanAttempt === matchedCenter.password!.trim())
         : (
@@ -1374,6 +1379,9 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
       if (!isMatch) {
         return { success: false, error: "Mot de passe incorrect pour ce centre apporteur." }
       }
+
+      // Première connexion obligatoire : tant que le centre n'a pas personnalisé son mot de passe
+      const isFirstLogin = !hasCustomCenterPass || matchedCenter.must_change_password === true
 
       const centerUser: User = {
         id: matchedCenter.id,
@@ -1393,14 +1401,15 @@ export const authenticateUser = async (identifier: string, passwordAttempt: stri
         mfa_enabled: false,
         login_attempts: 0,
         locked_until: null,
-        must_change_password: false,
+        must_change_password: isFirstLogin,
+        initial_password: defaultPass,
         password: centerPassword,
       }
 
       return {
         success: true,
         user: centerUser,
-        mustChangePassword: false,
+        mustChangePassword: isFirstLogin,
       }
     }
   }
