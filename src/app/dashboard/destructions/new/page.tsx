@@ -24,6 +24,7 @@ import {
 
 import { createClient } from "@/utils/supabase/client"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 
 const formSchema = z.object({
   plan_number: z.string().min(1, "N° de plan requis"),
@@ -237,10 +238,19 @@ export default function NewDestructionPlanPage() {
       await Promise.race([syncPromise, new Promise(r => setTimeout(r, 600))])
 
       broadcastDataMutation({
-        entity: "destruction_plans,waste_batches",
+        entity: "destruction_plans,waste_batches,waste_movements,audit",
         action: "create",
         id: values.plan_number
       })
+
+      try {
+        recordAuditLog(
+          "Création Plan Destruction",
+          "Destruction Déchets",
+          `Création du plan de destruction ${values.plan_number} (${values.selected_batches.length} lot(s), Méthode: ${values.destruction_method}, Site: ${values.destruction_site}) - Superviseur: ${values.supervisor_name}`,
+          values.supervisor_name || "Agent ABMeD"
+        )
+      } catch (e) {}
 
       toast.success(
         `Plan de destruction ${values.plan_number} créé avec succès avec ${values.selected_batches.length} lot(s) !`

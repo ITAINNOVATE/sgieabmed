@@ -20,6 +20,7 @@ import { createClient } from "@/utils/supabase/client"
 import { exportDestructionCertificatePDF } from "@/utils/exportUtils"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { broadcastDataMutation } from "@/utils/realtimeBus"
+import { recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 
 const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {}
 
@@ -194,10 +195,19 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
         .then(() => {})
 
       broadcastDataMutation({
-        entity: "destruction_plans,destruction_validations",
+        entity: "destruction_plans,destruction_validations,audit",
         action: "validate",
         id: plan.plan_number
       })
+
+      try {
+        recordAuditLog(
+          "Signature Plan Destruction",
+          "Destruction Déchets",
+          `Validation et signature (${action}) du plan ${plan.plan_number} par ${role} - Nouveau statut : ${newStatus}`,
+          role || "Commission Destruction"
+        )
+      } catch (e) {}
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -308,10 +318,19 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       ]).catch(err => console.warn("Supabase execute sync warning:", err))
 
       broadcastDataMutation({
-        entity: "destruction_plans,waste_batches,waste_movements",
+        entity: "destruction_plans,waste_batches,waste_movements,audit",
         action: "execute",
         id: plan.plan_number
       })
+
+      try {
+        recordAuditLog(
+          "Exécution Destruction",
+          "Destruction Déchets",
+          `Exécution définitive de la destruction pour le plan ${plan.plan_number} (${plan.batches?.length || 0} lot(s), ${plan.total_weight || 0} Kg) au site : ${plan.destruction_site || "Site agréé"}`,
+          plan.supervisor_name || "Superviseur Destruction"
+        )
+      } catch (e) {}
     } catch (error: any) {
       toast.error(error.message)
     } finally {

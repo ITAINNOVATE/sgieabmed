@@ -1062,10 +1062,19 @@ export const updateUser = async (id: string, user: Partial<Omit<User, 'id' | 'cr
   } catch (err) {}
 
   broadcastDataMutation({
-    entity: "users",
+    entity: "users,waste_movements,audit",
     action: "update",
     id: effectiveId
   })
+
+  try {
+    recordAuditLog(
+      "Mise à jour Utilisateur",
+      "Sécurité & Accès",
+      `Mise à jour du profil ou des accès de ${targetUser?.first_name || ''} ${targetUser?.last_name || ''} (${targetUser?.username || effectiveId}) - Rôle : ${payloadWithTime.role || targetUser?.role || 'Utilisateur'}`,
+      "Administrateur ABMeD"
+    )
+  } catch (e) {}
 
   return true
 }
@@ -1115,10 +1124,19 @@ export const softDeleteUser = async (id: string): Promise<boolean> => {
   } catch (err) {}
 
   broadcastDataMutation({
-    entity: "users",
+    entity: "users,waste_movements,audit",
     action: "delete",
     id
   })
+
+  try {
+    recordAuditLog(
+      "Suppression Utilisateur",
+      "Sécurité & Accès",
+      `Suppression / Désactivation du compte utilisateur ${id}`,
+      "Administrateur ABMeD"
+    )
+  } catch (e) {}
 
   return true
 }
