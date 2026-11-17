@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, useMemo, useCallback } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
 import { 
   ArrowLeft, CheckCircle2, XCircle, Flame, ShieldCheck, Printer, 
@@ -28,6 +28,9 @@ const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {}
 
 export default function DestructionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
+  const routeParams = useParams()
+  const rawId = (routeParams?.id as string) || (resolvedParams?.id as string) || ""
+  const cleanId = decodeURIComponent(rawId).trim()
   const [plan, setPlan] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -81,31 +84,48 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
   }
 
   const fetchPlan = useCallback(async () => {
+    if (!cleanId) return
     let localFound: any = null
     // 1. Affichage instantané (0ms) depuis localStorage ou fallback
     try {
       const stored = localStorage.getItem('destruction_plans_custom_v1')
       if (stored) {
         const list = JSON.parse(stored)
-        localFound = list.find((p: any) => p.id === resolvedParams.id || p.plan_number === resolvedParams.id)
+        localFound = list.find((p: any) => 
+          String(p.id || '').trim().toLowerCase() === cleanId.toLowerCase() || 
+          String(p.plan_number || '').trim().toLowerCase() === cleanId.toLowerCase()
+        )
       }
     } catch (e) {}
 
     if (localFound) {
       setPlan(localFound)
       setLoading(false)
-    } else if (MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id]) {
-      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
+    } else if (MOCK_DESTRUCTION_PLANS_DETAILS[cleanId] || (resolvedParams?.id && MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])) {
+      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[cleanId] || MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
       setLoading(false)
     }
 
-    // 2. Vérifier dans Supabase Cloud pour la cohérence multi-postes
+    // 2. Vérifier dans Supabase Cloud pour la cohérence multi-postes sans erreur UUID Postgres
     try {
-      const { data } = await supabase
-        .from('destruction_plans')
-        .select('*')
-        .or(`id.eq.${resolvedParams.id},plan_number.eq.${resolvedParams.id}`)
-        .maybeSingle()
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanId)
+      let supabaseQuery = supabase.from('destruction_plans').select('*')
+      if (isUuid) {
+        supabaseQuery = supabaseQuery.or(`id.eq.${cleanId},plan_number.eq.${cleanId}`)
+      } else {
+        supabaseQuery = supabaseQuery.eq('plan_number', cleanId)
+      }
+      
+      let { data } = await supabaseQuery.maybeSingle()
+
+      if (!data && !isUuid) {
+        const { data: ilikeData } = await supabase
+          .from('destruction_plans')
+          .select('*')
+          .ilike('plan_number', cleanId)
+          .maybeSingle()
+        if (ilikeData) data = ilikeData
+      }
       
       if (data) {
         const formatted = {
@@ -121,7 +141,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
     } finally {
       setLoading(false)
     }
-  }, [resolvedParams.id, supabase])
+  }, [cleanId, resolvedParams?.id, supabase])
 
   useEffect(() => {
     fetchPlan()

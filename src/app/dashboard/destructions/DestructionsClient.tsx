@@ -337,7 +337,13 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
                     return (
                       <TableRow key={plan.id} className="text-xs hover:bg-muted/30 transition-colors">
                         <TableCell className="pl-4 font-bold text-foreground font-mono py-2 whitespace-nowrap">
-                          {plan.plan_number}
+                          <Link 
+                            href={`/dashboard/destructions/${encodeURIComponent(plan.plan_number || plan.id)}`}
+                            className="text-[#1B5C2E] hover:underline"
+                            title="Consulter le détail du plan"
+                          >
+                            {plan.plan_number}
+                          </Link>
                         </TableCell>
                         
                         {/* PÉRIODE PLANIFIÉE (DATE DÉBUT & DATE FIN) */}
@@ -371,7 +377,7 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
                               asChild 
                               className="h-7 text-xs px-2 text-[#1B5C2E] hover:text-[#1B5C2E] hover:bg-emerald-50 font-bold"
                             >
-                              <Link href={`/dashboard/destructions/${plan.id || plan.plan_number}`}>
+                              <Link href={`/dashboard/destructions/${encodeURIComponent(plan.plan_number || plan.id)}`}>
                                 <Eye className="h-3.5 w-3.5 mr-1" /> Voir
                               </Link>
                             </Button>

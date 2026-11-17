@@ -6,7 +6,7 @@ import {
   CalendarDays, Clock, MapPin, Plus, CheckCircle2, AlertCircle, 
   Search, Users, Building2, FileText, Download, Printer, XCircle, 
   ChevronRight, Calendar, ArrowRight, ShieldCheck, CheckSquare, Filter,
-  Sparkles, RefreshCw, Layers, Trash2
+  Sparkles, RefreshCw, Layers, Trash2, Pencil
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { getCurrentUser, User as AdminUser } from "@/app/dashboard/admin/adminMockData"
+import { getCurrentUser, User as AdminUser, recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 import { 
   getRegisteredCentersSync, 
   getRegisteredCenters, 
@@ -80,6 +80,18 @@ function AppointmentsContent() {
   const [newScheduleCapacity, setNewScheduleCapacity] = useState(8)
   const [newScheduleLocation, setNewScheduleLocation] = useState("")
   const [newScheduleInstructions, setNewScheduleInstructions] = useState("")
+
+  // Modal Modification d'une Journée de Réception (Agents ABMeD)
+  const [isEditScheduleOpen, setIsEditScheduleOpen] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<ReceptionSchedule | null>(null)
+  const [editScheduleDate, setEditScheduleDate] = useState("")
+  const [editScheduleStartTime, setEditScheduleStartTime] = useState("08:30")
+  const [editScheduleEndTime, setEditScheduleEndTime] = useState("15:30")
+  const [editScheduleType, setEditScheduleType] = useState<"Échantillons pharmaceutiques" | "Déchets pharmaceutiques" | "Mixte (Échantillons & Déchets)">("Déchets pharmaceutiques")
+  const [editScheduleCapacity, setEditScheduleCapacity] = useState(8)
+  const [editScheduleLocation, setEditScheduleLocation] = useState("")
+  const [editScheduleInstructions, setEditScheduleInstructions] = useState("")
+  const [editScheduleStatus, setEditScheduleStatus] = useState<"Ouvert" | "Complet" | "Clôturé" | "Annulé">("Ouvert")
 
   // Modal Réservation (Centres ou Agents)
   const [isBookModalOpen, setIsBookModalOpen] = useState(false)
@@ -273,6 +285,63 @@ function AppointmentsContent() {
       toast.success("Journée de réception supprimée.")
       loadData()
     }
+  }
+
+  // OUVERTURE DU MODAL DE MODIFICATION D'UN CRÉNEAU
+  const handleOpenEditSchedule = (sched: ReceptionSchedule) => {
+    setEditingSchedule(sched)
+    setEditScheduleDate(sched.date)
+    setEditScheduleStartTime(sched.start_time || "08:30")
+    setEditScheduleEndTime(sched.end_time || "15:30")
+    setEditScheduleType(sched.reception_type)
+    setEditScheduleCapacity(sched.max_capacity)
+    setEditScheduleLocation(sched.location || "")
+    setEditScheduleInstructions(sched.instructions || "")
+    setEditScheduleStatus(sched.status || "Ouvert")
+    setIsEditScheduleOpen(true)
+  }
+
+  // VALIDATION DE LA MODIFICATION D'UN CRÉNEAU
+  const handleUpdateScheduleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingSchedule) return
+
+    if (!editScheduleDate) {
+      toast.error("Veuillez sélectionner une date de réception.")
+      return
+    }
+    if (Number(editScheduleCapacity) < 1) {
+      toast.error("La capacité d'accueil doit être d'au moins 1 centre.")
+      return
+    }
+
+    const updatedSched: ReceptionSchedule = {
+      ...editingSchedule,
+      date: editScheduleDate,
+      start_time: editScheduleStartTime,
+      end_time: editScheduleEndTime,
+      reception_type: editScheduleType,
+      max_capacity: Number(editScheduleCapacity),
+      location: editScheduleLocation.trim(),
+      instructions: editScheduleInstructions.trim(),
+      status: editScheduleStatus,
+    }
+
+    await saveReceptionSchedule(updatedSched)
+
+    try {
+      recordAuditLog(
+        "Modification Créneau",
+        "Planning des Réceptions",
+        `Mise à jour de la session de réception du ${updatedSched.date} (${updatedSched.reception_type}, capacité: ${updatedSched.max_capacity}, statut: ${updatedSched.status})`,
+        currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Agent ABMeD"
+      )
+    } catch (e) {}
+
+    toast.success(`Journée de réception du ${editScheduleDate} mise à jour avec succès.`)
+    setIsEditScheduleOpen(false)
+    setEditingSchedule(null)
+    loadData()
   }
 
   // OUVERTURE MODAL RÉSERVATION
@@ -853,6 +922,16 @@ function AppointmentsContent() {
                               + Inscrire
                             </Button>
                             <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditSchedule(sched)}
+                              className="text-xs h-7.5 px-2 font-bold text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                              title="Modifier cette programmation de réception"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Modifier
+                            </Button>
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteSchedule(sched.id, sched.date)}
@@ -1201,6 +1280,151 @@ function AppointmentsContent() {
               </Button>
               <Button type="submit" size="sm" className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white">
                 Ouvrir ce Créneau
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL : MODIFIER UNE JOURNÉE DE RÉCEPTION (AGENTS ABMED) ─── */}
+      <Dialog open={isEditScheduleOpen} onOpenChange={setIsEditScheduleOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-black">
+              <Pencil className="h-5 w-5 text-blue-600" />
+              Modifier la Journée de Réception
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Mettez à jour la programmation de la session, sa jauge d&apos;accueil, ses horaires ou son statut.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateScheduleSubmit} className="space-y-3.5 py-1 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold">Date de réception *</Label>
+                <Input
+                  type="date"
+                  value={editScheduleDate}
+                  onChange={(e) => setEditScheduleDate(e.target.value)}
+                  className="mt-1 text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">Capacité (Nombre max centres) *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={editScheduleCapacity}
+                  onChange={(e) => setEditScheduleCapacity(Number(e.target.value))}
+                  className="mt-1 text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold">Heure début</Label>
+                <Input
+                  type="time"
+                  value={editScheduleStartTime}
+                  onChange={(e) => setEditScheduleStartTime(e.target.value)}
+                  className="mt-1 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold">Heure fin</Label>
+                <Input
+                  type="time"
+                  value={editScheduleEndTime}
+                  onChange={(e) => setEditScheduleEndTime(e.target.value)}
+                  className="mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold">Type de réception *</Label>
+                <Select 
+                  value={editScheduleType} 
+                  onValueChange={(val: any) => setEditScheduleType(val)}
+                >
+                  <SelectTrigger className="mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Déchets pharmaceutiques" className="text-xs">
+                      Déchets pharmaceutiques
+                    </SelectItem>
+                    <SelectItem value="Échantillons pharmaceutiques" className="text-xs">
+                      Échantillons pharmaceutiques
+                    </SelectItem>
+                    <SelectItem value="Mixte (Échantillons & Déchets)" className="text-xs">
+                      Mixte (Échantillons & Déchets)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">Statut du créneau *</Label>
+                <Select 
+                  value={editScheduleStatus} 
+                  onValueChange={(val: any) => setEditScheduleStatus(val)}
+                >
+                  <SelectTrigger className="mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ouvert" className="text-xs font-bold text-emerald-600">
+                      Ouvert (Accessible)
+                    </SelectItem>
+                    <SelectItem value="Complet" className="text-xs font-bold text-amber-600">
+                      Complet (Jauge atteinte)
+                    </SelectItem>
+                    <SelectItem value="Clôturé" className="text-xs font-bold text-blue-600">
+                      Clôturé (Session passée)
+                    </SelectItem>
+                    <SelectItem value="Annulé" className="text-xs font-bold text-red-600">
+                      Annulé (Déprogrammé)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold">Lieu / Guichet d&apos;accueil</Label>
+              <Input
+                value={editScheduleLocation}
+                onChange={(e) => setEditScheduleLocation(e.target.value)}
+                className="mt-1 text-xs"
+                placeholder="Ex : Magasin Central ABMeD — Quai Déchets"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold">Consignes particulières pour les centres</Label>
+              <Textarea
+                value={editScheduleInstructions}
+                onChange={(e) => setEditScheduleInstructions(e.target.value)}
+                rows={2}
+                className="mt-1 text-xs"
+                placeholder="Ex : Se munir des bordereaux de dépôt triplés et de la fiche de pesée..."
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditScheduleOpen(false)} className="text-xs">
+                Annuler
+              </Button>
+              <Button type="submit" size="sm" className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white">
+                Enregistrer les Modifications
               </Button>
             </DialogFooter>
           </form>
