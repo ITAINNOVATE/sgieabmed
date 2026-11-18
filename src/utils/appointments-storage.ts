@@ -18,6 +18,7 @@ export interface ReceptionSchedule {
   status: "Ouvert" | "Complet" | "Clôturé" | "Annulé"
   created_by: string
   created_at: string
+  updated_at?: string
 }
 
 export interface Appointment {
@@ -90,6 +91,24 @@ export function getReceptionSchedulesSync(): ReceptionSchedule[] {
   return []
 }
 
+// Fonction utilitaire de normalisation de date au format ISO strict "YYYY-MM-DD"
+export function normalizeToIsoDate(d: string): string {
+  if (!d) return new Date().toISOString().split("T")[0]
+  const trimmed = d.trim()
+  if (trimmed.includes("/")) {
+    const parts = trimmed.split("/")
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`
+      }
+    }
+  }
+  if (trimmed.includes("T")) {
+    return trimmed.split("T")[0]
+  }
+  return trimmed
+}
+
 export async function getReceptionSchedules(): Promise<ReceptionSchedule[]> {
   const localList = getReceptionSchedulesSync()
   try {
@@ -107,6 +126,7 @@ export async function getReceptionSchedules(): Promise<ReceptionSchedule[]> {
           if (mvt.observations) {
             const parsed = JSON.parse(mvt.observations)
             if (parsed && parsed.date && parsed.max_capacity) {
+              parsed.date = normalizeToIsoDate(parsed.date)
               cloudSchedules.push(parsed)
             }
           }
@@ -114,8 +134,23 @@ export async function getReceptionSchedules(): Promise<ReceptionSchedule[]> {
       })
 
       const schedMap = new Map<string, ReceptionSchedule>()
-      localList.forEach((s) => schedMap.set(s.id, s))
+      // 1. Ajouter d'abord les données Cloud
       cloudSchedules.forEach((s) => schedMap.set(s.id, s))
+
+      // 2. Fusionner avec le cache local : si le local est présent et plus récent ou identique, le local prévaut
+      localList.forEach((localSched) => {
+        const cloudSched = schedMap.get(localSched.id)
+        if (!cloudSched) {
+          schedMap.set(localSched.id, localSched)
+        } else {
+          const localTime = new Date(localSched.updated_at || localSched.created_at || 0).getTime()
+          const cloudTime = new Date(cloudSched.updated_at || cloudSched.created_at || 0).getTime()
+          if (localTime >= cloudTime) {
+            schedMap.set(localSched.id, localSched)
+          }
+        }
+      })
+
       const merged = Array.from(schedMap.values()).sort(
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
       )
@@ -130,6 +165,10 @@ export async function getReceptionSchedules(): Promise<ReceptionSchedule[]> {
 }
 
 export async function saveReceptionSchedule(schedule: ReceptionSchedule): Promise<boolean> {
+  const nowIso = new Date().toISOString()
+  schedule.updated_at = nowIso
+  schedule.date = normalizeToIsoDate(schedule.date)
+
   const list = getReceptionSchedulesSync()
   const idx = list.findIndex((s) => s.id === schedule.id)
   let updatedList: ReceptionSchedule[] = []
@@ -151,23 +190,45 @@ export async function saveReceptionSchedule(schedule: ReceptionSchedule): Promis
     } catch (e) {}
   }
 
-  // Sauvegarde Cloud dans waste_movements
+  // Sauvegarde Cloud dans waste_movements avec compatibilité montante (upsert ou update/insert)
   try {
     const supabase = createClient()
-    await supabase.from("waste_movements").upsert([
-      {
-        mvt_number: `SCHED-${schedule.id}`,
-        date: schedule.date,
-        type: "Créneau réception",
-        batch: `CAPACITE-${schedule.max_capacity}`,
-        waste_type: schedule.reception_type,
-        commercial_name: `Journée de Réception du ${schedule.date}`,
-        quantity: `${schedule.booked_count}/${schedule.max_capacity} centres`,
-        operator: schedule.created_by,
-        destination: schedule.location,
-        observations: JSON.stringify(schedule)
+    const isoDateStr = `${schedule.date}T08:00:00.000Z`
+    const payload = {
+      mvt_number: `SCHED-${schedule.id}`,
+      date: isoDateStr,
+      type: "Créneau réception",
+      batch: `CAPACITE-${schedule.max_capacity}`,
+      waste_type: schedule.reception_type,
+      commercial_name: `Journée de Réception du ${schedule.date}`,
+      quantity: `${schedule.booked_count || 0}/${schedule.max_capacity} centres`,
+      operator: schedule.created_by || "Agent ABMeD",
+      destination: schedule.location || "Magasin Central ABMeD",
+      observations: JSON.stringify(schedule)
+    }
+
+    const { error: upsertErr } = await supabase
+      .from("waste_movements")
+      .upsert([payload], { onConflict: "mvt_number" })
+
+    if (upsertErr) {
+      const { data: existing } = await supabase
+        .from("waste_movements")
+        .select("id")
+        .eq("mvt_number", `SCHED-${schedule.id}`)
+        .maybeSingle()
+
+      if (existing) {
+        await supabase
+          .from("waste_movements")
+          .update(payload)
+          .eq("id", existing.id)
+      } else {
+        await supabase
+          .from("waste_movements")
+          .insert([payload])
       }
-    ], { onConflict: "mvt_number" })
+    }
   } catch (e) {}
 
   broadcastDataMutation({
@@ -180,7 +241,7 @@ export async function saveReceptionSchedule(schedule: ReceptionSchedule): Promis
     recordAuditLog(
       "Programmation Créneau",
       "Planning des Réceptions",
-      `Ouverture session du ${schedule.date} (${schedule.start_time}-${schedule.end_time}, capacité: ${schedule.max_capacity} centres) - ${schedule.reception_type}`,
+      `Session du ${schedule.date} (${schedule.start_time}-${schedule.end_time}, capacité: ${schedule.max_capacity} centres) - ${schedule.reception_type}`,
       schedule.created_by || "Direction ABMeD"
     )
   } catch (e) {}

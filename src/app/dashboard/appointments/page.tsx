@@ -44,7 +44,8 @@ import {
   bookAppointment,
   cancelAppointment,
   updateAppointmentStatus,
-  clearAllAppointmentsData
+  clearAllAppointmentsData,
+  normalizeToIsoDate
 } from "@/utils/appointments-storage"
 import { useRealtimeSync } from "@/hooks/useRealtimeSync"
 import { exportToExcel } from "@/utils/exportUtils"
@@ -92,6 +93,7 @@ function AppointmentsContent() {
   const [editScheduleLocation, setEditScheduleLocation] = useState("")
   const [editScheduleInstructions, setEditScheduleInstructions] = useState("")
   const [editScheduleStatus, setEditScheduleStatus] = useState<"Ouvert" | "Complet" | "Clôturé" | "Annulé">("Ouvert")
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
 
   // Modal Réservation (Centres ou Agents)
   const [isBookModalOpen, setIsBookModalOpen] = useState(false)
@@ -290,11 +292,12 @@ function AppointmentsContent() {
   // OUVERTURE DU MODAL DE MODIFICATION D'UN CRÉNEAU
   const handleOpenEditSchedule = (sched: ReceptionSchedule) => {
     setEditingSchedule(sched)
-    setEditScheduleDate(sched.date)
+    const normDate = sched.date ? normalizeToIsoDate(sched.date) : ""
+    setEditScheduleDate(normDate)
     setEditScheduleStartTime(sched.start_time || "08:30")
     setEditScheduleEndTime(sched.end_time || "15:30")
     setEditScheduleType(sched.reception_type)
-    setEditScheduleCapacity(sched.max_capacity)
+    setEditScheduleCapacity(sched.max_capacity || 8)
     setEditScheduleLocation(sched.location || "")
     setEditScheduleInstructions(sched.instructions || "")
     setEditScheduleStatus(sched.status || "Ouvert")
@@ -302,46 +305,73 @@ function AppointmentsContent() {
   }
 
   // VALIDATION DE LA MODIFICATION D'UN CRÉNEAU
-  const handleUpdateScheduleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleUpdateScheduleSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault()
+    }
     if (!editingSchedule) return
 
-    if (!editScheduleDate) {
-      toast.error("Veuillez sélectionner une date de réception.")
+    const cleanDate = normalizeToIsoDate(editScheduleDate)
+    if (!cleanDate) {
+      toast.error("Veuillez sélectionner une date de réception valide.")
       return
     }
-    if (Number(editScheduleCapacity) < 1) {
+    const capNum = Number(editScheduleCapacity)
+    if (isNaN(capNum) || capNum < 1) {
       toast.error("La capacité d'accueil doit être d'au moins 1 centre.")
       return
     }
 
-    const updatedSched: ReceptionSchedule = {
-      ...editingSchedule,
-      date: editScheduleDate,
-      start_time: editScheduleStartTime,
-      end_time: editScheduleEndTime,
-      reception_type: editScheduleType,
-      max_capacity: Number(editScheduleCapacity),
-      location: editScheduleLocation.trim(),
-      instructions: editScheduleInstructions.trim(),
-      status: editScheduleStatus,
-    }
-
-    await saveReceptionSchedule(updatedSched)
-
+    setIsSavingSchedule(true)
     try {
-      recordAuditLog(
-        "Modification Créneau",
-        "Planning des Réceptions",
-        `Mise à jour de la session de réception du ${updatedSched.date} (${updatedSched.reception_type}, capacité: ${updatedSched.max_capacity}, statut: ${updatedSched.status})`,
-        currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Agent ABMeD"
-      )
-    } catch (e) {}
+      const updatedSched: ReceptionSchedule = {
+        ...editingSchedule,
+        date: cleanDate,
+        start_time: editScheduleStartTime || "08:30",
+        end_time: editScheduleEndTime || "15:30",
+        reception_type: editScheduleType,
+        max_capacity: capNum,
+        location: (editScheduleLocation || "").trim(),
+        instructions: (editScheduleInstructions || "").trim(),
+        status: editScheduleStatus,
+        updated_at: new Date().toISOString()
+      }
 
-    toast.success(`Journée de réception du ${editScheduleDate} mise à jour avec succès.`)
-    setIsEditScheduleOpen(false)
-    setEditingSchedule(null)
-    loadData()
+      // 1. Mise à jour instantanée du state local React (0ms)
+      setSchedules((prev) => {
+        const copy = [...prev]
+        const idx = copy.findIndex((s) => s.id === updatedSched.id)
+        if (idx !== -1) {
+          copy[idx] = updatedSched
+        } else {
+          copy.unshift(updatedSched)
+        }
+        return copy.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      })
+
+      // 2. Persistance locale et Supabase Cloud
+      await saveReceptionSchedule(updatedSched)
+
+      // 3. Traçabilité Journal d'Audit
+      try {
+        recordAuditLog(
+          "Modification Créneau",
+          "Planning des Réceptions",
+          `Mise à jour session du ${updatedSched.date} (${updatedSched.reception_type}, capacité: ${updatedSched.max_capacity}, statut: ${updatedSched.status})`,
+          currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "Agent ABMeD"
+        )
+      } catch (e) {}
+
+      toast.success(`Journée de réception du ${cleanDate} mise à jour avec succès.`)
+      setIsEditScheduleOpen(false)
+      setEditingSchedule(null)
+      await loadData()
+    } catch (err: any) {
+      console.error("Erreur lors de la mise à jour du créneau:", err)
+      toast.error("Erreur lors de l'enregistrement de la modification.")
+    } finally {
+      setIsSavingSchedule(false)
+    }
   }
 
   // OUVERTURE MODAL RÉSERVATION
@@ -1288,13 +1318,13 @@ function AppointmentsContent() {
 
       {/* ─── MODAL : MODIFIER UNE JOURNÉE DE RÉCEPTION (AGENTS ABMED) ─── */}
       <Dialog open={isEditScheduleOpen} onOpenChange={setIsEditScheduleOpen}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base font-black">
+            <DialogTitle className="flex items-center gap-2 text-base font-black text-foreground">
               <Pencil className="h-5 w-5 text-blue-600" />
               Modifier la Journée de Réception
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs text-muted-foreground">
               Mettez à jour la programmation de la session, sa jauge d&apos;accueil, ses horaires ou son statut.
             </DialogDescription>
           </DialogHeader>
@@ -1302,25 +1332,25 @@ function AppointmentsContent() {
           <form onSubmit={handleUpdateScheduleSubmit} className="space-y-3.5 py-1 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-bold">Date de réception *</Label>
+                <Label className="text-xs font-bold text-foreground">Date de réception *</Label>
                 <Input
                   type="date"
                   value={editScheduleDate}
                   onChange={(e) => setEditScheduleDate(e.target.value)}
-                  className="mt-1 text-xs"
+                  className="mt-1 text-xs font-medium"
                   required
                 />
               </div>
 
               <div>
-                <Label className="text-xs font-bold">Capacité (Nombre max centres) *</Label>
+                <Label className="text-xs font-bold text-foreground">Capacité (Nombre max centres) *</Label>
                 <Input
                   type="number"
                   min="1"
                   max="100"
                   value={editScheduleCapacity}
                   onChange={(e) => setEditScheduleCapacity(Number(e.target.value))}
-                  className="mt-1 text-xs"
+                  className="mt-1 text-xs font-medium"
                   required
                 />
               </div>
@@ -1328,33 +1358,33 @@ function AppointmentsContent() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-bold">Heure début</Label>
+                <Label className="text-xs font-bold text-foreground">Heure début</Label>
                 <Input
                   type="time"
                   value={editScheduleStartTime}
                   onChange={(e) => setEditScheduleStartTime(e.target.value)}
-                  className="mt-1 text-xs"
+                  className="mt-1 text-xs font-medium"
                 />
               </div>
               <div>
-                <Label className="text-xs font-bold">Heure fin</Label>
+                <Label className="text-xs font-bold text-foreground">Heure fin</Label>
                 <Input
                   type="time"
                   value={editScheduleEndTime}
                   onChange={(e) => setEditScheduleEndTime(e.target.value)}
-                  className="mt-1 text-xs"
+                  className="mt-1 text-xs font-medium"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-bold">Type de réception *</Label>
+                <Label className="text-xs font-bold text-foreground">Type de réception *</Label>
                 <Select 
                   value={editScheduleType} 
                   onValueChange={(val: any) => setEditScheduleType(val)}
                 >
-                  <SelectTrigger className="mt-1 text-xs">
+                  <SelectTrigger className="mt-1 text-xs font-medium">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1372,12 +1402,12 @@ function AppointmentsContent() {
               </div>
 
               <div>
-                <Label className="text-xs font-bold">Statut du créneau *</Label>
+                <Label className="text-xs font-bold text-foreground">Statut du créneau *</Label>
                 <Select 
                   value={editScheduleStatus} 
                   onValueChange={(val: any) => setEditScheduleStatus(val)}
                 >
-                  <SelectTrigger className="mt-1 text-xs">
+                  <SelectTrigger className="mt-1 text-xs font-medium">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1399,32 +1429,55 @@ function AppointmentsContent() {
             </div>
 
             <div>
-              <Label className="text-xs font-bold">Lieu / Guichet d&apos;accueil</Label>
+              <Label className="text-xs font-bold text-foreground">Lieu / Guichet d&apos;accueil</Label>
               <Input
                 value={editScheduleLocation}
                 onChange={(e) => setEditScheduleLocation(e.target.value)}
-                className="mt-1 text-xs"
+                className="mt-1 text-xs font-medium"
                 placeholder="Ex : Magasin Central ABMeD — Quai Déchets"
               />
             </div>
 
             <div>
-              <Label className="text-xs font-bold">Consignes particulières pour les centres</Label>
+              <Label className="text-xs font-bold text-foreground">Consignes particulières pour les centres</Label>
               <Textarea
                 value={editScheduleInstructions}
                 onChange={(e) => setEditScheduleInstructions(e.target.value)}
-                rows={2}
-                className="mt-1 text-xs"
+                rows={3}
+                className="mt-1 text-xs font-medium resize-none leading-relaxed"
                 placeholder="Ex : Se munir des bordereaux de dépôt triplés et de la fiche de pesée..."
               />
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditScheduleOpen(false)} className="text-xs">
+            <DialogFooter className="pt-3 border-t border-border/50 gap-2 flex-row justify-end items-center">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsEditScheduleOpen(false)} 
+                className="text-xs cursor-pointer"
+                disabled={isSavingSchedule}
+              >
                 Annuler
               </Button>
-              <Button type="submit" size="sm" className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white">
-                Enregistrer les Modifications
+              <Button 
+                type="button"
+                onClick={() => handleUpdateScheduleSubmit()}
+                size="sm" 
+                disabled={isSavingSchedule}
+                className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs gap-1.5 min-w-[170px]"
+              >
+                {isSavingSchedule ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Enregistrer les Modifications
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>
