@@ -20,6 +20,17 @@ import { recordAuditLog } from "@/app/dashboard/admin/adminMockData"
 import { toast } from "sonner"
 import "@/utils/waste-locations"
 
+export function safeFormatDate(dateVal: any, fallback = "—"): string {
+  if (!dateVal) return fallback
+  try {
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return String(dateVal)
+    return d.toLocaleDateString("fr-FR")
+  } catch {
+    return String(dateVal) || fallback
+  }
+}
+
 export function extractPlanDates(plan: any): { startDate: string; endDate: string; isPeriod: boolean } {
   if (plan.planned_start_date && plan.planned_end_date) {
     return {
@@ -351,13 +362,13 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
                           {dates.isPeriod ? (
                             <div className="flex flex-col">
                               <span className="font-semibold text-foreground">
-                                Du {new Date(dates.startDate).toLocaleDateString('fr-FR')} au {new Date(dates.endDate).toLocaleDateString('fr-FR')}
+                                Du {safeFormatDate(dates.startDate)} au {safeFormatDate(dates.endDate)}
                               </span>
                               <span className="text-[10px] text-muted-foreground">Période d&apos;incinération</span>
                             </div>
                           ) : dates.startDate ? (
                             <span className="font-semibold text-foreground">
-                              Le {new Date(dates.startDate).toLocaleDateString('fr-FR')}
+                              Le {safeFormatDate(dates.startDate)}
                             </span>
                           ) : (
                             <span className="text-muted-foreground italic">—</span>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
@@ -26,11 +26,22 @@ import { extractPlanDates } from "../DestructionsClient"
 
 const MOCK_DESTRUCTION_PLANS_DETAILS: Record<string, any> = {}
 
-export default function DestructionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params)
+function safeFormatDate(dateVal: any, fallback = "—"): string {
+  if (!dateVal) return fallback
+  try {
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return String(dateVal)
+    return d.toLocaleDateString("fr-FR")
+  } catch {
+    return String(dateVal) || fallback
+  }
+}
+
+export default function DestructionDetailPage({ params }: { params?: any }) {
   const routeParams = useParams()
-  const rawId = (routeParams?.id as string) || (resolvedParams?.id as string) || ""
-  const cleanId = decodeURIComponent(rawId).trim()
+  const rawId = (routeParams?.id as string) || (typeof params?.id === "string" ? params.id : "") || ""
+  const cleanId = rawId ? decodeURIComponent(rawId).trim() : ""
+
   const [plan, setPlan] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -42,19 +53,22 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
   // Structures représentées dans ce plan de destruction
   const structuresInPlan = useMemo(() => {
     const set = new Set<string>()
-    plan?.items?.forEach((it: any) => {
-      const s = it.waste_batch?.source_structure
-      if (s) set.add(s)
-    })
+    if (Array.isArray(plan?.items)) {
+      plan.items.forEach((it: any) => {
+        const s = it?.waste_batch?.source_structure || it?.source_structure
+        if (s) set.add(s)
+      })
+    }
     return Array.from(set)
   }, [plan])
 
   const handleDownloadCertificatePdf = () => {
     if (!plan) return
     const certNum = plan.certificate_number || `CERT-DEST-${new Date().getFullYear()}-${plan.plan_number?.replace("DES-", "") || "001"}`
+    const rawItems = Array.isArray(plan.items) ? plan.items : []
     const itemsToCertify = selectedCertStructure === "all"
-      ? (plan.items || [])
-      : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
+      ? rawItems
+      : rawItems.filter((it: any) => (it?.waste_batch?.source_structure || it?.source_structure) === selectedCertStructure)
 
     const structureName = selectedCertStructure === "all"
       ? (structuresInPlan.length > 0 ? structuresInPlan.join(", ") : "Toutes structures bénéficiaires")
@@ -62,7 +76,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
 
     exportDestructionCertificatePDF({
       certificate_number: certNum,
-      destruction_date: plan.execution_date ? new Date(plan.execution_date).toLocaleDateString("fr-FR") : new Date().toLocaleDateString("fr-FR"),
+      destruction_date: safeFormatDate(plan.execution_date || new Date()),
       plan_number: plan.plan_number,
       destruction_method: plan.destruction_method || "Incinération haute température (>1200°C)",
       destruction_site: plan.destruction_site || "Centre d'Incinération Agréé Cotonou",
@@ -71,20 +85,27 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       city: "Cotonou",
       supervisor_name: plan.supervisor_name || "Admin EGED (Resp. Déchets ABMed)",
       quality_manager_name: "Dr. Christian KOSSOU (Resp. Assurance Qualité)",
-      items: itemsToCertify.map((it: any) => ({
-        batch_number: it.waste_batch?.batch_number || "N/A",
-        waste_type: it.waste_batch?.waste_type || "Déchet pharmaceutique",
-        commercial_name: it.waste_batch?.commercial_name || "",
-        quantity: it.quantity,
-        unit: it.waste_batch?.unit || "Kg",
-        reception_number: it.waste_batch?.reception_number || "Bordereau Initial",
-      })),
+      items: itemsToCertify.map((it: any) => {
+        const b = it?.waste_batch || it || {}
+        return {
+          batch_number: b.batch_number || it?.waste_batch_id || "N/A",
+          waste_type: b.waste_type || "Déchet pharmaceutique",
+          commercial_name: b.commercial_name || "",
+          quantity: it?.quantity ?? b.quantity ?? 1,
+          unit: b.unit || "Kg",
+          reception_number: b.reception_number || "Bordereau Initial",
+        }
+      }),
     })
     toast.success("Certificat officiel de destruction téléchargé en PDF !")
   }
 
   const fetchPlan = useCallback(async () => {
-    if (!cleanId) return
+    if (!cleanId) {
+      setLoading(false)
+      return
+    }
+
     let localFound: any = null
     // 1. Affichage instantané (0ms) depuis localStorage ou fallback
     try {
@@ -101,8 +122,8 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
     if (localFound) {
       setPlan(localFound)
       setLoading(false)
-    } else if (MOCK_DESTRUCTION_PLANS_DETAILS[cleanId] || (resolvedParams?.id && MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])) {
-      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[cleanId] || MOCK_DESTRUCTION_PLANS_DETAILS[resolvedParams.id])
+    } else if (MOCK_DESTRUCTION_PLANS_DETAILS[cleanId]) {
+      setPlan(MOCK_DESTRUCTION_PLANS_DETAILS[cleanId])
       setLoading(false)
     }
 
@@ -128,12 +149,31 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
       }
       
       if (data) {
-        const formatted = {
+        const formatted: any = {
           ...localFound,
           ...data,
           items: data.items_data && Array.isArray(data.items_data) && data.items_data.length > 0 ? data.items_data : (localFound?.items || data.items || []),
           validations: localFound?.validations || data.validations || [],
         }
+
+        // Si aucun lot rattaché trouvé, chercher dans les lots de déchets existants
+        if (!formatted.items || formatted.items.length === 0) {
+          try {
+            const storedBatches = localStorage.getItem('waste_batches_custom_v1')
+            if (storedBatches) {
+              const allB = JSON.parse(storedBatches)
+              const matched = allB.filter((b: any) => b.destruction_plan_ref === formatted.plan_number || b.destruction_plan_id === formatted.id)
+              if (matched.length > 0) {
+                formatted.items = matched.map((b: any, idx: number) => ({
+                  id: `item-gen-${idx}`,
+                  quantity: Number(b.quantity) || 1,
+                  waste_batch: b
+                }))
+              }
+            }
+          } catch (e) {}
+        }
+
         setPlan(formatted)
       }
     } catch (err) {
@@ -141,7 +181,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
     } finally {
       setLoading(false)
     }
-  }, [cleanId, resolvedParams?.id, supabase])
+  }, [cleanId, supabase])
 
   useEffect(() => {
     fetchPlan()
@@ -514,8 +554,8 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
               <span className="text-[10.5px] uppercase font-bold text-muted-foreground block">Période Planifiée</span>
               <span className="font-bold text-foreground">
                 {planDates.isPeriod
-                  ? `Du ${new Date(planDates.startDate).toLocaleDateString('fr-FR')} au ${new Date(planDates.endDate).toLocaleDateString('fr-FR')}`
-                  : (planDates.startDate ? `Le ${new Date(planDates.startDate).toLocaleDateString('fr-FR')}` : 'Période non définie')}
+                  ? `Du ${safeFormatDate(planDates.startDate)} au ${safeFormatDate(planDates.endDate)}`
+                  : (planDates.startDate ? `Le ${safeFormatDate(planDates.startDate)}` : 'Période non définie')}
               </span>
             </div>
           </div>
@@ -572,32 +612,42 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plan.items?.map((item: any) => (
-                    <TableRow key={item.id} className="text-xs">
-                      <TableCell className="pl-6 font-mono font-bold text-foreground">
-                        {item.waste_batch?.batch_number}
-                      </TableCell>
-                      <TableCell className="font-semibold text-foreground">
-                        {item.waste_batch?.source_structure ? (
-                          <div className="flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span>{item.waste_batch.source_structure}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground italic">Dépôt interne ABMed</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <p className="font-medium text-foreground">{item.waste_batch?.waste_type}</p>
-                        {item.waste_batch?.commercial_name && (
-                          <p className="text-[10px] text-muted-foreground">{item.waste_batch.commercial_name}</p>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right pr-6 font-black tabular-nums text-foreground">
-                        {item.quantity} {item.waste_batch?.unit || 'Kg'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {(plan.items || []).map((item: any, idx: number) => {
+                    const b = item?.waste_batch || item || {}
+                    const batchNum = b.batch_number || item?.waste_batch_id || `Lot-${idx + 1}`
+                    const source = b.source_structure || item?.source_structure || "Dépôt interne ABMed"
+                    const wasteType = b.waste_type || item?.waste_type || "Déchet pharmaceutique"
+                    const commName = b.commercial_name || item?.commercial_name || ""
+                    const qty = item?.quantity ?? b.quantity ?? 1
+                    const unit = b.unit || item?.unit || 'Kg'
+
+                    return (
+                      <TableRow key={item?.id || idx} className="text-xs">
+                        <TableCell className="pl-6 font-mono font-bold text-foreground">
+                          {batchNum}
+                        </TableCell>
+                        <TableCell className="font-semibold text-foreground">
+                          {source ? (
+                            <div className="flex items-center gap-1.5">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span>{source}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic">Dépôt interne ABMed</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-medium text-foreground">{wasteType}</p>
+                          {commName && (
+                            <p className="text-[10px] text-muted-foreground">{commName}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right pr-6 font-black tabular-nums text-foreground">
+                          {qty} {unit}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -654,10 +704,10 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                 <h4 className="font-semibold text-sm leading-none">3. Exécution Destruction</h4>
                 <p className="text-xs text-muted-foreground mt-1">
                   {plan.status === 'Exécuté' 
-                    ? (plan.execution_date ? `Exécuté le ${new Date(plan.execution_date).toLocaleDateString('fr-FR')}` : 'Destruction effectuée')
+                    ? (plan.execution_date ? `Exécuté le ${safeFormatDate(plan.execution_date)}` : 'Destruction effectuée')
                     : (planDates.isPeriod
-                        ? `Période planifiée : du ${new Date(planDates.startDate).toLocaleDateString('fr-FR')} au ${new Date(planDates.endDate).toLocaleDateString('fr-FR')}`
-                        : (planDates.startDate ? `Prévue le ${new Date(planDates.startDate).toLocaleDateString('fr-FR')}` : 'Date non planifiée')
+                        ? `Période planifiée : du ${safeFormatDate(planDates.startDate)} au ${safeFormatDate(planDates.endDate)}`
+                        : (planDates.startDate ? `Prévue le ${safeFormatDate(planDates.startDate)}` : 'Date non planifiée')
                       )
                   }
                 </p>
@@ -731,7 +781,7 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                     {plan.certificate_number || `CERT-DEST-2026-${plan.plan_number?.replace('DES-', '') || '001'}`}
                   </span>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Date : {plan.execution_date ? new Date(plan.execution_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}
+                    Date : {safeFormatDate(plan.execution_date || new Date())}
                   </p>
                 </div>
               </div>
@@ -795,26 +845,36 @@ export default function DestructionDetailPage({ params }: { params: Promise<{ id
                     <tbody className="divide-y divide-slate-200">
                       {(selectedCertStructure === 'all'
                         ? (plan.items || [])
-                        : (plan.items || []).filter((it: any) => it.waste_batch?.source_structure === selectedCertStructure)
-                      ).map((item: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
-                            {item.waste_batch?.batch_number}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
-                            {item.waste_batch?.source_structure || "Dépôt direct"}
-                          </td>
-                          <td className="p-2 border-r border-slate-200">
-                            <p className="font-semibold text-slate-900">{item.waste_batch?.waste_type}</p>
-                            {item.waste_batch?.commercial_name && (
-                              <p className="text-[10px] text-slate-600">{item.waste_batch.commercial_name}</p>
-                            )}
-                          </td>
-                          <td className="p-2 text-right font-black text-slate-900 whitespace-nowrap">
-                            {item.quantity} {item.waste_batch?.unit || 'Kg'}
-                          </td>
-                        </tr>
-                      ))}
+                        : (plan.items || []).filter((it: any) => (it?.waste_batch?.source_structure || it?.source_structure) === selectedCertStructure)
+                      ).map((item: any, idx: number) => {
+                        const b = item?.waste_batch || item || {}
+                        const batchNum = b.batch_number || item?.waste_batch_id || `Lot-${idx + 1}`
+                        const source = b.source_structure || item?.source_structure || "Dépôt direct"
+                        const wasteType = b.waste_type || item?.waste_type || "Déchet pharmaceutique"
+                        const commName = b.commercial_name || item?.commercial_name || ""
+                        const qty = item?.quantity ?? b.quantity ?? 1
+                        const unit = b.unit || item?.unit || 'Kg'
+
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="p-2 font-mono font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                              {batchNum}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
+                              {source}
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <p className="font-semibold text-slate-900">{wasteType}</p>
+                              {commName && (
+                                <p className="text-[10px] text-slate-600">{commName}</p>
+                              )}
+                            </td>
+                            <td className="p-2 text-right font-black text-slate-900 whitespace-nowrap">
+                              {qty} {unit}
+                            </td>
+                          </tr>
+                        )
+                      })}
                       <tr className="bg-slate-100 font-bold">
                         <td colSpan={3} className="p-2 text-right border-r border-slate-300">
                           MASSE TOTALE DÉTRUITE :
