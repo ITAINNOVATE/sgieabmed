@@ -24,9 +24,14 @@ export default function DashboardError({
       <h2 className="text-xl font-black text-foreground tracking-tight mb-1.5">
         Chargement de la page interrompu
       </h2>
-      <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
+      <p className="text-xs text-muted-foreground max-w-md mb-3 leading-relaxed">
         Une difficulté temporaire est survenue lors de l'affichage de ce module. Vous pouvez recharger la vue immédiatement ou retourner au tableau de bord.
       </p>
+      {error?.message && (
+        <p className="text-[11px] font-mono text-destructive bg-destructive/10 px-3 py-1.5 rounded-lg max-w-lg mb-6 border border-destructive/20 break-all">
+          {error.message}
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button 
           onClick={() => reset()} 

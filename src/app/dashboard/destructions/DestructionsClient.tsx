@@ -216,11 +216,13 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
   }
 
   const filteredPlans = plansList.filter(plan => {
-    const matchesSearch = 
-      plan.plan_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      plan.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (plan.destruction_site && plan.destruction_site.toLowerCase().includes(searchTerm.toLowerCase()))
-      
+    if (!plan) return false
+    const q = (searchTerm || "").toLowerCase().trim()
+    const planNum = String(plan.plan_number || plan.id || "").toLowerCase()
+    const planStatus = String(plan.status || "En préparation").toLowerCase()
+    const planSite = String(plan.destruction_site || "").toLowerCase()
+
+    const matchesSearch = !q || planNum.includes(q) || planStatus.includes(q) || planSite.includes(q)
     const matchesStatus = statusFilter === "all" || plan.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -340,8 +342,11 @@ export default function DestructionsClient({ initialPlans }: { initialPlans: any
                   <TableRow><TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">Aucun plan de destruction trouvé.</TableCell></TableRow>
                 ) : (
                   filteredPlans.map((plan) => {
-                    const totalQty = plan.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0) || plan.total_weight || 150
-                    const itemsCount = plan.items?.length || 3
+                    const rawItems = Array.isArray(plan?.items) ? plan.items : []
+                    const totalQty = rawItems.length > 0 
+                      ? rawItems.reduce((acc: number, item: any) => acc + (Number(item?.quantity) || 0), 0)
+                      : (Number(plan.total_weight) || 150)
+                    const itemsCount = rawItems.length || (Array.isArray(plan?.batches) ? plan.batches.length : 3)
                     const dates = extractPlanDates(plan)
                     const isExecuted = plan.status === 'Exécuté' || plan.status === 'Archivé'
                     

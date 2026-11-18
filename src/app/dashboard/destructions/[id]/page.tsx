@@ -50,22 +50,52 @@ export default function DestructionDetailPage({ params }: { params?: any }) {
   const router = useRouter()
   const supabase = createClient()
 
+  const safeItems = useMemo(() => {
+    if (!plan?.items) return []
+    if (Array.isArray(plan.items)) return plan.items
+    if (typeof plan.items === 'string') {
+      try {
+        const p = JSON.parse(plan.items)
+        return Array.isArray(p) ? p : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }, [plan?.items])
+
+  const safeValidations = useMemo(() => {
+    if (!plan?.validations) return []
+    if (Array.isArray(plan.validations)) return plan.validations
+    if (typeof plan.validations === 'string') {
+      try {
+        const p = JSON.parse(plan.validations)
+        return Array.isArray(p) ? p : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }, [plan?.validations])
+
   // Structures représentées dans ce plan de destruction
   const structuresInPlan = useMemo(() => {
     const set = new Set<string>()
-    if (Array.isArray(plan?.items)) {
-      plan.items.forEach((it: any) => {
-        const s = it?.waste_batch?.source_structure || it?.source_structure
-        if (s) set.add(s)
-      })
-    }
+    safeItems.forEach((it: any) => {
+      const s = it?.waste_batch?.source_structure || it?.source_structure
+      if (s) set.add(s)
+    })
     return Array.from(set)
-  }, [plan])
+  }, [safeItems])
+
+  const isRespDechetsValidated = safeValidations.some((v: any) => v?.role === 'Responsable Déchets' && v?.status === 'Approuvé')
+  const isQualiteValidated = safeValidations.some((v: any) => v?.role === 'Responsable Qualité' && v?.status === 'Approuvé')
+  const planDates = useMemo(() => (plan ? extractPlanDates(plan) : { startDate: "", endDate: "", isPeriod: false }), [plan])
 
   const handleDownloadCertificatePdf = () => {
     if (!plan) return
     const certNum = plan.certificate_number || `CERT-DEST-${new Date().getFullYear()}-${plan.plan_number?.replace("DES-", "") || "001"}`
-    const rawItems = Array.isArray(plan.items) ? plan.items : []
+    const rawItems = safeItems
     const itemsToCertify = selectedCertStructure === "all"
       ? rawItems
       : rawItems.filter((it: any) => (it?.waste_batch?.source_structure || it?.source_structure) === selectedCertStructure)
@@ -400,22 +430,6 @@ export default function DestructionDetailPage({ params }: { params?: any }) {
     }
   }
 
-  if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement du plan de destruction...</div>
-  if (!plan) {
-    return (
-      <div className="p-8 text-center space-y-4">
-        <p className="text-destructive font-bold">Plan de destruction introuvable.</p>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/destructions"><ArrowLeft className="mr-2 h-4 w-4" /> Retour aux plans de destruction</Link>
-        </Button>
-      </div>
-    )
-  }
-
-  const isRespDechetsValidated = plan?.validations?.some((v: any) => v.role === 'Responsable Déchets' && v.status === 'Approuvé')
-  const isQualiteValidated = plan?.validations?.some((v: any) => v.role === 'Responsable Qualité' && v.status === 'Approuvé')
-  const planDates = useMemo(() => (plan ? extractPlanDates(plan) : { startDate: "", endDate: "", isPeriod: false }), [plan])
-
   const handleDeletePlan = async () => {
     if (!plan) return
     const isExecuted = plan.status === 'Exécuté' || plan.status === 'Archivé'
@@ -474,6 +488,18 @@ export default function DestructionDetailPage({ params }: { params?: any }) {
       toast.error(`Erreur: ${err.message}`)
       setIsProcessing(false)
     }
+  }
+
+  if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Chargement du plan de destruction...</div>
+  if (!plan) {
+    return (
+      <div className="p-8 text-center space-y-4">
+        <p className="text-destructive font-bold">Plan de destruction introuvable.</p>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/destructions"><ArrowLeft className="mr-2 h-4 w-4" /> Retour aux plans de destruction</Link>
+        </Button>
+      </div>
+    )
   }
 
   return (
