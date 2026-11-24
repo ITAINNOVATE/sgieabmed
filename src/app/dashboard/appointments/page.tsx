@@ -282,11 +282,20 @@ function AppointmentsContent() {
 
   // SUPPRESSION D'UN CRÉNEAU PAR L'ABMED
   const handleDeleteSchedule = async (id: string, date: string) => {
-    if (confirm(`Confirmez-vous la suppression de la journée de réception du ${date} ?`)) {
-      await deleteReceptionSchedule(id)
-      toast.success("Journée de réception supprimée.")
-      loadData()
-    }
+    const appsCount = appointments.filter((a) => a.schedule_id === id && a.status !== "Annulé").length
+    const confirmMsg = appsCount > 0
+      ? `Attention : ${appsCount} centre(s) sont actuellement inscrit(s) à la session du ${date}.\n\nConfirmez-vous la suppression de cette journée de réception ?`
+      : `Confirmez-vous la suppression de la journée de réception du ${date} ?`
+
+    if (!confirm(confirmMsg)) return
+
+    // 1. Mise à jour instantanée du state local React (0ms)
+    setSchedules((prev) => prev.filter((s) => s.id !== id))
+
+    // 2. Suppression dans le storage & Supabase Cloud
+    await deleteReceptionSchedule(id)
+    toast.success(`Journée de réception du ${date} supprimée avec succès.`)
+    loadData()
   }
 
   // OUVERTURE DU MODAL DE MODIFICATION D'UN CRÉNEAU
@@ -926,7 +935,7 @@ function AppointmentsContent() {
                           </Button>
                         )
                       ) : (
-                        <div className="flex items-center justify-between w-full gap-2">
+                        <div className="flex flex-wrap items-center justify-between w-full gap-2 pt-0.5">
                           <Button
                             variant="outline"
                             size="sm"
@@ -940,7 +949,7 @@ function AppointmentsContent() {
                             Inscrits ({actualBooked})
                           </Button>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Button
                               variant="outline"
                               size="sm"
@@ -955,20 +964,21 @@ function AppointmentsContent() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleOpenEditSchedule(sched)}
-                              className="text-xs h-7.5 px-2 font-bold text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                              className="text-xs h-7.5 px-2 font-bold text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
                               title="Modifier cette programmation de réception"
                             >
                               <Pencil className="h-3 w-3 mr-1" />
                               Modifier
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleDeleteSchedule(sched.id, sched.date)}
-                              className="text-xs h-7.5 px-2 text-red-600 hover:bg-red-50 hover:text-red-700"
-                              title="Supprimer ce créneau"
+                              className="text-xs h-7.5 px-2 font-bold text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 cursor-pointer"
+                              title="Supprimer cette programmation de réception"
                             >
-                              Suppr.
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Supprimer
                             </Button>
                           </div>
                         </div>
@@ -1449,36 +1459,56 @@ function AppointmentsContent() {
               />
             </div>
 
-            <DialogFooter className="pt-3 border-t border-border/50 gap-2 flex-row justify-end items-center">
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsEditScheduleOpen(false)} 
-                className="text-xs cursor-pointer"
-                disabled={isSavingSchedule}
-              >
-                Annuler
-              </Button>
-              <Button 
-                type="button"
-                onClick={() => handleUpdateScheduleSubmit()}
-                size="sm" 
-                disabled={isSavingSchedule}
-                className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs gap-1.5 min-w-[170px]"
-              >
-                {isSavingSchedule ? (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Enregistrer les Modifications
-                  </>
-                )}
-              </Button>
+            <DialogFooter className="pt-3 border-t border-border/50 gap-2 flex-wrap sm:flex-nowrap justify-between items-center">
+              {editingSchedule && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    const schedToDelete = editingSchedule
+                    setIsEditScheduleOpen(false)
+                    handleDeleteSchedule(schedToDelete.id, schedToDelete.date)
+                  }} 
+                  className="text-xs font-bold text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 cursor-pointer mr-auto"
+                  disabled={isSavingSchedule}
+                  title="Supprimer définitivement cette journée de réception"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Supprimer ce créneau
+                </Button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsEditScheduleOpen(false)} 
+                  className="text-xs cursor-pointer"
+                  disabled={isSavingSchedule}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  type="button"
+                  onClick={() => handleUpdateScheduleSubmit()}
+                  size="sm" 
+                  disabled={isSavingSchedule}
+                  className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs gap-1.5 min-w-[170px]"
+                >
+                  {isSavingSchedule ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Enregistrer les Modifications
+                    </>
+                  )}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
